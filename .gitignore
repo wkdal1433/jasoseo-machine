@@ -1,0 +1,24 @@
+# Dependencies
+jasoseo-machine/node_modules/
+
+# Build output
+jasoseo-machine/out/
+
+# OS files
+.DS_Store
+Thumbs.db
+~$*
+
+# Temp files
+nul
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Electron
+jasoseo-machine/dist/
+
+# Claude Code local settings
+.claude/settings.local.json
