@@ -171,6 +171,14 @@ episodes/
 
 ---
 
-**Version**: 4.0
-**Last Updated**: 2026-03-04
+## Session Restore (세션 복원)
+
+> **새 세션을 시작할 때 반드시 `docs/SESSION_CONTEXT.md`를 먼저 읽을 것.**
+> 이 파일에 현재 프로젝트 상태, 완성된 기능, 핵심 기술 결정 사항이 정리되어 있음.
+> 상세 작업 내역(시행착오, 에러 해결 과정)이 필요하면 `docs/WORK_LOG.md` 참조.
+
+---
+
+**Version**: 4.1
+**Last Updated**: 2026-03-06
 **Structure**: Constitution + Index (상세 내용은 개별 파일로 분리)

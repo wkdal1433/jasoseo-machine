@@ -38,6 +38,7 @@ export const IPC = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_TEST_CLI: 'settings:test-cli',
+  SETTINGS_TEST_GEMINI: 'settings:test-gemini',
 
   // File system
   FS_READ_MD: 'fs:read-md',

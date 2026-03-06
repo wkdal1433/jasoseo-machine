@@ -22,7 +22,8 @@ import {
   executeClaudePrompt,
   executeClaudeStream,
   cancelActiveProcess,
-  testClaudeConnection
+  testClaudeConnection,
+  testGeminiConnection
 } from './claude-bridge'
 
 export function registerIpcHandlers(): void {
@@ -134,6 +135,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.SETTINGS_TEST_CLI, async () => {
     return testClaudeConnection()
+  })
+
+  ipcMain.handle(IPC.SETTINGS_TEST_GEMINI, async () => {
+    return testGeminiConnection()
   })
 
   // === File System ===

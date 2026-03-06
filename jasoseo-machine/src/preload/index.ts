@@ -57,6 +57,7 @@ const api = {
   settingsGet: (key: string) => ipcRenderer.invoke(IPC.SETTINGS_GET, key),
   settingsSet: (key: string, value: string) => ipcRenderer.invoke(IPC.SETTINGS_SET, key, value),
   settingsTestCli: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_CLI),
+  settingsTestGemini: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_GEMINI),
 
   // File System
   readMd: (path: string) => ipcRenderer.invoke(IPC.FS_READ_MD, path),
