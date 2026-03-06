@@ -6,6 +6,7 @@ import { WizardPage } from './components/wizard/WizardPage'
 import { EpisodeListPage } from './components/episodes/EpisodeListPage'
 import { HistoryPage } from './components/history/HistoryPage'
 import { SettingsPage } from './components/settings/SettingsPage'
+import { GuidePage } from './components/guide/GuidePage'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAutoSave } from './hooks/useAutoSave'
 
@@ -30,6 +31,7 @@ function App() {
           <Route path="/wizard" element={<WizardPage />} />
           <Route path="/episodes" element={<EpisodeListPage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
