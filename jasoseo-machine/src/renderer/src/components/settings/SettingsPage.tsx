@@ -7,7 +7,8 @@ const MODEL_OPTIONS = [
     { value: 'sonnet', label: 'Sonnet', desc: '빠른 속도, 양호한 품질' }
   ]},
   { group: 'Gemini', models: [
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: '고품질, 복잡한 작업에 적합' },
+    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', desc: '최신 최고 품질 (Preview)' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: '고품질, 안정적' },
     { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: '빠른 속도, 일상 작업에 적합' }
   ]}
 ]

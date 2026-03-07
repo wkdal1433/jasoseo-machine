@@ -1,4 +1,5 @@
-import { spawn, ChildProcess } from 'child_process'
+import { ChildProcess } from 'child_process'
+import spawn from 'cross-spawn'
 import { StringDecoder } from 'string_decoder'
 import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
@@ -40,7 +41,6 @@ interface ClassifiedError {
 function classifyError(stderr: string, exitCode: number): ClassifiedError {
   const lower = stderr.toLowerCase()
 
-  // Rate limit / Token exhaustion
   if (
     lower.includes('rate limit') ||
     lower.includes('too many requests') ||
@@ -56,7 +56,6 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
     }
   }
 
-  // Authentication
   if (
     lower.includes('unauthorized') ||
     lower.includes('401') ||
@@ -72,7 +71,6 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
     }
   }
 
-  // CLI not found
   if (
     lower.includes('enoent') ||
     lower.includes('not found') ||
@@ -86,7 +84,6 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
     }
   }
 
-  // Timeout
   if (
     lower.includes('timeout') ||
     lower.includes('etimedout') ||
@@ -99,7 +96,6 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
     }
   }
 
-  // Unknown — include stderr for debugging
   const stderrPreview = stderr.trim().slice(0, 200)
   return {
     type: 'unknown',
@@ -109,7 +105,18 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
   }
 }
 
-// ─── Args Builder ───
+// ─── Environment ───
+
+/** Build a clean env for spawning CLI subprocesses.
+ *  Removes CLAUDECODE to avoid "nested session" errors when
+ *  the app itself is launched from within a Claude Code session. */
+function buildSpawnEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  delete env.CLAUDECODE
+  return env
+}
+
+// ─── Prompt Helpers ───
 
 export interface ClaudeExecuteOptions {
   prompt: string
@@ -119,42 +126,65 @@ export interface ClaudeExecuteOptions {
   appendSystemPrompt?: string
 }
 
-function buildArgs(
-  provider: AIProvider,
-  options: ClaudeExecuteOptions,
-  model: string
-): { cli: string; args: string[]; prompt: string } {
-  const cli = getCliPath(provider)
+/**
+ * Gemini CLI in --output-format json cannot make tool calls (read files).
+ * Strip file-reading instructions since CLAUDE.md is auto-loaded from project dir
+ * and all necessary analysis data is already embedded in the prompt.
+ */
+function sanitizePromptForGemini(prompt: string): string {
+  let result = prompt
+  result = result.replace(/먼저 MASTER_INDEX\.md를 읽어서[^\n]*\n?\n?/g, '')
+  result = result.replace(/먼저 다음 파일들을 읽어주세요:\n(?:- [^\n]+\n)*/g, '')
+  return result
+}
 
-  if (provider === 'gemini') {
-    // Gemini: merge system prompt into user prompt
-    let prompt = options.prompt
-    if (options.appendSystemPrompt) {
-      prompt = `[시스템 지침]\n${options.appendSystemPrompt}\n\n한 번의 응답으로 완료해주세요.\n\n[사용자 요청]\n${options.prompt}`
+function buildGeminiPrompt(options: ClaudeExecuteOptions): string {
+  let prompt = sanitizePromptForGemini(options.prompt)
+
+  if (options.outputFormat === 'json' || options.outputFormat === 'stream-json') {
+    const directive =
+      '아래 지시사항을 분석하고 요청된 JSON 형식으로 결과를 반환하세요. ' +
+      '빈 객체({})가 아닌 실제 분석 결과를 포함해야 합니다. ' +
+      '마크다운 코드블록 없이 JSON만 출력하세요.\n\n'
+    prompt = directive + prompt
+  }
+
+  return prompt
+}
+
+// ─── Gemini Response Unwrapper ───
+
+/**
+ * Gemini CLI wraps responses in {session_id, response, stats}.
+ * stdout may also be prefixed with "MCP issues detected..." text.
+ * This function extracts the actual model response.
+ */
+function unwrapGeminiResponse(raw: string): string {
+  let result = raw.trim()
+
+  // Strip MCP warning prefix if present (text before first '{')
+  const jsonStart = result.indexOf('{')
+  if (jsonStart > 0) {
+    result = result.slice(jsonStart)
+  }
+
+  // Parse Gemini wrapper: {session_id, response, stats}
+  try {
+    const wrapper = JSON.parse(result)
+    if (wrapper.response !== undefined) {
+      result = wrapper.response
     }
-
-    const args: string[] = ['-p', prompt, '--output-format', options.outputFormat]
-    args.push('-m', model)
-
-    return { cli, args, prompt }
+  } catch {
+    // Not JSON-wrapped, use as-is
   }
 
-  // Claude
-  const args: string[] = ['-p', options.prompt, '--output-format', options.outputFormat]
-
-  if (options.jsonSchema) {
-    args.push('--json-schema', options.jsonSchema)
+  // Strip markdown code blocks if Gemini wrapped response in ```json ... ```
+  const codeBlockMatch = result.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
+  if (codeBlockMatch) {
+    result = codeBlockMatch[1].trim()
   }
 
-  args.push('--allowedTools', 'Read')
-  args.push('--max-turns', String(options.maxTurns || 5))
-  args.push('--model', model)
-
-  if (options.appendSystemPrompt) {
-    args.push('--append-system-prompt', options.appendSystemPrompt)
-  }
-
-  return { cli, args, prompt: options.prompt }
+  return result
 }
 
 // ─── Execute (single-shot) ───
@@ -163,16 +193,49 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   const model = getModel()
   const provider = getProvider()
   const projectDir = getProjectDir()
-  const { cli, args } = buildArgs(provider, options, model)
+  const cli = getCliPath(provider)
+
+  // Build args — Gemini does NOT get -p flag (prompt goes via stdin)
+  let args: string[]
+  let prompt: string
+
+  if (provider === 'gemini') {
+    prompt = buildGeminiPrompt(options)
+    args = ['--output-format', options.outputFormat, '-m', model]
+  } else {
+    prompt = options.prompt
+    args = ['--output-format', options.outputFormat]
+    if (options.jsonSchema) {
+      args.push('--json-schema', options.jsonSchema)
+    }
+    args.push('--allowedTools', 'Read')
+    args.push('--max-turns', String(options.maxTurns || 5))
+    args.push('--model', model)
+    if (options.appendSystemPrompt) {
+      args.push('--append-system-prompt', options.appendSystemPrompt)
+    }
+    args.push('-p', prompt)
+  }
+
+  console.error(`[DEBUG] provider=${provider}, cli=${cli}, model=${model}`)
+  console.error(`[DEBUG] prompt length=${prompt.length}, args count=${args.length}`)
+  console.error(`[DEBUG] prompt via ${provider === 'gemini' ? 'STDIN' : '-p flag'}`)
 
   return new Promise((resolve, reject) => {
     const child = spawn(cli, args, {
       cwd: projectDir || undefined,
-      env: { ...process.env },
+      env: buildSpawnEnv(),
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
     activeProcess = child
+
+    // Gemini: write prompt to stdin (avoids Windows cmd.exe arg escaping issues)
+    if (provider === 'gemini') {
+      child.stdin?.write(prompt)
+      child.stdin?.end()
+    }
+
     const decoder = new StringDecoder('utf8')
     let output = ''
     let stderrOutput = ''
@@ -192,7 +255,16 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
       output += decoder.end()
 
       if (code === 0) {
-        resolve(output.trim())
+        let result = output.trim()
+        console.error('[DEBUG] raw output length:', result.length)
+        console.error('[DEBUG] raw output preview:', result.slice(0, 300))
+
+        if (provider === 'gemini') {
+          result = unwrapGeminiResponse(result)
+          console.error('[DEBUG] unwrapped response:', result.slice(0, 500))
+        }
+
+        resolve(result)
       } else {
         const classified = classifyError(stderrOutput, code || 1)
         reject(new Error(classified.message))
@@ -216,21 +288,51 @@ export function executeClaudeStream(
   const model = getModel()
   const provider = getProvider()
   const projectDir = getProjectDir()
+  const cli = getCliPath(provider)
 
   // Force stream-json for streaming
-  const streamOptions = { ...options, outputFormat: 'stream-json' as const }
-  const { cli, args } = buildArgs(provider, streamOptions, model)
+  const outputFormat = 'stream-json' as const
+
+  // Build args — Gemini does NOT get -p flag (prompt goes via stdin)
+  let args: string[]
+  let prompt: string
+
+  if (provider === 'gemini') {
+    prompt = sanitizePromptForGemini(options.prompt)
+    args = ['--output-format', outputFormat, '-m', model]
+  } else {
+    prompt = options.prompt
+    args = ['--output-format', outputFormat]
+    if (options.jsonSchema) {
+      args.push('--json-schema', options.jsonSchema)
+    }
+    args.push('--allowedTools', 'Read')
+    args.push('--max-turns', String(options.maxTurns || 5))
+    args.push('--model', model)
+    if (options.appendSystemPrompt) {
+      args.push('--append-system-prompt', options.appendSystemPrompt)
+    }
+    args.push('-p', prompt)
+  }
 
   const child = spawn(cli, args, {
     cwd: projectDir || undefined,
-    env: { ...process.env },
+    env: buildSpawnEnv(),
     stdio: ['pipe', 'pipe', 'pipe']
   })
 
   activeProcess = child
+
+  // Gemini: write prompt to stdin
+  if (provider === 'gemini') {
+    child.stdin?.write(prompt)
+    child.stdin?.end()
+  }
+
   const decoder = new StringDecoder('utf8')
   let buffer = ''
   let stderrOutput = ''
+  let geminiFullText = ''
 
   child.stdout?.on('data', (chunk: Buffer) => {
     buffer += decoder.write(chunk)
@@ -243,7 +345,23 @@ export function executeClaudeStream(
 
       try {
         const event = JSON.parse(trimmed)
-        window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event)
+
+        if (provider === 'gemini') {
+          if (event.type === 'message' && event.role === 'assistant' && event.delta) {
+            geminiFullText += event.content || ''
+            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, {
+              type: 'content_block_delta',
+              delta: { text: event.content || '' }
+            })
+          } else if (event.type === 'result') {
+            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, {
+              type: 'result',
+              result: { text: geminiFullText }
+            })
+          }
+        } else {
+          window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event)
+        }
       } catch {
         // Not valid JSON line, skip
       }
@@ -258,11 +376,25 @@ export function executeClaudeStream(
 
   child.on('close', (code) => {
     activeProcess = null
-    // Process remaining buffer
     if (buffer.trim()) {
       try {
         const event = JSON.parse(buffer.trim())
-        window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event)
+        if (provider === 'gemini') {
+          if (event.type === 'message' && event.role === 'assistant' && event.delta) {
+            geminiFullText += event.content || ''
+            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, {
+              type: 'content_block_delta',
+              delta: { text: event.content || '' }
+            })
+          } else if (event.type === 'result') {
+            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, {
+              type: 'result',
+              result: { text: geminiFullText }
+            })
+          }
+        } else {
+          window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event)
+        }
       } catch {
         // ignore
       }
@@ -306,7 +438,7 @@ export async function testClaudeConnection(): Promise<{ success: boolean; messag
     const result = await new Promise<string>((resolve, reject) => {
       const child = spawn(claudePath, ['-p', 'Say "connected" and nothing else.', '--output-format', 'json', '--max-turns', '1'], {
         cwd: projectDir || undefined,
-        env: { ...process.env },
+        env: buildSpawnEnv(),
         stdio: ['pipe', 'pipe', 'pipe']
       })
 
@@ -340,11 +472,15 @@ export async function testGeminiConnection(): Promise<{ success: boolean; messag
     const projectDir = getProjectDir()
 
     const result = await new Promise<string>((resolve, reject) => {
-      const child = spawn(geminiPath, ['-p', 'Say "connected" and nothing else.', '--output-format', 'json'], {
+      // Use stdin for Gemini to avoid Windows arg escaping issues
+      const child = spawn(geminiPath, ['--output-format', 'json'], {
         cwd: projectDir || undefined,
-        env: { ...process.env },
+        env: buildSpawnEnv(),
         stdio: ['pipe', 'pipe', 'pipe']
       })
+
+      child.stdin?.write('Say "connected" and nothing else.')
+      child.stdin?.end()
 
       const decoder = new StringDecoder('utf8')
       let output = ''
@@ -355,8 +491,11 @@ export async function testGeminiConnection(): Promise<{ success: boolean; messag
 
       child.on('close', (code) => {
         output += decoder.end()
-        if (code === 0) resolve(output.trim())
-        else reject(new Error(classifyError(stderrOutput, code || 1).message))
+        if (code === 0) {
+          resolve(unwrapGeminiResponse(output))
+        } else {
+          reject(new Error(classifyError(stderrOutput, code || 1).message))
+        }
       })
 
       child.on('error', (err) => {
