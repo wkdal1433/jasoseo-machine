@@ -25,45 +25,57 @@ export interface OnboardingResult {
 export class OnboardingAgent {
   /**
    * AI 분석용 통합 프롬프트 빌더.
-   * 입력된 거대한 텍스트 뭉치에서 프로필과 에피소드를 동시에 채굴합니다.
+   * 무가정 원칙(Zero-Assumption)을 적용하여 팩트 기반의 프로필과 에피소드를 추출합니다.
    */
   public buildExtractionPrompt(rawText: string): string {
     return `
-# Role: Expert Data Extraction & Career Profiling Agent
+# ROLE: High-Fidelity Recruitment Data Auditor
 
-# Mission:
-Analyze the provided [Raw Text] which is a user's previous cover letter or resume. 
-Extract as much structured information as possible to set up the user's new automated system.
+# STRICT PROTOCOL: ANTI-HALLUCINATION (READ CAREFULLY)
+You must follow the "Zero-Assumption Rule".
+- DO NOT invent, assume, or infer any information not explicitly stated in the [Raw Text].
+- If a specific number, technology, or action is missing, leave it blank or mark it as missing.
+- " 명시적으로 서술되지 않은 모든 정보는 설령 논리적으로 타당하더라도 사용 불가 "
+- Maintain "Quote-Level Fidelity": Use the exact terminology found in the source text.
 
-# Raw Text:
+# MISSION:
+Convert the user's previous cover letter or resume into a structured 12-section profile and high-quality S-P-A-A-R-L episodes.
+
+# TASK 1: 12-Section Profile Extraction
+Extract personal info, education, career, skills, awards, etc. 
+- Only fill fields where clear evidence exists in the text.
+- List all sections that are missing in the "missingFields" array.
+
+# TASK 2: S-P-A-A-R-L Episode Mining
+Identify distinct experiences. For each, create a Markdown episode following this GOLD STANDARD structure:
+## TITLE: [Clear Project Name/Task]
+## S - Situation: Context and background.
+## P - Problem: The core challenge faced.
+## A - Analysis: The reasoning and data behind your decisions.
+## A - Action: Specific steps YOU took (verbs, tools used).
+## R - Result: Quantitative/Qualitative outcome.
+## L - Learning: Personal growth or insights gained.
+
+# QUALITY RATING (Status):
+- 'ready': All S-P-A-A-R-L components are present with specific facts and numbers.
+- 'needs_review': The story exists but lacks specific numbers or clear 'Analysis'.
+- 'draft': Only a vague mention of the event exists. DO NOT fill in the blanks yourself.
+
+# INPUT RAW TEXT:
 ${rawText}
 
-# Task 1: Extract 12-Section Profile
-Identify name, contact, education (school, major, grade), career (company, role, period), skills, awards, military service, etc.
-
-# Task 2: Carve Out Episodes
-Identify distinct stories/experiences in the text. For each experience, format it into S-P-A-A-R-L structure.
-- Situation, Problem, Analysis, Action, Result, Learning.
-- Rate the completeness: 'ready' (if all parts are clear), 'needs_review' (if some parts are weak), 'draft' (if many parts missing).
-
-# Output Format (JSON ONLY):
+# OUTPUT FORMAT (JSON ONLY, NO PREAMBLE):
 {
-  "profile": {
-    "personal": { "name": "...", "email": "..." },
-    "education": [...],
-    "career": [...],
-    "skills": ["...", "..."],
-    "military": { ... }
-  },
+  "profile": { ... },
   "episodes": [
     {
-      "title": "Short title for the story",
-      "content": "Full S-P-A-A-R-L Markdown content here",
+      "title": "...",
+      "content": "...",
       "status": "ready | needs_review | draft",
-      "reason": "Feedback on what is missing or well-written"
+      "reason": "[Crucial] Explain why this status was given based on fact-checking."
     }
   ],
-  "missingFields": ["list of profile sections that couldn't be found"]
+  "missingFields": ["..."]
 }
 `;
   }
