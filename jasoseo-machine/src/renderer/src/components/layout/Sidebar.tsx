@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { path: '/', label: '대시보드', icon: '🏠' },
   { path: '/wizard', label: '새 지원서', icon: '✍️' },
+  { path: '/profile', label: '내 프로필', icon: '👤' },
   { path: '/episodes', label: '에피소드', icon: '📋' },
   { path: '/history', label: '작성 이력', icon: '📁' },
   { path: '/guide', label: '사용 가이드', icon: '📖' },

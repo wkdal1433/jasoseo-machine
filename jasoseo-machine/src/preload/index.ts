@@ -61,7 +61,11 @@ const api = {
 
   // File System
   readMd: (path: string) => ipcRenderer.invoke(IPC.FS_READ_MD, path),
-  selectDirectory: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR)
+  selectDirectory: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),
+
+  // User Profile
+  userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),
+  userProfileSave: (profile: unknown) => ipcRenderer.invoke(IPC.USER_PROFILE_SAVE, profile)
 }
 
 contextBridge.exposeInMainWorld('api', api)

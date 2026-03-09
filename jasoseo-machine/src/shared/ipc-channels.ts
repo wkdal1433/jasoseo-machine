@@ -42,7 +42,11 @@ export const IPC = {
 
   // File system
   FS_READ_MD: 'fs:read-md',
-  FS_SELECT_DIR: 'fs:select-dir'
+  FS_SELECT_DIR: 'fs:select-dir',
+
+  // User Profile
+  USER_PROFILE_GET: 'user:profile-get',
+  USER_PROFILE_SAVE: 'user:profile-save'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

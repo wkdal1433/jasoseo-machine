@@ -16,7 +16,9 @@ import {
   listDrafts,
   getEpisodeUsage,
   getSetting,
-  setSetting
+  setSetting,
+  getUserProfile,
+  saveUserProfile
 } from './db'
 import {
   executeClaudePrompt,
@@ -139,6 +141,16 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.SETTINGS_TEST_GEMINI, async () => {
     return testGeminiConnection()
+  })
+
+  // === User Profile ===
+  ipcMain.handle(IPC.USER_PROFILE_GET, () => {
+    return getUserProfile()
+  })
+
+  ipcMain.handle(IPC.USER_PROFILE_SAVE, (_event, profile) => {
+    saveUserProfile(profile)
+    return true
   })
 
   // === File System ===

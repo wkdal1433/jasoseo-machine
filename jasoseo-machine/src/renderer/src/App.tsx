@@ -5,6 +5,7 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { WizardPage } from './components/wizard/WizardPage'
 import { EpisodeListPage } from './components/episodes/EpisodeListPage'
 import { HistoryPage } from './components/history/HistoryPage'
+import { ProfilePage } from './components/profile/ProfilePage'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { GuidePage } from './components/guide/GuidePage'
 import { useSettingsStore } from './stores/settingsStore'
@@ -29,6 +30,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/wizard" element={<WizardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/episodes" element={<EpisodeListPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/guide" element={<GuidePage />} />

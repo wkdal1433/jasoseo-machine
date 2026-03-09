@@ -39,13 +39,15 @@ interface DbData {
   coverLetters: CoverLetterRecord[]
   drafts: DraftRecord[]
   settings: Record<string, string>
+  profile: any | null
 }
 
 let data: DbData = {
   applications: [],
   coverLetters: [],
   drafts: [],
-  settings: {}
+  settings: {},
+  profile: null
 }
 
 let dbPath = ''
@@ -69,7 +71,7 @@ export function initDatabase(): void {
     try {
       data = JSON.parse(readFileSync(path, 'utf-8'))
     } catch {
-      data = { applications: [], coverLetters: [], drafts: [], settings: {} }
+      data = { applications: [], coverLetters: [], drafts: [], settings: {}, profile: null }
       save()
     }
   } else {
@@ -221,5 +223,15 @@ export function getSetting(key: string): string | null {
 
 export function setSetting(key: string, value: string): void {
   data.settings[key] = value
+  save()
+}
+
+// === User Profile ===
+export function getUserProfile(): any | null {
+  return data.profile
+}
+
+export function saveUserProfile(profile: any): void {
+  data.profile = profile
   save()
 }
