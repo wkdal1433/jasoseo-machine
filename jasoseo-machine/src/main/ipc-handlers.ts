@@ -9,6 +9,7 @@ import {
   deleteApplication,
   updateApplicationStatus,
   saveCoverLetter,
+  getCoverLetter,
   updateCoverLetter,
   saveDraft,
   getDraft,
@@ -29,6 +30,13 @@ import {
 } from './claude-bridge'
 
 export function registerIpcHandlers(): void {
+  // 안전 진단: IPC 객체의 모든 키가 유효한지 확인
+  Object.entries(IPC).forEach(([key, value]) => {
+    if (value === undefined) {
+      console.error(`[IPC Error] Channel "${key}" is undefined!`);
+    }
+  });
+
   // === Claude CLI ===
   ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {
     return executeClaudePrompt(options)
@@ -96,6 +104,10 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle(IPC.CL_GET, (_event, id) => {
+    return getCoverLetter(id)
+  })
+
   ipcMain.handle(IPC.CL_UPDATE, (_event, id, updates) => {
     updateCoverLetter(id, updates)
     return true
@@ -154,43 +166,42 @@ export function registerIpcHandlers(): void {
   })
 
   // === Automation (Input Proxy Agent & Company Analyst) ===
-  ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
-    // ... (existing code for form analysis)
-  })
-
-  ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
-    const { CompanyAnalyst } = await import('./automation/company-analyst')
-    const analyst = new CompanyAnalyst()
-
-    try {
-      // 1. 시점 고정 검색 쿼리 빌드
-      const query = analyst.buildSearchQuery(companyName, currentDate)
-      
-      // 2. AI에게 최신 정보 검색 및 분석 지시 (직접 검색 툴 활용)
-      // (프롬프트 내에 '오늘 날짜'를 강조하여 과거 데이터 노이즈 제거)
-      const aiResponse = await executeClaudePrompt(
-        analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate)
-      )
-
-      // 3. JSON 추출 및 파싱
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error('AI could not find or analyze recruitment data for 2026.')
+  // 런타임 에러 방지를 위해 키 존재 여부 확인 후 등록
+  if (IPC.ANALYZE_FORM_STRUCTURE) {
+    ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
+      const { FormAnalyzer } = await import('./automation/form-analyzer')
+      const analyzer = new FormAnalyzer()
+      try {
+        const profile = getUserProfile()
+        if (!profile) throw new Error('User profile not found.')
+        const prompt = analyzer.buildBatchPrompt(formHtml, profile)
+        const aiResponse = await executeClaudePrompt(prompt)
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error('AI response is not valid JSON.')
+        const result = JSON.parse(jsonMatch[0])
+        return { success: true, data: { ...result, script: analyzer.wrapWithEventSimulator(result.script) } }
+      } catch (error: any) {
+        return { success: false, error: error.message }
       }
+    })
+  }
 
-      const result = JSON.parse(jsonMatch[0])
-
-      // 4. 예외 처리: 만약 결과가 2024~2025년 것이라면 경고 문구 추가
-      if (result.recruitmentSeason && !result.recruitmentSeason.includes('2026')) {
-        result.analysisNote = `[Warning] Found older recruitment data (${result.recruitmentSeason}). Please confirm if the recruitment criteria remain the same.`
+  if (IPC.ANALYZE_COMPANY) {
+    ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
+      const { CompanyAnalyst } = await import('./automation/company-analyst')
+      const analyst = new CompanyAnalyst()
+      try {
+        const query = analyst.buildSearchQuery(companyName, currentDate)
+        const aiResponse = await executeClaudePrompt(analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate))
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error('AI analysis failed.')
+        const result = JSON.parse(jsonMatch[0])
+        return { success: true, data: result }
+      } catch (error: any) {
+        return { success: false, error: error.message }
       }
-
-      return { success: true, data: result }
-    } catch (error: any) {
-      console.error('Company Analysis Error:', error)
-      return { success: false, error: error.message }
-    }
-  })
+    })
+  }
 
   // === File System ===
   ipcMain.handle(IPC.FS_READ_MD, (_event, filePath) => {

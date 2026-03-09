@@ -44,9 +44,13 @@ export const IPC = {
   FS_READ_MD: 'fs:read-md',
   FS_SELECT_DIR: 'fs:select-dir',
 
-  // Automation (Input Proxy Agent & Company Analyst)
+  // User Profile (복구됨!)
+  USER_PROFILE_GET: 'user-profile:get',
+  USER_PROFILE_SAVE: 'user-profile:save',
+
+  // Automation
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',
-  ANALYZE_COMPANY: 'analyze-company',
-  } as const;
+  ANALYZE_COMPANY: 'analyze-company'
+} as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

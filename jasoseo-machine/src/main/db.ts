@@ -125,6 +125,10 @@ export function updateApplicationStatus(id: string, status: string, note?: strin
 }
 
 // === Cover Letters ===
+export function getCoverLetter(id: string): CoverLetterRecord | undefined {
+  return data.coverLetters.find((c) => c.id === id)
+}
+
 export function saveCoverLetter(cl: CoverLetterRecord): void {
   const idx = data.coverLetters.findIndex((c) => c.id === cl.id)
   if (idx >= 0) {
