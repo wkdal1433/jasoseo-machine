@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { readFileSync, readdirSync } from 'fs'
+import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { IPC } from '../shared/ipc-channels'
 import {
@@ -73,6 +73,53 @@ export function registerIpcHandlers(): void {
       return []
     }
   })
+
+  ipcMain.handle(IPC.EPISODE_DELETE, (_event, fileName) => {
+    const projectDir = getSetting('project_dir') || ''
+    if (!projectDir) return false
+    try {
+      unlinkSync(join(projectDir, 'episodes', fileName))
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle(IPC.EPISODE_SAVE_FILE, (_event, fileName, content) => {
+    const projectDir = getSetting('project_dir') || ''
+    if (!projectDir) return false
+    try {
+      writeFileSync(join(projectDir, 'episodes', fileName), content, 'utf-8')
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  // 런타임 에러 방지를 위한 키 체크
+  if (IPC.EPISODE_SUGGEST_IDEAS) {
+    ipcMain.handle(IPC.EPISODE_SUGGEST_IDEAS, async () => {
+      const { EpisodeInterviewer } = await import('./automation/episode-interviewer')
+      const interviewer = new EpisodeInterviewer()
+      
+      try {
+        const profile = getUserProfile()
+        if (!profile) throw new Error('User profile not found. Please set up your profile first.')
+        
+        const prompt = interviewer.buildIdeaSuggestionPrompt(profile)
+        const aiResponse = await executeClaudePrompt(prompt)
+        
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error('AI response is not valid JSON.')
+        
+        const result = JSON.parse(jsonMatch[0])
+        return { success: true, data: result.ideas }
+      } catch (error: any) {
+        console.error('Episode Ideation Error:', error)
+        return { success: false, error: error.message }
+      }
+    })
+  }
 
   // === Applications ===
   ipcMain.handle(IPC.APP_SAVE, (_event, app) => {
@@ -166,7 +213,6 @@ export function registerIpcHandlers(): void {
   })
 
   // === Automation (Input Proxy Agent & Company Analyst) ===
-  // 런타임 에러 방지를 위해 키 존재 여부 확인 후 등록
   if (IPC.ANALYZE_FORM_STRUCTURE) {
     ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
       const { FormAnalyzer } = await import('./automation/form-analyzer')

@@ -12,6 +12,9 @@ export const IPC = {
   EPISODES_LOAD: 'episodes:load',
   EPISODES_RELOAD: 'episodes:reload',
   EPISODES_CHANGED: 'episodes:changed',
+  EPISODE_DELETE: 'episodes:delete',
+  EPISODE_SAVE_FILE: 'episodes:save-file',
+  EPISODE_SUGGEST_IDEAS: 'episodes:suggest-ideas',
 
   // Applications
   APP_SAVE: 'app:save',

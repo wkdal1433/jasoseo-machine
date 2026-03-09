@@ -26,6 +26,10 @@ const api = {
 
   // Episodes
   episodesLoad: () => ipcRenderer.invoke(IPC.EPISODES_LOAD),
+  episodeDelete: (fileName: string) => ipcRenderer.invoke(IPC.EPISODE_DELETE, fileName),
+  episodeSaveFile: (fileName: string, content: string) =>
+    ipcRenderer.invoke(IPC.EPISODE_SAVE_FILE, fileName, content),
+  episodeSuggestIdeas: () => ipcRenderer.invoke(IPC.EPISODE_SUGGEST_IDEAS),
   onEpisodesChanged: (callback: (data: unknown) => void) => {
     const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on(IPC.EPISODES_CHANGED, handler)
