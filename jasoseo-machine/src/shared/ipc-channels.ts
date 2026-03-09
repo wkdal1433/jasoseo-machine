@@ -47,9 +47,14 @@ export const IPC = {
   FS_READ_MD: 'fs:read-md',
   FS_SELECT_DIR: 'fs:select-dir',
 
-  // User Profile (복구됨!)
+  // User Profile
   USER_PROFILE_GET: 'user-profile:get',
   USER_PROFILE_SAVE: 'user-profile:save',
+  USER_PROFILES_LIST: 'user-profiles:list',
+  USER_PROFILE_SWITCH: 'user-profile:switch',
+  USER_PROFILE_CREATE: 'user-profile:create',
+  USER_PROFILE_DELETE: 'user-profile:delete',
+
 
   // Automation
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',

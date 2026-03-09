@@ -1,11 +1,22 @@
 import { create } from 'zustand'
 import { UserProfile, DEFAULT_PROFILE } from '../types/profile'
 
+interface ProfileSummary {
+  id: string
+  name: string
+  updatedAt: string
+}
+
 interface ProfileState {
   profile: UserProfile
+  profiles: ProfileSummary[]
   isLoaded: boolean
   loadProfile: () => Promise<void>
+  loadProfilesList: () => Promise<void>
   saveProfile: (profile: UserProfile) => Promise<void>
+  switchProfile: (id: string) => Promise<void>
+  createProfile: (name: string) => Promise<void>
+  deleteProfile: (id: string) => Promise<void>
   updatePersonal: (personal: Partial<UserProfile['personal']>) => void
   updateMilitary: (military: Partial<UserProfile['military']>) => void
   addEducation: (item: UserProfile['education'][0]) => void
@@ -22,6 +33,7 @@ interface ProfileState {
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: DEFAULT_PROFILE,
+  profiles: [],
   isLoaded: false,
 
   loadProfile: async () => {
@@ -31,11 +43,36 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } else {
       set({ profile: DEFAULT_PROFILE, isLoaded: true })
     }
+    await get().loadProfilesList()
+  },
+
+  loadProfilesList: async () => {
+    const list = await window.api.userProfilesList()
+    set({ profiles: list || [] })
   },
 
   saveProfile: async (profile) => {
     await window.api.userProfileSave(profile)
     set({ profile })
+    await get().loadProfilesList()
+  },
+
+  switchProfile: async (id) => {
+    await window.api.userProfileSwitch(id)
+    await get().loadProfile()
+  },
+
+  createProfile: async (name) => {
+    const newProfile = await window.api.userProfileCreate(name)
+    if (newProfile) {
+      set({ profile: newProfile })
+      await get().loadProfilesList()
+    }
+  },
+
+  deleteProfile: async (id) => {
+    await window.api.userProfileDelete(id)
+    await get().loadProfile()
   },
 
   updatePersonal: (personal) => {

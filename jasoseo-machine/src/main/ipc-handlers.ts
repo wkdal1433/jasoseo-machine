@@ -19,7 +19,11 @@ import {
   getSetting,
   setSetting,
   getUserProfile,
-  saveUserProfile
+  saveUserProfile,
+  listProfiles,
+  switchProfile,
+  createProfile,
+  deleteProfile
 } from './db'
 import {
   executeClaudePrompt,
@@ -73,7 +77,7 @@ export function registerIpcHandlers(): void {
     return testClaudeConnection()
   })
 
-  // === Episodes (격리 및 안전 로직 적용) ===
+  // === Episodes ===
   ipcMain.handle(IPC.EPISODES_LOAD, () => {
     const episodesDir = getProfileEpisodeDir()
     if (!episodesDir) return []
@@ -230,6 +234,24 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle(IPC.USER_PROFILES_LIST, () => {
+    return listProfiles()
+  })
+
+  ipcMain.handle(IPC.USER_PROFILE_SWITCH, (_event, id) => {
+    switchProfile(id)
+    return true
+  })
+
+  ipcMain.handle(IPC.USER_PROFILE_CREATE, (_event, name) => {
+    return createProfile(name)
+  })
+
+  ipcMain.handle(IPC.USER_PROFILE_DELETE, (_event, id) => {
+    deleteProfile(id)
+    return true
+  })
+
   // === Automation (Input Proxy Agent & Company Analyst) ===
   if (IPC.ANALYZE_FORM_STRUCTURE) {
     ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
@@ -251,7 +273,20 @@ export function registerIpcHandlers(): void {
   }
 
   if (IPC.ANALYZE_COMPANY) {
-    // ... (existing code)
+    ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
+      const { CompanyAnalyst } = await import('./automation/company-analyst')
+      const analyst = new CompanyAnalyst()
+      try {
+        const query = analyst.buildSearchQuery(companyName, currentDate)
+        const aiResponse = await executeClaudePrompt(analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate))
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error('AI analysis failed.')
+        const result = JSON.parse(jsonMatch[0])
+        return { success: true, data: result }
+      } catch (error: any) {
+        return { success: false, error: error.message }
+      }
+    })
   }
 
   if (IPC.ONBOARDING_PARSE_FILE) {

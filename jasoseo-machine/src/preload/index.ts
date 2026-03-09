@@ -70,6 +70,10 @@ const api = {
   // User Profile
   userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),
   userProfileSave: (profile: unknown) => ipcRenderer.invoke(IPC.USER_PROFILE_SAVE, profile),
+  userProfilesList: () => ipcRenderer.invoke(IPC.USER_PROFILES_LIST),
+  userProfileSwitch: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_SWITCH, id),
+  userProfileCreate: (name: string) => ipcRenderer.invoke(IPC.USER_PROFILE_CREATE, name),
+  userProfileDelete: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_DELETE, id),
 
   // Automation
   analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html),

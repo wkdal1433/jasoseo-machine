@@ -39,7 +39,8 @@ interface DbData {
   coverLetters: CoverLetterRecord[]
   drafts: DraftRecord[]
   settings: Record<string, string>
-  profile: any | null
+  profiles: any[] // 멀티 프로필 지원
+  currentProfileId: string | null
 }
 
 let data: DbData = {
@@ -47,7 +48,8 @@ let data: DbData = {
   coverLetters: [],
   drafts: [],
   settings: {},
-  profile: null
+  profiles: [],
+  currentProfileId: null
 }
 
 let dbPath = ''
@@ -69,14 +71,93 @@ export function initDatabase(): void {
   const path = getDbPath()
   if (existsSync(path)) {
     try {
-      data = JSON.parse(readFileSync(path, 'utf-8'))
+      const raw = JSON.parse(readFileSync(path, 'utf-8'))
+      // 데이터 마이그레이션: 구버전(단일 프로필)에서 신버전(멀티 프로필)으로
+      if (raw.profile && !raw.profiles) {
+        const legacyProfile = { ...raw.profile, id: 'default' }
+        data = {
+          ...raw,
+          profiles: [legacyProfile],
+          currentProfileId: 'default'
+        }
+        delete (data as any).profile
+      } else {
+        data = { ...data, ...raw }
+      }
     } catch {
-      data = { applications: [], coverLetters: [], drafts: [], settings: {}, profile: null }
       save()
     }
   } else {
     save()
   }
+}
+
+// === Profiles ===
+export function getUserProfile(): any | null {
+  if (!data.currentProfileId && data.profiles.length > 0) {
+    data.currentProfileId = data.profiles[0].id
+  }
+  return data.profiles.find((p) => p.id === data.currentProfileId) || null
+}
+
+export function saveUserProfile(profile: any): void {
+  // id가 없으면 생성 (기존 장준수 프로필 등 대응)
+  if (!profile.id) {
+    profile.id = profile.personal?.name || 'profile-' + Date.now()
+  }
+  
+  const idx = data.profiles.findIndex((p) => p.id === profile.id)
+  if (idx >= 0) {
+    data.profiles[idx] = profile
+  } else {
+    data.profiles.push(profile)
+  }
+  data.currentProfileId = profile.id
+  save()
+}
+
+export function listProfiles(): any[] {
+  return data.profiles.map(p => ({
+    id: p.id,
+    name: p.personal?.name || 'Unnamed Profile',
+    updatedAt: new Date().toISOString() // 간단하게 현재 시간
+  }))
+}
+
+export function switchProfile(id: string): void {
+  data.currentProfileId = id
+  save()
+}
+
+export function createProfile(name: string): any {
+  const newProfile = {
+    id: 'profile-' + Date.now(),
+    personal: { name, birthDate: '', gender: '', email: '', phone: '', mobile: '', address: '' },
+    desiredJob: { keywords: [] },
+    skills: [],
+    education: [],
+    experience: [],
+    activities: [],
+    training: [],
+    certificates: [],
+    awards: [],
+    overseas: [],
+    languages: [],
+    portfolio: [],
+    preferences: { isVeteran: false, isProtection: false, isSubsidy: false, isDisabled: false, military: { status: '' } }
+  }
+  data.profiles.push(newProfile)
+  data.currentProfileId = newProfile.id
+  save()
+  return newProfile
+}
+
+export function deleteProfile(id: string): void {
+  data.profiles = data.profiles.filter(p => p.id !== id)
+  if (data.currentProfileId === id) {
+    data.currentProfileId = data.profiles.length > 0 ? data.profiles[0].id : null
+  }
+  save()
 }
 
 // === Applications ===
@@ -227,15 +308,5 @@ export function getSetting(key: string): string | null {
 
 export function setSetting(key: string, value: string): void {
   data.settings[key] = value
-  save()
-}
-
-// === User Profile ===
-export function getUserProfile(): any | null {
-  return data.profile
-}
-
-export function saveUserProfile(profile: any): void {
-  data.profile = profile
   save()
 }

@@ -16,7 +16,17 @@ import {
 import { cn } from '@/lib/utils'
 
 export function ProfilePage() {
-  const { profile, loadProfile, saveProfile, isLoaded } = useProfileStore()
+  const { 
+    profile, 
+    profiles, 
+    loadProfile, 
+    loadProfilesList, 
+    saveProfile, 
+    switchProfile, 
+    createProfile, 
+    deleteProfile, 
+    isLoaded 
+  } = useProfileStore()
   const [activeTab, setActiveTab] = useState('basic')
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -31,36 +41,30 @@ export function ProfilePage() {
     }
   }, [isLoaded, profile])
 
-  if (!localProfile) return <div className="p-8">로딩 중...</div>
+  if (!localProfile) return <div className="p-8 text-center animate-pulse text-muted-foreground">프로필 데이터를 불러오는 중...</div>
 
   const handleSave = async () => {
     setIsSaving(true)
     await saveProfile(localProfile)
     setIsSaving(false)
+    alert('프로필이 성공적으로 저장되었습니다.')
   }
 
-  const updatePersonal = (updates: Partial<UserProfile['personal']>) => {
-    setLocalProfile({
-      ...localProfile!,
-      personal: { ...localProfile!.personal, ...updates }
-    })
+  const handleCreateProfile = async () => {
+    const name = prompt('새 프로필의 이름을 입력하세요:')
+    if (name && name.trim()) {
+      await createProfile(name.trim())
+    }
   }
 
-  const updatePreferences = (updates: Partial<UserProfile['preferences']>) => {
-    setLocalProfile({
-      ...localProfile!,
-      preferences: { ...localProfile!.preferences, ...updates }
-    })
-  }
-
-  const updateMilitary = (updates: Partial<UserProfile['preferences']['military']>) => {
-    setLocalProfile({
-      ...localProfile!,
-      preferences: { 
-        ...localProfile!.preferences, 
-        military: { ...localProfile!.preferences.military, ...updates } 
-      }
-    })
+  const handleDeleteProfile = async () => {
+    if (profiles.length <= 1) {
+      alert('최소 하나의 프로필은 유지되어야 합니다.')
+      return
+    }
+    if (confirm(`'${profile.personal.name}' 프로필을 정말 삭제하시겠습니까? 관련 데이터가 모두 사라집니다.`)) {
+      await deleteProfile((profile as any).id)
+    }
   }
 
   const tabs = [
@@ -73,18 +77,52 @@ export function ProfilePage() {
 
   return (
     <div className="flex h-full flex-col p-6">
+      {/* Profile Selector & Actions */}
+      <div className="mb-8 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Active Profile</span>
+            <select 
+              value={(profile as any).id} 
+              onChange={(e) => switchProfile(e.target.value)}
+              className="bg-transparent font-bold text-lg outline-none cursor-pointer hover:text-primary transition-colors"
+            >
+              {profiles.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="h-8 w-px bg-primary/20 mx-2"></div>
+          <button 
+            onClick={handleCreateProfile}
+            className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all"
+          >
+            <span>+</span> 새 프로필 추가
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleDeleteProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
+          >
+            현재 프로필 삭제
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+          >
+            {isSaving ? '저장 중...' : '💾 프로필 전체 저장'}
+          </button>
+        </div>
+      </div>
+
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">내 프로필</h2>
-          <p className="text-muted-foreground">대기업 채용 사이트 항목에 맞춘 통합 프로필 관리 (12개 섹션)</p>
+          <h2 className="text-2xl font-bold">인적사항 상세 관리</h2>
+          <p className="text-muted-foreground">채용 사이트 항목별 데이터 자산화</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {isSaving ? '저장 중...' : '전체 저장'}
-        </button>
       </div>
 
       <div className="mb-6 flex border-b border-border">
