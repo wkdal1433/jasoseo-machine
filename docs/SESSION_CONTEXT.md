@@ -24,11 +24,11 @@
 - [x] 인라인 편집 + 글자수 카운터
 - [x] 드래프트 자동 저장 (30초 + Step 전환)
 - [x] 대시보드 + 에피소드 목록 + 작성 이력 + 설정
+- [x] 내 프로필 관리 (인적, 학력, 경력, 어학 등 JSON 저장)
 - [x] 사용 가이드 페이지 (6개 섹션)
 - [x] README.md (전문적 형태)
 - [x] start-app.bat 실행 바로가기 + 바탕화면 단축키
 - [x] 다크/라이트 모드
-- [x] 내 프로필 관리 (인적, 학력, 경력, 어학 등 JSON 저장)
 
 ### 미완성 / 향후 작업
 - [ ] 실제 E2E 테스트 (Step 0~8 전체 흐름)
@@ -61,15 +61,17 @@ jasoseo/
     └── src/
         ├── main/
         │   ├── index.ts              # Electron 진입점 (1280x860)
-        │   ├── claude-bridge.ts      # Claude CLI subprocess 관리
+        │   ├── claude-bridge.ts      # AI CLI subprocess 관리 (Claude/Gemini)
         │   ├── ipc-handlers.ts       # IPC 핸들러 (CRUD + dialog)
-        │   ├── db.ts                 # JSON 파일 기반 저장소
+        │   ├── db.ts                 # JSON 파일 기반 저장소 (Profile 포함)
         │   └── file-watcher.ts       # Episode 파일 변경 감시 (chokidar)
         ├── preload/index.ts          # contextBridge API
         ├── shared/ipc-channels.ts    # IPC 채널 상수
         └── renderer/src/
             ├── App.tsx               # 라우터 + 테마 + 자동저장
             ├── components/
+            │   ├── profile/          # 신규: 내 프로필 관리
+            │   │   └── ProfilePage.tsx
             │   ├── wizard/           # 핵심: 9-Step 위자드
             │   │   ├── WizardPage.tsx           # 위자드 컨테이너 + 스텝 라우팅
             │   │   ├── ApplicationSetup.tsx     # 지원서 정보 입력
@@ -86,6 +88,7 @@ jasoseo/
             │   ├── history/HistoryPage.tsx
             │   └── settings/SettingsPage.tsx
             ├── stores/               # Zustand 상태관리
+            │   ├── profileStore.ts   # 신규: 사용자 프로필 상태
             │   ├── wizardStore.ts    # 위자드 상태 (지원서+문항)
             │   ├── episodeStore.ts
             │   ├── historyStore.ts
@@ -94,6 +97,9 @@ jasoseo/
             │   ├── prompt-builder.ts # 단계별 프롬프트 생성 (파일 참조 포함)
             │   └── md-parser.ts      # Episode MD 파싱
             └── types/                # TypeScript 타입 정의
+                ├── profile.ts        # 신규: 사용자 프로필 타입
+                ├── application.ts
+                └── ...
 ```
 
 ---
@@ -103,13 +109,15 @@ jasoseo/
 | 결정 | 이유 |
 |------|------|
 | SQLite → JSON 파일 저장 | better-sqlite3가 Windows에서 native build tool 없이 빌드 실패 |
-| Claude Code CLI subprocess | API 키 불필요, Pro 구독 토큰 사용, CLAUDE.md 자동 로드 |
+| AI CLI subprocess | API 키 불필요, Pro 구독 토큰 사용, CLAU데.md 자동 로드 |
+| Claude & Gemini 지원 | 듀얼 엔진 체제 (Claude 3.5 Sonnet / Gemini 2.0 Pro) |
 | `--output-format stream-json` | Step 3-5 실시간 스트리밍용 |
 | `--output-format json` | Step 0, 1-2, 6-8 구조화 응답용 |
 | `--allowedTools "Read"` | CLI가 Episode 파일을 직접 읽도록 허용 |
 | `--max-turns 5` | 무한 루프 방지 |
 | `StringDecoder` | UTF-8 한글 스트리밍 깨짐 방지 |
-| `call npm run dev` (.bat) | .bat에서 npm 호출 시 call 필수 |
+| `Atomic Commits` | Google Git 표준 적용 (feat/profile-management 브랜치) |
+| `Profile Storage` | 로컬 JSON DB(`profile` 필드)에 사용자 배경 정보 통합 관리 |
 
 ---
 

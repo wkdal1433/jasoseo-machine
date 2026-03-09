@@ -122,6 +122,8 @@
 | `CLAUDE.md` | AI 헌법 + 네비게이터 (이 파일) |
 | `MASTER_INDEX.md` | Episode 선택 가이드 |
 | `raw_experience.md` | 원자적 경험 데이터 |
+| `docs/SESSION_CONTEXT.md` | **세션 복원용** 최신 상태 요약 |
+| `docs/WORK_LOG.md` | 상세 작업 이력 및 시행착오 기록 |
 
 ### Episodes
 
@@ -179,6 +181,6 @@ episodes/
 
 ---
 
-**Version**: 4.1
-**Last Updated**: 2026-03-06
+**Version**: 4.2
+**Last Updated**: 2026-03-06 (by Gemini CLI)
 **Structure**: Constitution + Index (상세 내용은 개별 파일로 분리)
