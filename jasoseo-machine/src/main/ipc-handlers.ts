@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
-import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
+import { readFileSync, readdirSync, unlinkSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs'
 import { join } from 'path'
 import { IPC } from '../shared/ipc-channels'
 import {
@@ -37,6 +37,22 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // 유틸리티: 현재 프로필에 따른 에피소드 폴더 경로 가져오기
+  const getProfileEpisodeDir = () => {
+    const projectDir = getSetting('project_dir') || ''
+    if (!projectDir) return null
+
+    const profile = getUserProfile()
+    // 프로필 이름이 없으면 'default' 폴더 사용
+    const profileName = profile?.personal?.name || 'default'
+    const dir = join(projectDir, 'episodes', profileName)
+    
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    return dir
+  }
+
   // === Claude CLI ===
   ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {
     return executeClaudePrompt(options)
@@ -57,12 +73,11 @@ export function registerIpcHandlers(): void {
     return testClaudeConnection()
   })
 
-  // === Episodes ===
+  // === Episodes (격리 및 안전 로직 적용) ===
   ipcMain.handle(IPC.EPISODES_LOAD, () => {
-    const projectDir = getSetting('project_dir') || ''
-    if (!projectDir) return []
+    const episodesDir = getProfileEpisodeDir()
+    if (!episodesDir) return []
 
-    const episodesDir = join(projectDir, 'episodes')
     try {
       const files = readdirSync(episodesDir).filter((f) => f.endsWith('.md'))
       return files.map((file) => {
@@ -75,47 +90,50 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.EPISODE_DELETE, (_event, fileName) => {
-    const projectDir = getSetting('project_dir') || ''
-    if (!projectDir) return false
+    const episodesDir = getProfileEpisodeDir()
+    if (!episodesDir) return false
+    
     try {
-      unlinkSync(join(projectDir, 'episodes', fileName))
+      // [안전 삭제 전략] 파일을 지우지 않고 .trash 폴더로 이동
+      const trashDir = join(episodesDir, '.trash')
+      if (!existsSync(trashDir)) mkdirSync(trashDir, { recursive: true })
+      
+      const sourcePath = join(episodesDir, fileName)
+      const destPath = join(trashDir, `${Date.now()}_${fileName}`)
+      
+      renameSync(sourcePath, destPath)
       return true
-    } catch {
+    } catch (err) {
+      console.error('Delete error:', err)
       return false
     }
   })
 
   ipcMain.handle(IPC.EPISODE_SAVE_FILE, (_event, fileName, content) => {
-    const projectDir = getSetting('project_dir') || ''
-    if (!projectDir) return false
+    const episodesDir = getProfileEpisodeDir()
+    if (!episodesDir) return false
     try {
-      writeFileSync(join(projectDir, 'episodes', fileName), content, 'utf-8')
+      writeFileSync(join(episodesDir, fileName), content, 'utf-8')
       return true
     } catch {
       return false
     }
   })
 
-  // 런타임 에러 방지를 위한 키 체크
   if (IPC.EPISODE_SUGGEST_IDEAS) {
     ipcMain.handle(IPC.EPISODE_SUGGEST_IDEAS, async () => {
       const { EpisodeInterviewer } = await import('./automation/episode-interviewer')
       const interviewer = new EpisodeInterviewer()
-      
       try {
         const profile = getUserProfile()
-        if (!profile) throw new Error('User profile not found. Please set up your profile first.')
-        
+        if (!profile) throw new Error('User profile not found.')
         const prompt = interviewer.buildIdeaSuggestionPrompt(profile)
         const aiResponse = await executeClaudePrompt(prompt)
-        
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('AI response is not valid JSON.')
-        
+        if (!jsonMatch) throw new Error('AI response invalid.')
         const result = JSON.parse(jsonMatch[0])
         return { success: true, data: result.ideas }
       } catch (error: any) {
-        console.error('Episode Ideation Error:', error)
         return { success: false, error: error.message }
       }
     })
