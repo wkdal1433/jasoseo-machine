@@ -153,6 +153,48 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  // === Automation (Input Proxy Agent) ===
+  ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
+    const { FormAnalyzer } = await import('./automation/form-analyzer')
+    const analyzer = new FormAnalyzer()
+    
+    try {
+      // 1. 현재 사용자 프로필 로드
+      const profile = getUserProfile()
+      if (!profile) {
+        throw new Error('User profile not found. Please set up your profile first.')
+      }
+
+      // 2. AI 분석용 프롬프트 빌드
+      const prompt = analyzer.buildBatchPrompt(formHtml, profile)
+      
+      // 3. AI 실행
+      const aiResponse = await executeClaudePrompt(prompt)
+      
+      // 4. JSON 파싱
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error('AI failed to generate a valid JSON response.')
+      }
+      
+      const result = JSON.parse(jsonMatch[0])
+      
+      // 5. 로우 스크립트를 이벤트 시뮬레이터로 래핑
+      const finalScript = analyzer.wrapWithEventSimulator(result.script)
+      
+      return {
+        success: true,
+        data: {
+          ...result,
+          script: finalScript
+        }
+      }
+    } catch (error: any) {
+      console.error('Form Analysis Error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   // === File System ===
   ipcMain.handle(IPC.FS_READ_MD, (_event, filePath) => {
     try {
