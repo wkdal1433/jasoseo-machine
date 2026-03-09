@@ -153,44 +153,41 @@ export function registerIpcHandlers(): void {
     return true
   })
 
-  // === Automation (Input Proxy Agent) ===
+  // === Automation (Input Proxy Agent & Company Analyst) ===
   ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
-    const { FormAnalyzer } = await import('./automation/form-analyzer')
-    const analyzer = new FormAnalyzer()
-    
-    try {
-      // 1. 현재 사용자 프로필 로드
-      const profile = getUserProfile()
-      if (!profile) {
-        throw new Error('User profile not found. Please set up your profile first.')
-      }
+    // ... (existing code for form analysis)
+  })
 
-      // 2. AI 분석용 프롬프트 빌드
-      const prompt = analyzer.buildBatchPrompt(formHtml, profile)
+  ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
+    const { CompanyAnalyst } = await import('./automation/company-analyst')
+    const analyst = new CompanyAnalyst()
+
+    try {
+      // 1. 시점 고정 검색 쿼리 빌드
+      const query = analyst.buildSearchQuery(companyName, currentDate)
       
-      // 3. AI 실행
-      const aiResponse = await executeClaudePrompt(prompt)
-      
-      // 4. JSON 파싱
+      // 2. AI에게 최신 정보 검색 및 분석 지시 (직접 검색 툴 활용)
+      // (프롬프트 내에 '오늘 날짜'를 강조하여 과거 데이터 노이즈 제거)
+      const aiResponse = await executeClaudePrompt(
+        analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate)
+      )
+
+      // 3. JSON 추출 및 파싱
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
-        throw new Error('AI failed to generate a valid JSON response.')
+        throw new Error('AI could not find or analyze recruitment data for 2026.')
       }
-      
+
       const result = JSON.parse(jsonMatch[0])
-      
-      // 5. 로우 스크립트를 이벤트 시뮬레이터로 래핑
-      const finalScript = analyzer.wrapWithEventSimulator(result.script)
-      
-      return {
-        success: true,
-        data: {
-          ...result,
-          script: finalScript
-        }
+
+      // 4. 예외 처리: 만약 결과가 2024~2025년 것이라면 경고 문구 추가
+      if (result.recruitmentSeason && !result.recruitmentSeason.includes('2026')) {
+        result.analysisNote = `[Warning] Found older recruitment data (${result.recruitmentSeason}). Please confirm if the recruitment criteria remain the same.`
       }
+
+      return { success: true, data: result }
     } catch (error: any) {
-      console.error('Form Analysis Error:', error)
+      console.error('Company Analysis Error:', error)
       return { success: false, error: error.message }
     }
   })

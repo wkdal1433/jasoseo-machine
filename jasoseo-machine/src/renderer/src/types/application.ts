@@ -12,6 +12,8 @@ export interface Application {
   id: string
   createdAt: string
   updatedAt: string
+  currentDate: string // 작성 시점 (예: 2026-03-09)
+  targetRecruitmentSeason: string // 목표 공채 시즌 (예: 2026년 상반기)
   companyName: string
   jobTitle: string
   jobPosting: string
@@ -19,6 +21,15 @@ export interface Application {
   hrIntents: HRIntentItem[] | null
   status: AppStatus
   feedbackNote: string | null
+  recruitmentContext?: RecruitmentContext // AI가 수집한 기업 정보 컨텍스트
+}
+
+export interface RecruitmentContext {
+  foundLinks: string[]
+  hiringValues: string[]
+  preferredQualifications: string[]
+  isConfirmed: boolean
+  lastUpdated: string
 }
 
 export interface CoverLetter {

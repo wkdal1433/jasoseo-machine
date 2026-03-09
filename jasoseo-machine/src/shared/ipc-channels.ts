@@ -44,9 +44,9 @@ export const IPC = {
   FS_READ_MD: 'fs:read-md',
   FS_SELECT_DIR: 'fs:select-dir',
 
-  // Automation (Input Proxy Agent)
+  // Automation (Input Proxy Agent & Company Analyst)
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',
+  ANALYZE_COMPANY: 'analyze-company',
   } as const;
-
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]
