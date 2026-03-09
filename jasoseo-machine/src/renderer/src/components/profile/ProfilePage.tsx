@@ -1,11 +1,23 @@
 import { useState, useEffect } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useProfileStore } from '../../stores/profileStore'
-import { UserProfile, EducationItem, ExperienceItem, LanguageItem, CertificateItem, ActivityItem } from '../../types/profile'
+import { 
+  UserProfile, 
+  EducationItem, 
+  ExperienceItem, 
+  LanguageItem, 
+  CertificateItem, 
+  ActivityItem,
+  TrainingItem,
+  AwardItem,
+  OverseasItem,
+  PortfolioItem 
+} from '../../types/profile'
 import { cn } from '@/lib/utils'
 
 export function ProfilePage() {
   const { profile, loadProfile, saveProfile, isLoaded } = useProfileStore()
-  const [activeTab, setActiveTab] = useState('personal')
+  const [activeTab, setActiveTab] = useState('basic')
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -29,24 +41,34 @@ export function ProfilePage() {
 
   const updatePersonal = (updates: Partial<UserProfile['personal']>) => {
     setLocalProfile({
-      ...localProfile,
-      personal: { ...localProfile.personal, ...updates }
+      ...localProfile!,
+      personal: { ...localProfile!.personal, ...updates }
     })
   }
 
-  const updateMilitary = (updates: Partial<UserProfile['military']>) => {
+  const updatePreferences = (updates: Partial<UserProfile['preferences']>) => {
     setLocalProfile({
-      ...localProfile,
-      military: { ...localProfile.military, ...updates }
+      ...localProfile!,
+      preferences: { ...localProfile!.preferences, ...updates }
+    })
+  }
+
+  const updateMilitary = (updates: Partial<UserProfile['preferences']['military']>) => {
+    setLocalProfile({
+      ...localProfile!,
+      preferences: { 
+        ...localProfile!.preferences, 
+        military: { ...localProfile!.preferences.military, ...updates } 
+      }
     })
   }
 
   const tabs = [
-    { id: 'personal', label: '인적사항/병역' },
-    { id: 'education', label: '학력' },
-    { id: 'experience', label: '경력' },
-    { id: 'skills', label: '어학/자격증' },
-    { id: 'activities', label: '기타활동' }
+    { id: 'basic', label: '기본정보/스킬' },
+    { id: 'edu_exp', label: '학력/경력' },
+    { id: 'activities', label: '대외활동/교육' },
+    { id: 'skills_lang', label: '자격/어학/수상' },
+    { id: 'etc', label: '포트폴리오/우대' }
   ]
 
   return (
@@ -54,7 +76,7 @@ export function ProfilePage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">내 프로필</h2>
-          <p className="text-muted-foreground">자소서 생성 및 지원서 자동 입력에 사용될 기본 정보를 관리합니다.</p>
+          <p className="text-muted-foreground">대기업 채용 사이트 항목에 맞춘 통합 프로필 관리 (12개 섹션)</p>
         </div>
         <button
           onClick={handleSave}
@@ -83,183 +105,286 @@ export function ProfilePage() {
       </div>
 
       <div className="flex-1 overflow-y-auto pr-2">
-        {activeTab === 'personal' && (
-          <div className="space-y-8">
+        {/* 1. 기본정보 / 2. 희망직무 / 3. 스킬 */}
+        {activeTab === 'basic' && (
+          <div className="space-y-8 pb-8">
             <section>
-              <h3 className="mb-4 text-lg font-semibold">인적사항</h3>
+              <h3 className="mb-4 text-lg font-semibold text-primary">1. 인적사항</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">이름</label>
+                  <label className="text-sm font-medium">이름 *</label>
                   <input
                     type="text"
                     value={localProfile.personal.name}
                     onChange={(e) => updatePersonal({ name: e.target.value })}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="홍길동"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">생년월일</label>
+                  <label className="text-sm font-medium">생년월일 * (YYYY.MM.DD)</label>
                   <input
                     type="text"
                     value={localProfile.personal.birthDate}
                     onChange={(e) => updatePersonal({ birthDate: e.target.value })}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="YYYY-MM-DD"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">전화번호</label>
-                  <input
-                    type="text"
-                    value={localProfile.personal.phone}
-                    onChange={(e) => updatePersonal({ phone: e.target.value })}
+                  <label className="text-sm font-medium">성별 *</label>
+                  <select
+                    value={localProfile.personal.gender}
+                    onChange={(e) => updatePersonal({ gender: e.target.value as any })}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="010-0000-0000"
-                  />
+                  >
+                    <option value="">선택</option>
+                    <option value="male">남자</option>
+                    <option value="female">여자</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">이메일</label>
+                  <label className="text-sm font-medium">이메일 *</label>
                   <input
                     type="email"
                     value={localProfile.personal.email}
                     onChange={(e) => updatePersonal({ email: e.target.value })}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="example@email.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">휴대폰번호 *</label>
+                  <input
+                    type="text"
+                    value={localProfile.personal.mobile}
+                    onChange={(e) => updatePersonal({ mobile: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">전화번호 (선택)</label>
+                  <input
+                    type="text"
+                    value={localProfile.personal.phone}
+                    onChange={(e) => updatePersonal({ phone: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
                 </div>
                 <div className="col-span-2 space-y-2">
                   <label className="text-sm font-medium">주소</label>
-                  <input
-                    type="text"
-                    value={localProfile.personal.address}
-                    onChange={(e) => updatePersonal({ address: e.target.value })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="서울시 강남구..."
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={localProfile.personal.address}
+                      onChange={(e) => updatePersonal({ address: e.target.value })}
+                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      placeholder="돋보기 아이콘 연동 검색 지원 예정"
+                    />
+                    <button className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">🔍 검색</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="mb-4 text-lg font-semibold text-primary">2. 희망직무</h3>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">희망직무 키워드 (태그)</label>
+                <div className="flex flex-wrap gap-2 rounded-md border border-input p-3 bg-accent/10">
+                  {localProfile.desiredJob.keywords.map((kw, i) => (
+                    <span key={i} className="flex items-center gap-1 rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary">
+                      {kw}
+                      <button onClick={() => {
+                        const newKw = localProfile.desiredJob.keywords.filter((_, idx) => idx !== i)
+                        setLocalProfile({ ...localProfile, desiredJob: { keywords: newKw } })
+                      }} className="hover:text-destructive">×</button>
+                    </span>
+                  ))}
+                  <input 
+                    type="text" 
+                    placeholder="엔터로 추가"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value) {
+                        const val = e.currentTarget.value
+                        if (!localProfile.desiredJob.keywords.includes(val)) {
+                          setLocalProfile({ ...localProfile, desiredJob: { keywords: [...localProfile.desiredJob.keywords, val] } })
+                        }
+                        e.currentTarget.value = ''
+                      }
+                    }}
+                    className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
                   />
                 </div>
               </div>
             </section>
 
             <section>
-              <h3 className="mb-4 text-lg font-semibold">병역사항</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">구분</label>
-                  <select
-                    value={localProfile.military.status}
-                    onChange={(e) => updateMilitary({ status: e.target.value as any })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="fulfilled">군필</option>
-                    <option value="exempted">면제</option>
-                    <option value="serving">복무중</option>
-                    <option value="not_applicable">비대상</option>
-                  </select>
+              <h3 className="mb-4 text-lg font-semibold text-primary">3. 스킬 (최대 20개)</h3>
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 rounded-md border border-input p-3 bg-accent/10">
+                  {localProfile.skills.map((skill, i) => (
+                    <span key={i} className="flex items-center gap-1 rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-600 border border-green-500/20">
+                      {skill}
+                      <button onClick={() => {
+                        const newSkills = localProfile.skills.filter((_, idx) => idx !== i)
+                        setLocalProfile({ ...localProfile, skills: newSkills })
+                      }} className="hover:text-destructive">×</button>
+                    </span>
+                  ))}
+                  {localProfile.skills.length < 20 && (
+                    <input 
+                      type="text" 
+                      placeholder="스킬 추가 (예: React, Python)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value) {
+                          const val = e.currentTarget.value
+                          if (!localProfile.skills.includes(val)) {
+                            setLocalProfile({ ...localProfile, skills: [...localProfile.skills, val] })
+                          }
+                          e.currentTarget.value = ''
+                        }
+                      }}
+                      className="flex-1 min-w-[150px] bg-transparent outline-none text-sm"
+                    />
+                  )}
                 </div>
-                {localProfile.military.status === 'fulfilled' && (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">군별</label>
-                      <input
-                        type="text"
-                        value={localProfile.military.branch || ''}
-                        onChange={(e) => updateMilitary({ branch: e.target.value })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="육군"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">계급</label>
-                      <input
-                        type="text"
-                        value={localProfile.military.rank || ''}
-                        onChange={(e) => updateMilitary({ rank: e.target.value })}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="병장"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">복무기간</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={localProfile.military.startDate || ''}
-                          onChange={(e) => updateMilitary({ startDate: e.target.value })}
-                          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          placeholder="YYYY-MM"
-                        />
-                        <span>~</span>
-                        <input
-                          type="text"
-                          value={localProfile.military.endDate || ''}
-                          onChange={(e) => updateMilitary({ endDate: e.target.value })}
-                          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          placeholder="YYYY-MM"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <span>{localProfile.skills.length}/20 선택됨</span>
+                  <button 
+                    onClick={() => setLocalProfile({ ...localProfile, skills: [] })}
+                    className="text-destructive hover:underline"
+                  >초기화</button>
+                </div>
               </div>
             </section>
           </div>
         )}
 
-        {activeTab === 'education' && (
-          <ItemList
-            title="학력사항"
-            items={localProfile.education}
-            onAdd={() => {
-              const newItem: EducationItem = {
-                id: crypto.randomUUID(),
-                type: 'university',
-                name: '',
-                startDate: '',
-                endDate: ''
-              }
-              setLocalProfile({ ...localProfile, education: [...localProfile.education, newItem] })
-            }}
-            onRemove={(id) => {
-              setLocalProfile({ ...localProfile, education: localProfile.education.filter(i => i.id !== id) })
-            }}
-            renderItem={(item, index) => (
-              <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">구분</label>
-                  <select
-                    value={item.type}
-                    onChange={(e) => {
-                      const newEdu = [...localProfile.education]
-                      newEdu[index] = { ...item, type: e.target.value as any }
-                      setLocalProfile({ ...localProfile, education: newEdu })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="university">대학교</option>
-                    <option value="graduate">대학원</option>
-                    <option value="highschool">고등학교</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">학교명</label>
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => {
-                      const newEdu = [...localProfile.education]
-                      newEdu[index] = { ...item, name: e.target.value }
-                      setLocalProfile({ ...localProfile, education: newEdu })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-                {item.type !== 'highschool' && (
+        {/* 4. 학력 / 5. 경력 */}
+        {activeTab === 'edu_exp' && (
+          <div className="space-y-12 pb-8">
+            <ItemList
+              title="4. 학력사항"
+              items={localProfile.education}
+              onAdd={() => {
+                const newItem: EducationItem = {
+                  id: uuidv4(),
+                  type: 'university',
+                  name: '',
+                  startDate: '',
+                  endDate: '',
+                  status: '',
+                  major: ''
+                }
+                setLocalProfile({ ...localProfile, education: [...localProfile.education, newItem] })
+              }}
+              onRemove={(id) => {
+                setLocalProfile({ ...localProfile, education: localProfile.education.filter(i => i.id !== id) })
+              }}
+              renderItem={(item, index) => (
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
+                  <div className="flex items-center gap-2 col-span-2 mb-2">
+                    <input 
+                      type="checkbox" 
+                      checked={item.isUnderHighSchool}
+                      onChange={(e) => {
+                        const newEdu = [...localProfile.education]
+                        newEdu[index] = { ...item, isUnderHighSchool: e.target.checked }
+                        setLocalProfile({ ...localProfile, education: newEdu })
+                      }}
+                    />
+                    <label className="text-xs">고등학교 미만 졸업 여부</label>
+                  </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">전공</label>
+                    <label className="text-sm font-medium">학교구분</label>
+                    <select
+                      value={item.type}
+                      onChange={(e) => {
+                        const newEdu = [...localProfile.education]
+                        newEdu[index] = { ...item, type: e.target.value as any }
+                        setLocalProfile({ ...localProfile, education: newEdu })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="university">대학교</option>
+                      <option value="graduate">대학원</option>
+                      <option value="highschool">고등학교</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">학교명 *</label>
                     <input
                       type="text"
-                      value={item.major || ''}
+                      value={item.name}
+                      onChange={(e) => {
+                        const newEdu = [...localProfile.education]
+                        newEdu[index] = { ...item, name: e.target.value }
+                        setLocalProfile({ ...localProfile, education: newEdu })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">재학기간 *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item.startDate}
+                        onChange={(e) => {
+                          const newEdu = [...localProfile.education]
+                          newEdu[index] = { ...item, startDate: e.target.value }
+                          setLocalProfile({ ...localProfile, education: newEdu })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="입학년월"
+                      />
+                      <span>~</span>
+                      <input
+                        type="text"
+                        value={item.endDate}
+                        onChange={(e) => {
+                          const newEdu = [...localProfile.education]
+                          newEdu[index] = { ...item, endDate: e.target.value }
+                          setLocalProfile({ ...localProfile, education: newEdu })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="졸업년월"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">졸업상태</label>
+                    <select
+                      value={item.status}
+                      onChange={(e) => {
+                        const newEdu = [...localProfile.education]
+                        newEdu[index] = { ...item, status: e.target.value as any }
+                        setLocalProfile({ ...localProfile, education: newEdu })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">선택</option>
+                      <option value="graduated">졸업</option>
+                      <option value="expected">졸업예정</option>
+                      <option value="attending">재학</option>
+                      <option value="dropout">중퇴</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={item.isTransfer}
+                      onChange={(e) => {
+                        const newEdu = [...localProfile.education]
+                        newEdu[index] = { ...item, isTransfer: e.target.checked }
+                        setLocalProfile({ ...localProfile, education: newEdu })
+                      }}
+                    />
+                    <label className="text-xs">편입 여부</label>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">전공명 *</label>
+                    <input
+                      type="text"
+                      value={item.major}
                       onChange={(e) => {
                         const newEdu = [...localProfile.education]
                         newEdu[index] = { ...item, major: e.target.value }
@@ -268,36 +393,6 @@ export function ProfilePage() {
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">재학기간</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={item.startDate}
-                      onChange={(e) => {
-                        const newEdu = [...localProfile.education]
-                        newEdu[index] = { ...item, startDate: e.target.value }
-                        setLocalProfile({ ...localProfile, education: newEdu })
-                      }}
-                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="YYYY-MM"
-                    />
-                    <span>~</span>
-                    <input
-                      type="text"
-                      value={item.endDate}
-                      onChange={(e) => {
-                        const newEdu = [...localProfile.education]
-                        newEdu[index] = { ...item, endDate: e.target.value }
-                        setLocalProfile({ ...localProfile, education: newEdu })
-                      }}
-                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="YYYY-MM (혹은 졸업예정)"
-                    />
-                  </div>
-                </div>
-                {item.type !== 'highschool' && (
                   <div className="col-span-2 grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">학점</label>
@@ -314,7 +409,7 @@ export function ProfilePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">기준학점</label>
+                      <label className="text-sm font-medium">총점</label>
                       <input
                         type="text"
                         value={item.gpaScale || ''}
@@ -328,148 +423,250 @@ export function ProfilePage() {
                       />
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          />
-        )}
+                </div>
+              )}
+            />
 
-        {activeTab === 'experience' && (
-          <ItemList
-            title="경력사항"
-            items={localProfile.experience}
-            onAdd={() => {
-              const newItem: ExperienceItem = {
-                id: crypto.randomUUID(),
-                companyName: '',
-                role: '',
-                period: '',
-                description: ''
-              }
-              setLocalProfile({ ...localProfile, experience: [...localProfile.experience, newItem] })
-            }}
-            onRemove={(id) => {
-              setLocalProfile({ ...localProfile, experience: localProfile.experience.filter(i => i.id !== id) })
-            }}
-            renderItem={(item, index) => (
-              <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">회사명</label>
-                  <input
-                    type="text"
-                    value={item.companyName}
-                    onChange={(e) => {
-                      const newExp = [...localProfile.experience]
-                      newExp[index] = { ...item, companyName: e.target.value }
-                      setLocalProfile({ ...localProfile, experience: newExp })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">직무/직위</label>
-                  <input
-                    type="text"
-                    value={item.role}
-                    onChange={(e) => {
-                      const newExp = [...localProfile.experience]
-                      newExp[index] = { ...item, role: e.target.value }
-                      setLocalProfile({ ...localProfile, experience: newExp })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-sm font-medium">근무기간</label>
-                  <input
-                    type="text"
-                    value={item.period}
-                    onChange={(e) => {
-                      const newExp = [...localProfile.experience]
-                      newExp[index] = { ...item, period: e.target.value }
-                      setLocalProfile({ ...localProfile, experience: newExp })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="2023.01 ~ 2023.12"
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-sm font-medium">주요 업무 및 성과</label>
-                  <textarea
-                    value={item.description}
-                    onChange={(e) => {
-                      const newExp = [...localProfile.experience]
-                      newExp[index] = { ...item, description: e.target.value }
-                      setLocalProfile({ ...localProfile, experience: newExp })
-                    }}
-                    className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="- OOO 프로젝트 진행&#10;- 기술 스택: React, TypeScript&#10;- 성과: 빌드 속도 30% 개선"
-                  />
-                </div>
-              </div>
-            )}
-          />
-        )}
-
-        {activeTab === 'skills' && (
-          <div className="space-y-8">
             <ItemList
-              title="어학성적"
-              items={localProfile.languages}
+              title="5. 경력사항"
+              items={localProfile.experience}
               onAdd={() => {
-                const newItem: LanguageItem = {
-                  id: crypto.randomUUID(),
-                  test: '',
-                  score: '',
-                  date: ''
+                const newItem: ExperienceItem = {
+                  id: uuidv4(),
+                  companyName: '',
+                  dept: '',
+                  startDate: '',
+                  endDate: '',
+                  rank: '',
+                  jobCategory: '',
+                  description: '',
+                  isPublic: { salary: true, description: true, companyName: true }
                 }
-                setLocalProfile({ ...localProfile, languages: [...localProfile.languages, newItem] })
+                setLocalProfile({ ...localProfile, experience: [...localProfile.experience, newItem] })
               }}
               onRemove={(id) => {
-                setLocalProfile({ ...localProfile, languages: localProfile.languages.filter(i => i.id !== id) })
+                setLocalProfile({ ...localProfile, experience: localProfile.experience.filter(i => i.id !== id) })
               }}
               renderItem={(item, index) => (
-                <div className="grid grid-cols-3 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">시험명</label>
+                    <label className="text-sm font-medium">회사명 *</label>
                     <input
                       type="text"
-                      value={item.test}
+                      value={item.companyName}
                       onChange={(e) => {
-                        const newLang = [...localProfile.languages]
-                        newLang[index] = { ...item, test: e.target.value }
-                        setLocalProfile({ ...localProfile, languages: newLang })
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, companyName: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="TOEIC"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">점수/급수</label>
+                    <label className="text-sm font-medium">부서명</label>
                     <input
                       type="text"
-                      value={item.score}
+                      value={item.dept}
                       onChange={(e) => {
-                        const newLang = [...localProfile.languages]
-                        newLang[index] = { ...item, score: e.target.value }
-                        setLocalProfile({ ...localProfile, languages: newLang })
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, dept: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="900"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">취득일</label>
+                    <label className="text-sm font-medium">근무기간 *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item.startDate}
+                        onChange={(e) => {
+                          const newExp = [...localProfile.experience]
+                          newExp[index] = { ...item, startDate: e.target.value }
+                          setLocalProfile({ ...localProfile, experience: newExp })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="입사년월"
+                      />
+                      {!item.isCurrent && (
+                        <>
+                          <span>~</span>
+                          <input
+                            type="text"
+                            value={item.endDate}
+                            onChange={(e) => {
+                              const newExp = [...localProfile.experience]
+                              newExp[index] = { ...item, endDate: e.target.value }
+                              setLocalProfile({ ...localProfile, experience: newExp })
+                            }}
+                            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            placeholder="퇴사년월"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={item.isCurrent}
+                      onChange={(e) => {
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, isCurrent: e.target.checked }
+                        setLocalProfile({ ...localProfile, experience: newExp })
+                      }}
+                    />
+                    <label className="text-xs">재직중</label>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">직급/직책</label>
                     <input
                       type="text"
-                      value={item.date}
+                      value={item.rank}
                       onChange={(e) => {
-                        const newLang = [...localProfile.languages]
-                        newLang[index] = { ...item, date: e.target.value }
-                        setLocalProfile({ ...localProfile, languages: newLang })
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, rank: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="YYYY-MM-DD"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">담당직무 *</label>
+                    <input
+                      type="text"
+                      value={item.jobCategory}
+                      onChange={(e) => {
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, jobCategory: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">연봉 (만원)</label>
+                    <input
+                      type="text"
+                      value={item.salary || ''}
+                      onChange={(e) => {
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, salary: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-sm font-medium">담당업무 *</label>
+                    <textarea
+                      value={item.description}
+                      onChange={(e) => {
+                        const newExp = [...localProfile.experience]
+                        newExp[index] = { ...item, description: e.target.value }
+                        setLocalProfile({ ...localProfile, experience: newExp })
+                      }}
+                      className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            />
+          </div>
+        )}
+
+        {/* 6. 인턴/대외활동 / 7. 교육 */}
+        {activeTab === 'activities' && (
+          <div className="space-y-12 pb-8">
+            <ItemList
+              title="6. 인턴·대외활동"
+              items={localProfile.activities}
+              onAdd={() => {
+                const newItem: ActivityItem = {
+                  id: uuidv4(),
+                  type: '',
+                  organization: '',
+                  startDate: '',
+                  endDate: '',
+                  description: ''
+                }
+                setLocalProfile({ ...localProfile, activities: [...localProfile.activities, newItem] })
+              }}
+              onRemove={(id) => {
+                setLocalProfile({ ...localProfile, activities: localProfile.activities.filter(i => i.id !== id) })
+              }}
+              renderItem={(item, index) => (
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">활동구분</label>
+                    <select
+                      value={item.type}
+                      onChange={(e) => {
+                        const newAct = [...localProfile.activities]
+                        newAct[index] = { ...item, type: e.target.value as any }
+                        setLocalProfile({ ...localProfile, activities: newAct })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">선택</option>
+                      <option value="campus">교내활동</option>
+                      <option value="social">사회활동</option>
+                      <option value="club">동아리</option>
+                      <option value="etc">기타</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">회사/기관/단체명 *</label>
+                    <input
+                      type="text"
+                      value={item.organization}
+                      onChange={(e) => {
+                        const newAct = [...localProfile.activities]
+                        newAct[index] = { ...item, organization: e.target.value }
+                        setLocalProfile({ ...localProfile, activities: newAct })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-sm font-medium">활동기간</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item.startDate}
+                        onChange={(e) => {
+                          const newAct = [...localProfile.activities]
+                          newAct[index] = { ...item, startDate: e.target.value }
+                          setLocalProfile({ ...localProfile, activities: newAct })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="시작년월"
+                      />
+                      <span>~</span>
+                      <input
+                        type="text"
+                        value={item.endDate}
+                        onChange={(e) => {
+                          const newAct = [...localProfile.activities]
+                          newAct[index] = { ...item, endDate: e.target.value }
+                          setLocalProfile({ ...localProfile, activities: newAct })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="종료년월"
+                      />
+                    </div>
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-sm font-medium">활동내용</label>
+                    <textarea
+                      value={item.description}
+                      onChange={(e) => {
+                        const newAct = [...localProfile.activities]
+                        newAct[index] = { ...item, description: e.target.value }
+                        setLocalProfile({ ...localProfile, activities: newAct })
+                      }}
+                      className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                   </div>
                 </div>
@@ -477,15 +674,104 @@ export function ProfilePage() {
             />
 
             <ItemList
-              title="자격증"
+              title="7. 교육사항"
+              items={localProfile.training}
+              onAdd={() => {
+                const newItem: TrainingItem = {
+                  id: uuidv4(),
+                  name: '',
+                  organization: '',
+                  startDate: '',
+                  endDate: '',
+                  description: ''
+                }
+                setLocalProfile({ ...localProfile, training: [...localProfile.training, newItem] })
+              }}
+              onRemove={(id) => {
+                setLocalProfile({ ...localProfile, training: localProfile.training.filter(i => i.id !== id) })
+              }}
+              renderItem={(item, index) => (
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">교육명 *</label>
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => {
+                        const newTr = [...localProfile.training]
+                        newTr[index] = { ...item, name: e.target.value }
+                        setLocalProfile({ ...localProfile, training: newTr })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">교육기관</label>
+                    <input
+                      type="text"
+                      value={item.organization}
+                      onChange={(e) => {
+                        const newTr = [...localProfile.training]
+                        newTr[index] = { ...item, organization: e.target.value }
+                        setLocalProfile({ ...localProfile, training: newTr })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-sm font-medium">교육기간</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={item.startDate}
+                        onChange={(e) => {
+                          const newTr = [...localProfile.training]
+                          newTr[index] = { ...item, startDate: e.target.value }
+                          setLocalProfile({ ...localProfile, training: newTr })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="시작년월"
+                      />
+                      <span>~</span>
+                      <input
+                        type="text"
+                        value={item.endDate}
+                        onChange={(e) => {
+                          const newTr = [...localProfile.training]
+                          newTr[index] = { ...item, endDate: e.target.value }
+                          setLocalProfile({ ...localProfile, training: newTr })
+                        }}
+                        className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="종료년월"
+                      />
+                    </div>
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-sm font-medium">내용</label>
+                    <textarea
+                      value={item.description}
+                      onChange={(e) => {
+                        const newTr = [...localProfile.training]
+                        newTr[index] = { ...item, description: e.target.value }
+                        setLocalProfile({ ...localProfile, training: newTr })
+                      }}
+                      className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            />
+          </div>
+        )}
+
+        {/* 8. 자격증 / 9. 수상/해외경험 / 10. 어학 */}
+        {activeTab === 'skills_lang' && (
+          <div className="space-y-12 pb-8">
+            <ItemList
+              title="8. 자격증"
               items={localProfile.certificates}
               onAdd={() => {
-                const newItem: CertificateItem = {
-                  id: crypto.randomUUID(),
-                  name: '',
-                  date: '',
-                  issuer: ''
-                }
+                const newItem: CertificateItem = { id: uuidv4(), name: '', issuer: '', date: '' }
                 setLocalProfile({ ...localProfile, certificates: [...localProfile.certificates, newItem] })
               }}
               onRemove={(id) => {
@@ -494,7 +780,7 @@ export function ProfilePage() {
               renderItem={(item, index) => (
                 <div className="grid grid-cols-3 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">자격증명</label>
+                    <label className="text-sm font-medium">자격증 명 *</label>
                     <input
                       type="text"
                       value={item.name}
@@ -507,7 +793,7 @@ export function ProfilePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">발급기관</label>
+                    <label className="text-sm font-medium">발행처</label>
                     <input
                       type="text"
                       value={item.issuer}
@@ -520,7 +806,7 @@ export function ProfilePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">취득일</label>
+                    <label className="text-sm font-medium">취득월</label>
                     <input
                       type="text"
                       value={item.date}
@@ -530,89 +816,327 @@ export function ProfilePage() {
                         setLocalProfile({ ...localProfile, certificates: newCert })
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="YYYY-MM-DD"
+                      placeholder="YYYY.MM"
                     />
                   </div>
+                </div>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-8">
+              <ItemList
+                title="9-1. 수상"
+                items={localProfile.awards}
+                onAdd={() => {
+                  const newItem: AwardItem = { id: uuidv4(), name: '', issuer: '', date: '', description: '' }
+                  setLocalProfile({ ...localProfile, awards: [...localProfile.awards, newItem] })
+                }}
+                onRemove={(id) => {
+                  setLocalProfile({ ...localProfile, awards: localProfile.awards.filter(i => i.id !== id) })
+                }}
+                renderItem={(item, index) => (
+                  <div className="space-y-2 p-4 border rounded-md mb-4 bg-accent/30">
+                    <input
+                      type="text"
+                      value={item.name}
+                      placeholder="수상명 *"
+                      onChange={(e) => {
+                        const newAwards = [...localProfile.awards]
+                        newAwards[index] = { ...item, name: e.target.value }
+                        setLocalProfile({ ...localProfile, awards: newAwards })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={item.issuer}
+                        placeholder="수여기관"
+                        onChange={(e) => {
+                          const newAwards = [...localProfile.awards]
+                          newAwards[index] = { ...item, issuer: e.target.value }
+                          setLocalProfile({ ...localProfile, awards: newAwards })
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={item.date}
+                        placeholder="수상연도"
+                        onChange={(e) => {
+                          const newAwards = [...localProfile.awards]
+                          newAwards[index] = { ...item, date: e.target.value }
+                          setLocalProfile({ ...localProfile, awards: newAwards })
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <textarea
+                      value={item.description}
+                      placeholder="수여내용"
+                      onChange={(e) => {
+                        const newAwards = [...localProfile.awards]
+                        newAwards[index] = { ...item, description: e.target.value }
+                        setLocalProfile({ ...localProfile, awards: newAwards })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs h-20"
+                    />
+                  </div>
+                )}
+              />
+              <ItemList
+                title="9-2. 해외경험"
+                items={localProfile.overseas}
+                onAdd={() => {
+                  const newItem: OverseasItem = { id: uuidv4(), country: '', startDate: '', endDate: '', description: '' }
+                  setLocalProfile({ ...localProfile, overseas: [...localProfile.overseas, newItem] })
+                }}
+                onRemove={(id) => {
+                  setLocalProfile({ ...localProfile, overseas: localProfile.overseas.filter(i => i.id !== id) })
+                }}
+                renderItem={(item, index) => (
+                  <div className="space-y-2 p-4 border rounded-md mb-4 bg-accent/30">
+                    <input
+                      type="text"
+                      value={item.country}
+                      placeholder="국가명 *"
+                      onChange={(e) => {
+                        const newOverseas = [...localProfile.overseas]
+                        newOverseas[index] = { ...item, country: e.target.value }
+                        setLocalProfile({ ...localProfile, overseas: newOverseas })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={item.startDate}
+                        placeholder="시작년월"
+                        onChange={(e) => {
+                          const newOverseas = [...localProfile.overseas]
+                          newOverseas[index] = { ...item, startDate: e.target.value }
+                          setLocalProfile({ ...localProfile, overseas: newOverseas })
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={item.endDate}
+                        placeholder="종료년월"
+                        onChange={(e) => {
+                          const newOverseas = [...localProfile.overseas]
+                          newOverseas[index] = { ...item, endDate: e.target.value }
+                          setLocalProfile({ ...localProfile, overseas: newOverseas })
+                        }}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <textarea
+                      value={item.description}
+                      placeholder="내용"
+                      onChange={(e) => {
+                        const newOverseas = [...localProfile.overseas]
+                        newOverseas[index] = { ...item, description: e.target.value }
+                        setLocalProfile({ ...localProfile, overseas: newOverseas })
+                      }}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs h-20"
+                    />
+                  </div>
+                )}
+              />
+            </div>
+
+            <ItemList
+              title="10. 어학사항"
+              items={localProfile.languages}
+              onAdd={() => {
+                const newItem: LanguageItem = { id: uuidv4(), category: '', language: '', testName: '', grade: '', date: '' }
+                setLocalProfile({ ...localProfile, languages: [...localProfile.languages, newItem] })
+              }}
+              onRemove={(id) => {
+                setLocalProfile({ ...localProfile, languages: localProfile.languages.filter(i => i.id !== id) })
+              }}
+              renderItem={(item, index) => (
+                <div className="grid grid-cols-5 gap-2 p-4 border rounded-md mb-4 bg-accent/30">
+                  <input
+                    type="text"
+                    placeholder="구분"
+                    value={item.category}
+                    onChange={(e) => {
+                      const newL = [...localProfile.languages]
+                      newL[index] = { ...item, category: e.target.value }
+                      setLocalProfile({ ...localProfile, languages: newL })
+                    }}
+                    className="rounded-md border border-input bg-background px-2 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="외국어명"
+                    value={item.language}
+                    onChange={(e) => {
+                      const newL = [...localProfile.languages]
+                      newL[index] = { ...item, language: e.target.value }
+                      setLocalProfile({ ...localProfile, languages: newL })
+                    }}
+                    className="rounded-md border border-input bg-background px-2 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="공인시험"
+                    value={item.testName}
+                    onChange={(e) => {
+                      const newL = [...localProfile.languages]
+                      newL[index] = { ...item, testName: e.target.value }
+                      setLocalProfile({ ...localProfile, languages: newL })
+                    }}
+                    className="rounded-md border border-input bg-background px-2 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="급수/점수"
+                    value={item.grade}
+                    onChange={(e) => {
+                      const newL = [...localProfile.languages]
+                      newL[index] = { ...item, grade: e.target.value }
+                      setLocalProfile({ ...localProfile, languages: newL })
+                    }}
+                    className="rounded-md border border-input bg-background px-2 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="취득년월"
+                    value={item.date}
+                    onChange={(e) => {
+                      const newL = [...localProfile.languages]
+                      newL[index] = { ...item, date: e.target.value }
+                      setLocalProfile({ ...localProfile, languages: newL })
+                    }}
+                    className="rounded-md border border-input bg-background px-2 py-2 text-xs"
+                  />
                 </div>
               )}
             />
           </div>
         )}
 
-        {activeTab === 'activities' && (
-          <ItemList
-            title="기타활동 (대외활동/동아리/수상 등)"
-            items={localProfile.activities}
-            onAdd={() => {
-              const newItem: ActivityItem = {
-                id: crypto.randomUUID(),
-                name: '',
-                role: '',
-                period: '',
-                description: ''
-              }
-              setLocalProfile({ ...localProfile, activities: [...localProfile.activities, newItem] })
-            }}
-            onRemove={(id) => {
-              setLocalProfile({ ...localProfile, activities: localProfile.activities.filter(i => i.id !== id) })
-            }}
-            renderItem={(item, index) => (
-              <div className="grid grid-cols-2 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">활동명</label>
+        {/* 11. 포트폴리오 / 12. 우대/병역 */}
+        {activeTab === 'etc' && (
+          <div className="space-y-12 pb-8">
+            <ItemList
+              title="11. 포트폴리오"
+              items={localProfile.portfolio}
+              onAdd={() => {
+                const newItem: PortfolioItem = { id: uuidv4(), type: '', label: '', path: '' }
+                setLocalProfile({ ...localProfile, portfolio: [...localProfile.portfolio, newItem] })
+              }}
+              onRemove={(id) => {
+                setLocalProfile({ ...localProfile, portfolio: localProfile.portfolio.filter(i => i.id !== id) })
+              }}
+              renderItem={(item, index) => (
+                <div className="grid grid-cols-4 gap-4 p-4 border rounded-md mb-4 bg-accent/30">
+                  <select
+                    value={item.type}
+                    onChange={(e) => {
+                      const newP = [...localProfile.portfolio]
+                      newP[index] = { ...item, type: e.target.value as any }
+                      setLocalProfile({ ...localProfile, portfolio: newP })
+                    }}
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">유형 선택</option>
+                    <option value="url">URL 추가</option>
+                    <option value="pc">내 PC 파일</option>
+                    <option value="cloud">내 파일함</option>
+                  </select>
                   <input
                     type="text"
-                    value={item.name}
+                    placeholder="라벨 (예: 기타)"
+                    value={item.label}
                     onChange={(e) => {
-                      const newAct = [...localProfile.activities]
-                      newAct[index] = { ...item, name: e.target.value }
-                      setLocalProfile({ ...localProfile, activities: newAct })
+                      const newP = [...localProfile.portfolio]
+                      newP[index] = { ...item, label: e.target.value }
+                      setLocalProfile({ ...localProfile, portfolio: newP })
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">역할</label>
                   <input
                     type="text"
-                    value={item.role}
+                    placeholder="링크/파일 경로"
+                    value={item.path}
                     onChange={(e) => {
-                      const newAct = [...localProfile.activities]
-                      newAct[index] = { ...item, role: e.target.value }
-                      setLocalProfile({ ...localProfile, activities: newAct })
+                      const newP = [...localProfile.portfolio]
+                      newP[index] = { ...item, path: e.target.value }
+                      setLocalProfile({ ...localProfile, portfolio: newP })
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="col-span-2 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-sm font-medium">활동기간</label>
-                  <input
-                    type="text"
-                    value={item.period}
-                    onChange={(e) => {
-                      const newAct = [...localProfile.activities]
-                      newAct[index] = { ...item, period: e.target.value }
-                      setLocalProfile({ ...localProfile, activities: newAct })
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="2023.01 ~ 2023.12"
-                  />
+              )}
+            />
+
+            <section>
+              <h3 className="mb-4 text-lg font-semibold text-primary">12. 취업우대·병역</h3>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 rounded-md border p-4 bg-accent/10">
+                  <div className="flex items-center justify-between p-2 border-b">
+                    <span className="text-sm">보훈 대상</span>
+                    <input type="checkbox" checked={localProfile.preferences.isVeteran} onChange={(e) => updatePreferences({ isVeteran: e.target.checked })} />
+                  </div>
+                  <div className="flex items-center justify-between p-2 border-b">
+                    <span className="text-sm">취업보호 대상</span>
+                    <input type="checkbox" checked={localProfile.preferences.isProtection} onChange={(e) => updatePreferences({ isProtection: e.target.checked })} />
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <span className="text-sm">고용지원금 대상</span>
+                    <input type="checkbox" checked={localProfile.preferences.isSubsidy} onChange={(e) => updatePreferences({ isSubsidy: e.target.checked })} />
+                  </div>
+                  <div className="flex items-center justify-between p-2">
+                    <span className="text-sm">장애 여부</span>
+                    <input type="checkbox" checked={localProfile.preferences.isDisabled} onChange={(e) => updatePreferences({ isDisabled: e.target.checked })} />
+                  </div>
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-sm font-medium">활동 내용</label>
-                  <textarea
-                    value={item.description}
-                    onChange={(e) => {
-                      const newAct = [...localProfile.activities]
-                      newAct[index] = { ...item, description: e.target.value }
-                      setLocalProfile({ ...localProfile, activities: newAct })
-                    }}
-                    className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
+
+                <div className="space-y-4 p-4 border rounded-md">
+                  <h4 className="text-sm font-semibold">병역 사항</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">병역 상태</label>
+                      <select
+                        value={localProfile.preferences.military.status}
+                        onChange={(e) => updateMilitary({ status: e.target.value as any })}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">선택</option>
+                        <option value="fulfilled">군필</option>
+                        <option value="exempted">면제</option>
+                        <option value="serving">복무중</option>
+                        <option value="not_applicable">비대상</option>
+                      </select>
+                    </div>
+                    {localProfile.preferences.military.status === 'fulfilled' && (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">군별/계급</label>
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="군별" value={localProfile.preferences.military.branch || ''} onChange={(e) => updateMilitary({ branch: e.target.value })} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                            <input type="text" placeholder="계급" value={localProfile.preferences.military.rank || ''} onChange={(e) => updateMilitary({ rank: e.target.value })} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium">복무 기간</label>
+                          <div className="flex items-center gap-2">
+                            <input type="text" placeholder="입대일" value={localProfile.preferences.military.startDate || ''} onChange={(e) => updateMilitary({ startDate: e.target.value })} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                            <span>~</span>
+                            <input type="text" placeholder="제대일" value={localProfile.preferences.military.endDate || ''} onChange={(e) => updateMilitary({ endDate: e.target.value })} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          />
+            </section>
+          </div>
         )}
       </div>
     </div>
@@ -630,32 +1154,34 @@ interface ItemListProps<T> {
 function ItemList<T extends { id: string }>({ title, items, onAdd, onRemove, renderItem }: ItemListProps<T>) {
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{title}</h3>
+      <div className="mb-4 flex items-center justify-between border-b pb-2">
+        <h3 className="text-lg font-semibold text-primary">{title}</h3>
         <button
           onClick={onAdd}
-          className="text-sm font-medium text-primary hover:underline"
+          className="text-sm font-medium text-primary hover:underline bg-primary/10 px-3 py-1 rounded-full"
         >
           + 추가하기
         </button>
       </div>
       {items.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-md border border-dashed border-border bg-accent/10 text-muted-foreground">
+        <div className="flex h-20 items-center justify-center rounded-md border border-dashed border-border bg-accent/10 text-muted-foreground text-sm">
           등록된 정보가 없습니다.
         </div>
       ) : (
-        items.map((item, index) => (
-          <div key={item.id} className="group relative">
-            {renderItem(item, index)}
-            <button
-              onClick={() => onRemove(item.id)}
-              className="absolute right-2 top-2 rounded-md bg-destructive/10 p-1.5 text-destructive opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-              title="삭제"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-            </button>
-          </div>
-        ))
+        <div className="space-y-4">
+          {items.map((item, index) => (
+            <div key={item.id} className="group relative">
+              {renderItem(item, index)}
+              <button
+                onClick={() => onRemove(item.id)}
+                className="absolute right-[-12px] top-[-12px] rounded-full bg-destructive p-1.5 text-destructive-foreground opacity-0 shadow-lg transition-opacity hover:scale-110 group-hover:opacity-100 z-10"
+                title="삭제"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   )
