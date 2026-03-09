@@ -70,8 +70,8 @@ export function MagicOnboarding({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
-      <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
+    <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">
+      <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg flex-1">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
@@ -81,8 +81,8 @@ export function MagicOnboarding({ onClose }: Props) {
               <p className="text-xs text-muted-foreground">기존 자소서만 주시면 나머지는 제가 다 할게요.</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors text-muted-foreground">
+            뒤로가기
           </button>
         </div>
 

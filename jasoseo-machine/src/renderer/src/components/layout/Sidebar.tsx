@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { path: '/', label: '대시보드', icon: '🏠' },
   { path: '/wizard', label: '새 지원서', icon: '✍️' },
+  { path: '/onboarding', label: '매직 온보딩', icon: '🧙‍♂️' },
   { path: '/profile', label: '내 프로필', icon: '👤' },
   { path: '/episodes', label: '에피소드', icon: '📋' },
   { path: '/history', label: '작성 이력', icon: '📁' },
@@ -37,7 +38,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="border-t border-border p-3">
-        <p className="text-xs text-muted-foreground">v1.0.0 MVP</p>
+        <p className="text-xs text-muted-foreground text-center font-bold">v6.0.0 Stable</p>
       </div>
     </aside>
   )
