@@ -4,6 +4,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
+import { MagicOnboarding } from './MagicOnboarding'
 
 interface DraftItem {
   applicationId: string
@@ -19,6 +20,7 @@ export function DashboardPage() {
   const { applications, loadApplications } = useHistoryStore()
   const wizardStore = useWizardStore()
   const [drafts, setDrafts] = useState<DraftItem[]>([])
+  const [isMagicOnboardingOpen, setIsMagicOnboardingOpen] = useState(false)
 
   useEffect(() => {
     loadEpisodes()
@@ -84,6 +86,32 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
+      {/* Magic Onboarding Banner */}
+      {(episodes.length === 0 && drafts.length === 0) && (
+        <div className="mb-10 overflow-hidden rounded-3xl border border-primary/20 bg-primary/5 p-8 shadow-sm animate-in slide-in-from-top duration-700">
+          <div className="flex items-center justify-between">
+            <div className="max-w-2xl">
+              <h3 className="text-2xl font-bold text-primary flex items-center gap-2">
+                <span>🧙‍♂️</span> 매직 온보딩으로 1분 만에 시작하기
+              </h3>
+              <p className="mt-2 text-muted-foreground leading-relaxed">
+                기존에 작성했던 자기소개서나 이력서 파일(PDF/MD)을 업로드해보세요.<br/>
+                AI가 12개 섹션 프로필과 고품질 에피소드를 자동으로 세팅해 드립니다.
+              </p>
+              <button 
+                onClick={() => setIsMagicOnboardingOpen(true)}
+                className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all hover:scale-105"
+              >
+                마법 시작하기 →
+              </button>
+            </div>
+            <div className="hidden lg:block text-8xl opacity-20 select-none">
+              ✨
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Start */}
       <div className="mb-10 flex flex-col items-center">
         <h2 className="mb-4 text-2xl font-bold">자소서 머신</h2>
@@ -143,7 +171,15 @@ export function DashboardPage() {
 
       {/* Episode Grid */}
       <div className="mb-8">
-        <h3 className="mb-4 text-lg font-semibold">Episode 현황</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Episode 현황</h3>
+          <button 
+            onClick={() => setIsMagicOnboardingOpen(true)}
+            className="text-xs font-bold text-primary hover:underline"
+          >
+            + 기존 자소서로 추가하기
+          </button>
+        </div>
         <div className="grid grid-cols-4 gap-3">
           {episodes.map((ep) => (
             <div
@@ -208,6 +244,14 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Magic Onboarding Modal */}
+      {isMagicOnboardingOpen && (
+        <MagicOnboarding onClose={() => {
+          setIsMagicOnboardingOpen(false)
+          loadEpisodes()
+        }} />
+      )}
     </div>
   )
 }

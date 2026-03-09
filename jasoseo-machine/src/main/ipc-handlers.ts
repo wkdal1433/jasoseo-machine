@@ -251,14 +251,18 @@ export function registerIpcHandlers(): void {
   }
 
   if (IPC.ANALYZE_COMPANY) {
-    ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
-      const { CompanyAnalyst } = await import('./automation/company-analyst')
-      const analyst = new CompanyAnalyst()
+    // ... (existing code)
+  }
+
+  if (IPC.ONBOARDING_PARSE_FILE) {
+    ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, rawText) => {
+      const { OnboardingAgent } = await import('./automation/onboarding-agent')
+      const agent = new OnboardingAgent()
       try {
-        const query = analyst.buildSearchQuery(companyName, currentDate)
-        const aiResponse = await executeClaudePrompt(analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate))
+        const prompt = agent.buildExtractionPrompt(rawText)
+        const aiResponse = await executeClaudePrompt(prompt)
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('AI analysis failed.')
+        if (!jsonMatch) throw new Error('AI extraction failed.')
         const result = JSON.parse(jsonMatch[0])
         return { success: true, data: result }
       } catch (error: any) {

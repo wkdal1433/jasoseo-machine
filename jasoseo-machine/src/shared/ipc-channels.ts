@@ -53,7 +53,8 @@ export const IPC = {
 
   // Automation
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',
-  ANALYZE_COMPANY: 'analyze-company'
+  ANALYZE_COMPANY: 'analyze-company',
+  ONBOARDING_PARSE_FILE: 'onboarding:parse-file'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

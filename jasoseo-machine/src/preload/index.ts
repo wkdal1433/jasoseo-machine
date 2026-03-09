@@ -71,8 +71,10 @@ const api = {
   userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),
   userProfileSave: (profile: unknown) => ipcRenderer.invoke(IPC.USER_PROFILE_SAVE, profile),
 
-  // Automation (Input Proxy Agent)
-  analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html)
+  // Automation
+  analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html),
+  analyzeCompany: (name: string, date: string) => ipcRenderer.invoke(IPC.ANALYZE_COMPANY, name, date),
+  onboardingParseFile: (rawText: string) => ipcRenderer.invoke(IPC.ONBOARDING_PARSE_FILE, rawText)
 }
 
 contextBridge.exposeInMainWorld('api', api)
