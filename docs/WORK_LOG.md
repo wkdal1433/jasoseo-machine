@@ -232,6 +232,40 @@ npm create electron-vite@latest jasoseo-machine
 
 ---
 
+## Phase 7: 기능 고도화 - 프로필 관리 (Gemini CLI)
+
+**기간**: 2026-03-06
+**브랜치**: `feat/profile-management`
+
+### 설계 결정
+
+- **JSON 스키마 확장**: 인적사항 외에 병역, 학력, 경력, 어학, 자격증, 기타활동을 포함하는 포괄적 구조 설계
+- **Atomic Commits**: Google Git 표준을 준수하여 원자적 커밋 수행
+- **Storage**: 기존 JSON 파일 기반 DB(`db.ts`)에 `profile` 필드 추가 및 전용 CRUD 함수 구현
+
+### 구현 내용
+
+1.  **Backend & IPC**:
+    - `db.ts`: `UserProfile` 인터페이스 추가 및 `getUserProfile`, `saveUserProfile` 구현
+    - `ipc-handlers.ts`: 프로필 관련 IPC 핸들러 등록
+    - `ipc-channels.ts` & `preload/index.ts`: `USER_PROFILE_GET`, `USER_PROFILE_SAVE` 채널 추가
+
+2.  **Frontend State**:
+    - `profile.ts`: 상세 타입 정의 및 `DEFAULT_PROFILE` 상수화
+    - `profileStore.ts`: Zustand를 이용한 전역 프로필 상태 관리 및 자동 로드/저장 로직
+
+3.  **UI/UX**:
+    - `ProfilePage.tsx`: 5개 탭(인적사항/병역, 학력, 경력, 어학/자격증, 기타활동)으로 구성된 통합 편집기 구현
+    - `Sidebar.tsx`: "내 프로필" 메뉴 아이콘(👤) 추가 및 네비게이션 연동
+    - `App.tsx`: `/profile` 라우트 등록
+
+### 성과
+- 자소서 생성 시 개인 배경 정보를 프롬프트에 동적으로 주입할 수 있는 기반 마련
+- 향후 "지원서 자동 입력(Phase 2, 3)" 기능을 위한 핵심 데이터 소스 확보
+- Google 스타일의 엄격한 Git 형상관리 체계 첫 적용 완료
+
+---
+
 ## Phase 6: 작업 기록 체계 구축
 
 **기간**: 2026-03-06
