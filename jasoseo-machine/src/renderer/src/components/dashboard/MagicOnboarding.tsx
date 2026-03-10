@@ -26,9 +26,17 @@ export function MagicOnboarding({ onClose }: Props) {
     setLock(true)
     return () => setLock(false)
   }, [])
+const handleParse = async (text: string) => {
+  // [v10.0 개선] 물리적 토큰 보호 가드 (Hard Limiter)
+  if (text.length > 15000) {
+    alert(`파일의 내용이 너무 깁니다 (\${text.length.toLocaleString()}자).\n안정적인 분석을 위해 15,000자 이내로 쪼개서 업로드해 주세요.\n(현재 포트폴리오나 논문 전체가 포함되어 있을 수 있습니다.)`);
+    setStep('welcome');
+    return;
+  }
 
-  const handleParse = async (text: string) => {
-    setStep('parsing')
+  setStep('parsing')
+...
+
     try {
       const response = await window.api.onboardingParseFile(text)
       if (response.success) {

@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc-handlers'
 import { initDatabase } from './db'
 import { startFileWatcher, stopFileWatcher } from './file-watcher'
+import { stopAllProcesses } from './claude-bridge'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -38,9 +39,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  // 기본 메뉴바 제거 (v7.0 UI/UX 고도화)
   Menu.setApplicationMenu(null)
-
   electronApp.setAppUserModelId('com.jasoseo-machine')
 
   app.on('browser-window-created', (_, window) => {
@@ -62,7 +61,12 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   stopFileWatcher()
+  stopAllProcesses() // 모든 하위 프로세스 강제 종료 (v10.0 좀비 방지)
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('will-quit', () => {
+  stopAllProcesses() // 앱 종료 시 최종 확인 사살
 })
