@@ -64,23 +64,37 @@ export function registerIpcHandlers(): void {
     const projectDir = getSetting('project_dir') || ''
     if (!projectDir) return
 
-    const profiles = listProfiles() // db.ts의 profiles 배열 가져오기
+    const profiles = listProfiles()
+    let changed = false
+
     profiles.forEach((p: any) => {
-      if (p.id && p.name) {
+      // 이미 마이그레이션된 프로필(id가 name과 같은 특수 케이스 제외)은 스킵
+      if (p.id && p.name && !p.isMigrated) {
         const oldDir = join(projectDir, 'episodes', p.name)
         const newDir = join(projectDir, 'episodes', p.id)
         
-        // 이름 폴더는 있고 ID 폴더는 없을 때 마이그레이션 수행
-        if (existsSync(oldDir) && !existsSync(newDir) && p.name !== p.id) {
+        // 1. 이름 폴더가 실제로 존재할 때만 이동
+        if (existsSync(oldDir) && !existsSync(newDir)) {
           try {
             renameSync(oldDir, newDir)
-            console.log(`[Migration] Migrated episode folder from "${p.name}" to "${p.id}"`)
+            console.log(`[Migration] Success: "${p.name}" -> "${p.id}"`)
           } catch (err) {
-            console.error(`[Migration] Failed to migrate folder for ${p.name}`, err)
+            console.error(`[Migration] Error renaming folder for ${p.name}`, err)
           }
+        }
+
+        // 2. 이동 성공 여부와 상관없이(혹은 이미 수동으로 했더라도) 마이그레이션 완료 플래그 기록
+        const fullProfile = data.profiles.find(prof => prof.id === p.id)
+        if (fullProfile) {
+          fullProfile.isMigrated = true
+          changed = true
         }
       }
     })
+
+    if (changed) {
+      saveUserProfile(getUserProfile()) // DB 저장 강제 트리거
+    }
   }
 
   // 앱 기동 시 마이그레이션 수행

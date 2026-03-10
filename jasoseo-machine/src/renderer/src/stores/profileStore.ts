@@ -11,12 +11,14 @@ interface ProfileState {
   profile: UserProfile
   profiles: ProfileSummary[]
   isLoaded: boolean
+  isLocked: boolean
   loadProfile: () => Promise<void>
   loadProfilesList: () => Promise<void>
   saveProfile: (profile: UserProfile) => Promise<void>
   switchProfile: (id: string) => Promise<void>
   createProfile: (name: string) => Promise<void>
   deleteProfile: (id: string) => Promise<void>
+  setLock: (locked: boolean) => void
   updatePersonal: (personal: Partial<UserProfile['personal']>) => void
   updateMilitary: (military: Partial<UserProfile['military']>) => void
   addEducation: (item: UserProfile['education'][0]) => void
@@ -35,6 +37,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: DEFAULT_PROFILE,
   profiles: [],
   isLoaded: false,
+  isLocked: false,
 
   loadProfile: async () => {
     const data = await window.api.userProfileGet()
@@ -58,11 +61,13 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   switchProfile: async (id) => {
+    if (get().isLocked) return // 잠금 상태면 전환 불가
     await window.api.userProfileSwitch(id)
     await get().loadProfile()
   },
 
   createProfile: async (name) => {
+    if (get().isLocked) return
     const newProfile = await window.api.userProfileCreate(name)
     if (newProfile) {
       set({ profile: newProfile })
@@ -71,9 +76,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   deleteProfile: async (id) => {
+    if (get().isLocked) return
     await window.api.userProfileDelete(id)
     await get().loadProfile()
   },
+
+  setLock: (locked) => set({ isLocked: locked }),
 
   updatePersonal: (personal) => {
     const newProfile = { ...get().profile, personal: { ...get().profile.personal, ...personal } }

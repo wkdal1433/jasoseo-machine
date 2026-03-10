@@ -9,7 +9,6 @@ interface Props {
 }
 
 type Step = 'welcome' | 'parsing' | 'result'
-
 export function MagicOnboarding({ onClose }: Props) {
   const [step, setStep] = useState<Step>('welcome')
   const [result, setResult] = useState<OnboardingResult | null>(null)
@@ -18,11 +17,19 @@ export function MagicOnboarding({ onClose }: Props) {
   const [interviewMessages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [interviewInput, setInterviewInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
-  
+
   const { loadEpisodes } = useEpisodeStore()
-  const { loadProfile } = useProfileStore()
+  const { loadProfile, setLock } = useProfileStore()
+
+  // 마운트 시 잠금, 언마운트 시 해제
+  useEffect(() => {
+    setLock(true)
+    return () => setLock(false)
+  }, [])
 
   const handleParse = async (text: string) => {
+...
+
     setStep('parsing')
     try {
       const response = await window.api.onboardingParseFile(text)

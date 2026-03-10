@@ -1,17 +1,14 @@
 import { UserProfile } from '../../renderer/src/types/profile';
 
 /**
- * Intelligent Form Analyzer (Batch Input Agent)
+ * Intelligent Form Analyzer (Batch Input Agent v7.5)
  * 
- * 본 모듈은 반복적인 폼 입력을 증오하는 사용자를 위해 설계되었습니다:
- * 1. 50~100개의 필드를 단 한 번의 스크립트로 일괄 주입.
- * 2. 단순 값 대입을 넘어 React/Vue/Angular의 상태를 강제 업데이트하는 이벤트 시뮬레이션.
- * 3. 보안이 강화된 사이트를 우회하기 위해 사용자 직접 실행(Console) 방식 채택.
+ * 본 모듈은 동적 HTML 구조에 완벽하게 대응하는 Fuzzy Selector 로직을 탑재했습니다.
  */
 
 export interface MatchResult {
   fieldName: string;
-  selector: string;
+  selectors: string[]; // 다중 선택자 지원
   value: string | number | boolean;
   type: 'text' | 'select' | 'radio' | 'checkbox' | 'textarea';
   reason: string;
@@ -25,71 +22,91 @@ export interface FormAnalysisResponse {
 
 export class FormAnalyzer {
   /**
+   * HTML 전처리: 불필요한 주석, 스크립트 태그 등을 제거하여 AI 컨텍스트 최적화
+   */
+  private cleanHTML(html: string): string {
+    return html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * 일괄 주입 스크립트 생성을 위한 프롬프트 빌더.
-   * 프로필 데이터와 폼 구조를 대조하여 '지능형 통합 스크립트'를 설계합니다.
    */
   public buildBatchPrompt(formStructure: string, profile: UserProfile): string {
+    const cleanForm = this.cleanHTML(formStructure);
+
     return `
-# ROLE: Recruitment Form Automation Specialist (Batch Injection Mode)
+# ROLE: High-Fidelity Recruitment Form Automator
 
 # MISSION:
-Analyze the provided [Job Application Form Structure] and match it with the [User Profile]. 
-Generate a SINGLE, ROBUST JavaScript snippet that fills EVERY possible field in one go.
+Analyze the [Job Application Form] and match it with the [User Profile]. 
+Generate a ROBUST JavaScript snippet that fills all fields.
 
-# USER PROFILE (12 Sections - Source of Truth):
+# USER PROFILE (Source of Truth):
 ${JSON.stringify(profile, null, 2)}
 
-# JOB APPLICATION FORM (Target Structure - HTML or Text):
-${formStructure}
+# TARGET FORM STRUCTURE:
+${cleanForm}
 
 # CORE REQUIREMENTS:
-1. **Comprehensive Matching**: Match as many fields as possible (Grade, Major, GPA, Awards, Military, etc.).
-2. **Framework Compatibility**: For each field, simulate 'input', 'change', and 'blur' events so that modern frameworks (React/Vue/Angular) detect the change.
-3. **Smart Select/Radio**: For choice-based fields, pick the option that best matches the profile.
-4. **Single Execution**: The script should be self-executing (IIFE) and provide a summary of what was filled.
+1. **Fuzzy Selectors (Critical)**: For each field, provide an ARRAY of possible CSS selectors. 
+   - Example: ["#user_name", "input[name='nm']", "input[placeholder*='성명']"]
+   - Prioritize IDs, then names, then distinctive attributes.
+2. **Framework Compatibility**: The runtime provides an 'injectValue(selectors, value, type)' function which handles React/Vue state updates. Use it.
+3. **No Auto-Submit**: Never attempt to click submit buttons.
 
-# OUTPUT FORMAT (Return ONLY the JSON object below):
+# OUTPUT FORMAT (JSON ONLY):
 {
   "totalMatches": 42,
   "matches": [
-    { "fieldName": "Grade", "selector": "#grade_input", "value": "4", "type": "text", "reason": "Matched from education.grade" }
+    { 
+      "fieldName": "Name", 
+      "selectors": ["#name", "input[name='user_name']"], 
+      "value": "장준수", 
+      "type": "text", 
+      "reason": "Direct match" 
+    }
   ],
-  "script": "/* Universal Injection Script Here */"
+  "script": "/* Example: injectValue(['#n', '[name=nm]'], 'Value', 'text'); */"
 }
 `;
   }
 
   /**
-   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 유틸리티를 결합합니다.
-   * 이 유틸리티는 React/Vue 등에서 값이 증발하는 현상을 방지합니다.
+   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 및 'Fuzzy Selector' 런타임을 결합합니다.
    */
   public wrapWithEventSimulator(aiGeneratedScript: string): string {
     return `
 (function() {
-  console.log('%c🚀 Intelligent Form Filler Agent Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+  console.log('%c🚀 Magic Auto-Fill Agent v7.5 Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
   
-  /**
-   * 상태 업데이트 유도 유틸리티 (React/Vue/Angular 지원)
-   */
-  const triggerUpdate = (el) => {
-    const events = ['input', 'change', 'blur'];
-    events.forEach(name => {
-      el.dispatchEvent(new Event(name, { bubbles: true, cancelable: true }));
-    });
-    
-    // React 전용 valueTracker 업데이트 (필수)
-    const tracker = el._valueTracker;
-    if (tracker) {
-      tracker.setValue(el.value);
+  const findElement = (selectors) => {
+    if (!Array.isArray(selectors)) selectors = [selectors];
+    for (const s of selectors) {
+      try {
+        const el = document.querySelector(s);
+        if (el) return el;
+      } catch(e) {}
     }
+    return null;
   };
 
-  /**
-   * 개별 필드 주입 로직
-   */
-  const injectValue = (selector, value, type) => {
-    const el = document.querySelector(selector);
-    if (!el) return false;
+  const triggerUpdate = (el) => {
+    const events = ['input', 'change', 'blur'];
+    events.forEach(name => el.dispatchEvent(new Event(name, { bubbles: true, cancelable: true })));
+    if (el._valueTracker) el._valueTracker.setValue(el.value);
+  };
+
+  const injectValue = (selectors, value, type) => {
+    const el = findElement(selectors);
+    if (!el) {
+      console.warn('⚠️ Field not found:', selectors);
+      return false;
+    }
     
     try {
       if (type === 'checkbox' || type === 'radio') {
@@ -97,21 +114,20 @@ ${formStructure}
       } else {
         el.value = value;
       }
-      
       triggerUpdate(el);
-      console.log(\`✅ Filled: \${selector} -> \${value}\`);
+      console.log('✅ Filled:', el.name || el.id || selectors[0]);
       return true;
     } catch (err) {
-      console.error(\`❌ Failed: \${selector}\`, err);
+      console.error('❌ Injection failed:', selectors[0], err);
       return false;
     }
   };
 
-  // --- AI Generated Logic Starts ---
+  // --- AI Generated Logic ---
   ${aiGeneratedScript}
-  // --- AI Generated Logic Ends ---
+  // --- End of Logic ---
 
-  console.log('%c✨ Batch Filling Completed Successfully!', 'color: #10b981; font-weight: bold; font-size: 14px;');
+  console.log('%c✨ Auto-Fill Task Completed!', 'color: #10b981; font-weight: bold;');
 })();
     `.trim();
   }
