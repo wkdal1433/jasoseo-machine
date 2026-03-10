@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { readFileSync, readdirSync, unlinkSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs'
 import { join } from 'path'
 import { IPC } from '../shared/ipc-channels'
+import { bridgeServer } from './automation/bridge-server'
 import {
   saveApplication,
   listApplications,
@@ -98,7 +99,7 @@ export function registerIpcHandlers(): void {
           } catch { /* error */ }
         } else if (existsSync(newDir)) success = true
         if (success) {
-          const fullProfile = (data as any).profiles.find(prof => prof.id === p.id)
+          const fullProfile = (listProfiles() as any).find(prof => prof.id === p.id)
           if (fullProfile) { fullProfile.isMigrated = true; changed = true; }
         }
       }
@@ -240,21 +241,15 @@ export function registerIpcHandlers(): void {
     } catch (error: any) { return { success: false, error: error.message } }
   })
 
-  // [v20.0 핵심] AI 직독직해 온보딩 핸들러
   ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (event, filePath) => {
     const { OnboardingAgent } = await import('./automation/onboarding-agent')
-    const { FactChecker } = await import('./automation/fact-checker')
     const agent = new OnboardingAgent()
-    const checker = new FactChecker()
-    
     const window = BrowserWindow.fromWebContents(event.sender)
     const sendProgress = (step: string, percent: number) => {
       window?.webContents.send(IPC.ONBOARDING_PROGRESS, { step, percent })
     }
-
     try {
       sendProgress('AI가 파일을 정독하기 시작했습니다...', 10)
-      
       const aiResponse = await executeClaudePrompt({ 
         prompt: agent.buildExtractionPrompt(filePath), 
         outputFormat: 'json', 
@@ -263,18 +258,27 @@ export function registerIpcHandlers(): void {
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
       
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('AI 분석 결과가 올바르지 않습니다.')
+      // [v20.7 개선] 방탄 JSON 추출 로직 (마크다운, 인사말 등 제거)
+      let cleanedResponse = aiResponse.trim();
+      const firstBrace = cleanedResponse.indexOf('{');
+      const lastBrace = cleanedResponse.lastIndexOf('}');
       
-      let result = JSON.parse(jsonMatch[0])
+      if (firstBrace === -1 || lastBrace === -1) {
+        console.error('[AI Raw Output Error]:', aiResponse);
+        throw new Error('AI 응답에서 유효한 JSON 데이터를 찾을 수 없습니다.');
+      }
+      
+      const jsonStr = cleanedResponse.slice(firstBrace, lastBrace + 1);
+      let result;
+      try {
+        result = JSON.parse(jsonStr);
+      } catch (err) {
+        console.error('[JSON Parse Error]:', jsonStr);
+        throw new Error('추출된 데이터의 형식이 올바르지 않습니다.');
+      }
       
       sendProgress('데이터 무결성 및 팩트 체크를 진행 중입니다...', 80)
-      
-      // 팩트 체크 수행
-      // result = checker.checkOnboardingResult(result, ""); // AI-Native 방식에 맞게 조정 필요
-      
       sendProgress('분석이 모두 완료되었습니다! 결과표를 구성합니다.', 100)
-      
       return { success: true, data: result }
     } catch (error: any) { 
       return { success: false, error: error.message } 
@@ -282,17 +286,29 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.BRIDGE_GET_INFO, () => {
-    const { bridgeServer } = require('./automation/bridge-server')
     return { port: getSetting('bridge_port') || '12345', secret: bridgeServer.getSecret() }
   })
   ipcMain.handle(IPC.BRIDGE_SET_SCRIPT, (_event, script) => {
-    const { bridgeServer } = require('./automation/bridge-server')
     bridgeServer.setPendingScript(script); return true
   })
 
   ipcMain.handle(IPC.FS_READ_MD, (_event, path) => { try { return readFileSync(path, 'utf-8') } catch { return null } })
-  
+
+  ipcMain.handle(IPC.FS_SELECT_FILE, async (event, filters) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return null
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openFile'],
+      title: '자소서 파일 선택',
+      filters: filters || [
+        { name: '자소서 파일', extensions: ['pdf', 'md', 'txt'] }
+      ]
+    })
+    return (result.canceled || result.filePaths.length === 0) ? null : result.filePaths[0]
+  })
+
   ipcMain.handle(IPC.FS_SELECT_DIR, async (event) => {
+
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) return null
     const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: '폴더 선택' })

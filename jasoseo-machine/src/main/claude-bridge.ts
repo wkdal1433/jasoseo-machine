@@ -39,19 +39,11 @@ interface ClassifiedError {
 
 function classifyError(stderr: string, exitCode: number): ClassifiedError {
   const lower = stderr.toLowerCase()
-  
-  // [v20.7] 토큰/쿼터 소진 정밀 감지
-  if (
-    lower.includes('credit limit reached') || 
-    lower.includes('insufficient_quota') || 
-    lower.includes('billing_error') ||
-    lower.includes('out of credits')
-  ) {
+  if (lower.includes('credit limit reached') || lower.includes('insufficient_quota') || lower.includes('billing_error') || lower.includes('out of credits')) {
     return { type: 'quota_exhausted', message: '현재 계정의 토큰 또는 크레딧이 모두 소진되었습니다. 다른 AI 엔진으로 교체해 주세요.' }
   }
-
   if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')) {
-    return { type: 'rate_limit', message: '단기간 사용량 한도에 도달했습니다. 잠시 후 다시 시도하거나 다른 엔진으로 교체해 주세요.' }
+    return { type: 'rate_limit', message: '사용량 한도에 도달했습니다. 잠시 후 다시 시도하거나 다른 엔진으로 교체해 주세요.' }
   }
   if (lower.includes('unauthorized') || lower.includes('401') || lower.includes('auth') || lower.includes('not logged in')) {
     return { type: 'auth', message: 'AI 인증이 필요합니다. 터미널에서 로그인해주세요.' }
@@ -65,11 +57,7 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
   return { type: 'unknown', message: `AI 오류 (코드 ${exitCode}): ${stderr.trim().slice(0, 100)}` }
 }
 
-function buildSpawnEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env }
-  // [v20.7] 환경 변수 유지 (MCP 설정 로드 보장)
-  return env
-}
+function buildSpawnEnv(): NodeJS.ProcessEnv { return { ...process.env } }
 
 export interface ClaudeExecuteOptions {
   prompt: string
@@ -109,8 +97,8 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = buildGeminiPrompt(options)
-    // [v20.7] 제미나이 도구 자동 승인 플래그 추가
-    args = ['--output-format', options.outputFormat, '-m', model, '-y', '--approval-mode', 'yolo']
+    // [v20.7] --yolo와 --approval-mode 중복 사용 방지 (후자만 사용)
+    args = ['--output-format', options.outputFormat, '-m', model, '--approval-mode', 'yolo']
   } else {
     prompt = options.prompt
     args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]
@@ -141,8 +129,8 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    // [v20.7] 제미나이 스트리밍 도구 자동 승인
-    args = ['--output-format', outputFormat, '-m', model, '-y', '--approval-mode', 'yolo']
+    // [v20.7] --approval-mode yolo만 사용하여 충돌 방지
+    args = ['--output-format', outputFormat, '-m', model, '--approval-mode', 'yolo']
   } else {
     prompt = options.prompt
     args = ['--output-format', outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]

@@ -65,6 +65,7 @@ const api = {
   // File system
   readMd: (path: string) => ipcRenderer.invoke(IPC.FS_READ_MD, path),
   selectDirectory: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),
+  selectFile: (filters?: any) => ipcRenderer.invoke(IPC.FS_SELECT_FILE, filters),
   parsePdf: (path: string) => ipcRenderer.invoke(IPC.FS_PARSE_PDF, path),
 
   // User Profile
