@@ -49,7 +49,7 @@ export function registerIpcHandlers(): void {
     const profile = getUserProfile()
     if (!profile) return null
 
-    // [v7.0 개선] 이름 대신 고유 ID를 폴더명으로 사용 (특수문자 및 이름 변경 대응)
+    // [v7.0 개선] 이름 대신 고유 ID를 폴더명으로 사용
     const folderName = profile.id || 'default'
     const dir = join(projectDir, 'episodes', folderName)
     
@@ -59,39 +59,61 @@ export function registerIpcHandlers(): void {
     return dir
   }
 
-  // 마이그레이션 및 시스템 유지보수
-  const runSystemMaintenance = () => {
+  // [v8.5 개선] 휴지통 및 유지보수 관리 채널
+  ipcMain.handle('maintenance:check-trash', () => {
     const projectDir = getSetting('project_dir') || ''
-    if (!projectDir) return
-
-    // 1. 휴지통 자동 정리 (30일 경과 파일 삭제)
     const trashDir = join(projectDir, 'episodes', '.trash')
-    if (existsSync(trashDir)) {
-      try {
-        const now = Date.now()
-        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
-        const files = readdirSync(trashDir)
-        
-        files.forEach(file => {
-          const filePath = join(trashDir, file)
+    if (!existsSync(trashDir)) return 0
+    
+    try {
+      const now = Date.now()
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+      const files = readdirSync(trashDir)
+      const oldFiles = files.filter(file => {
+        try {
+          const stats = require('fs').statSync(join(trashDir, file))
+          return (now - stats.mtimeMs) > thirtyDaysMs
+        } catch { return false }
+      })
+      return oldFiles.length
+    } catch { return 0 }
+  })
+
+  ipcMain.handle('maintenance:empty-trash', () => {
+    const projectDir = getSetting('project_dir') || ''
+    const trashDir = join(projectDir, 'episodes', '.trash')
+    if (!existsSync(trashDir)) return true
+    
+    try {
+      const now = Date.now()
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+      const files = readdirSync(trashDir)
+      files.forEach(file => {
+        const filePath = join(trashDir, file)
+        try {
           const stats = require('fs').statSync(filePath)
           if (now - stats.mtimeMs > thirtyDaysMs) {
             unlinkSync(filePath)
-            console.log(`[Maintenance] Permanently deleted old trash file: ${file}`)
           }
-        })
-      } catch (err) {
-        console.error('[Maintenance] Trash cleanup error:', err)
-      }
-    }
+        } catch { /* ignore */ }
+      })
+      return true
+    } catch { return false }
+  })
 
-    // 2. 폴더 마이그레이션 (기존 로직)
+  // 마이그레이션: 기존 이름 기반 폴더를 ID 기반으로 변경
+  const migrateFolderNaming = () => {
+    const projectDir = getSetting('project_dir') || ''
+    if (!projectDir) return
+
     const profiles = listProfiles()
     let changed = false
+
     profiles.forEach((p: any) => {
       if (p.id && p.name && !p.isMigrated) {
         const oldDir = join(projectDir, 'episodes', p.name)
         const newDir = join(projectDir, 'episodes', p.id)
+        
         if (existsSync(oldDir) && !existsSync(newDir)) {
           try {
             renameSync(oldDir, newDir)
@@ -99,6 +121,7 @@ export function registerIpcHandlers(): void {
             console.error(`[Migration] Error: ${p.name}`, err)
           }
         }
+
         const fullProfile = data.profiles.find(prof => prof.id === p.id)
         if (fullProfile) {
           fullProfile.isMigrated = true
@@ -106,11 +129,13 @@ export function registerIpcHandlers(): void {
         }
       }
     })
-    if (changed) saveUserProfile(getUserProfile())
+
+    if (changed) {
+      saveUserProfile(getUserProfile())
+    }
   }
 
-  // 앱 기동 시 유지보수 수행
-  runSystemMaintenance()
+  migrateFolderNaming()
 
   // === Claude CLI ===
   ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {
@@ -153,7 +178,6 @@ export function registerIpcHandlers(): void {
     if (!episodesDir) return false
     
     try {
-      // [안전 삭제 전략] 파일을 지우지 않고 .trash 폴더로 이동
       const trashDir = join(episodesDir, '.trash')
       if (!existsSync(trashDir)) mkdirSync(trashDir, { recursive: true })
       
@@ -306,7 +330,6 @@ export function registerIpcHandlers(): void {
     const projectDir = getSetting('project_dir') || ''
     const deletedId = deleteProfile(id)
     
-    // [v7.5 개선] 프로필 삭제 시 관련 에피소드 폴더도 .trash로 이동
     if (deletedId && projectDir) {
       const sourceDir = join(projectDir, 'episodes', deletedId)
       const trashDir = join(projectDir, 'episodes', '.trash', `deleted_profile_${deletedId}_${Date.now()}`)
@@ -317,9 +340,8 @@ export function registerIpcHandlers(): void {
             mkdirSync(join(projectDir, 'episodes', '.trash'), { recursive: true })
           }
           renameSync(sourceDir, trashDir)
-          console.log(`[Cleanup] Moved deleted profile folder to trash: ${deletedId}`)
         } catch (err) {
-          console.error(`[Cleanup] Failed to move folder for ${deletedId}`, err)
+          console.error(`[Cleanup] Error: ${deletedId}`, err)
         }
       }
     }
@@ -355,7 +377,25 @@ export function registerIpcHandlers(): void {
         const aiResponse = await executeClaudePrompt(analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate))
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI analysis failed.')
+        
         const result = JSON.parse(jsonMatch[0])
+
+        // [v8.5 개선] 링크 유효성 체크
+        if (result.foundLinks && Array.isArray(result.foundLinks)) {
+          const validatedLinks = await Promise.all(
+            result.foundLinks.map(async (link: any) => {
+              try {
+                const response = await fetch(link.url, { method: 'HEAD', signal: AbortSignal.timeout(2000) })
+                return { ...link, isValid: response.ok }
+              } catch { return { ...link, isValid: false } }
+            })
+          )
+          result.foundLinks = validatedLinks.filter((l: any) => l.isValid)
+        }
+
+        if (result.recruitmentSeason && !result.recruitmentSeason.includes('2026')) {
+          result.analysisNote = `[Warning] Found older recruitment data (${result.recruitmentSeason}).`
+        }
         return { success: true, data: result }
       } catch (error: any) {
         return { success: false, error: error.message }
@@ -367,21 +407,15 @@ export function registerIpcHandlers(): void {
     ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, rawText) => {
       const { OnboardingAgent } = await import('./automation/onboarding-agent')
       const { FactChecker } = await import('./automation/fact-checker')
-      
       const agent = new OnboardingAgent()
       const checker = new FactChecker()
-      
       try {
         const prompt = agent.buildExtractionPrompt(rawText)
         const aiResponse = await executeClaudePrompt(prompt)
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI extraction failed.')
-        
         let result = JSON.parse(jsonMatch[0])
-        
-        // [v7.0 팩트 가드] 코드로 직접 원본 텍스트와 대조 검증 수행
         result = checker.checkOnboardingResult(result, rawText)
-        
         return { success: true, data: result }
       } catch (error: any) {
         return { success: false, error: error.message }

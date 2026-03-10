@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
@@ -9,6 +9,7 @@ interface Props {
 }
 
 type Step = 'welcome' | 'parsing' | 'result'
+
 export function MagicOnboarding({ onClose }: Props) {
   const [step, setStep] = useState<Step>('welcome')
   const [result, setResult] = useState<OnboardingResult | null>(null)
@@ -17,19 +18,16 @@ export function MagicOnboarding({ onClose }: Props) {
   const [interviewMessages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [interviewInput, setInterviewInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
-
+  
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile, setLock } = useProfileStore()
 
-  // 마운트 시 잠금, 언마운트 시 해제
   useEffect(() => {
     setLock(true)
     return () => setLock(false)
   }, [])
 
   const handleParse = async (text: string) => {
-...
-
     setStep('parsing')
     try {
       const response = await window.api.onboardingParseFile(text)
@@ -56,7 +54,6 @@ export function MagicOnboarding({ onClose }: Props) {
     if (file.name.toLowerCase().endsWith('.pdf')) {
       const parsePdf = async () => {
         setStep('parsing')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await (window.api as any).parsePdf(file.path)
         if (res.success) {
           handleParse(res.text)
@@ -132,11 +129,23 @@ export function MagicOnboarding({ onClose }: Props) {
     }
   }
 
-  const handleSaveAll = async () => {
+  const handleSaveAll = async (mode: 'merge' | 'overwrite') => {
     if (!result) return
 
     try {
-      await window.api.userProfileSave(result.profile)
+      let finalProfile = result.profile;
+      
+      if (mode === 'merge') {
+        const currentProfile = await window.api.userProfileGet();
+        // 지능형 병합 로직 (기존 정보 우선)
+        finalProfile = {
+          ...result.profile,
+          ...currentProfile, // 기존 프로필 덮어씌우기 (기존 데이터 보존)
+          id: currentProfile.id // ID 유지 필수
+        };
+      }
+
+      await window.api.userProfileSave(finalProfile)
       
       for (let i = 0; i < result.episodes.length; i++) {
         const ep = result.episodes[i]
@@ -198,7 +207,6 @@ export function MagicOnboarding({ onClose }: Props) {
                     if (!file) return
                     if (file.name.toLowerCase().endsWith('.pdf')) {
                       setStep('parsing')
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       ;(window.api as any).parsePdf(file.path).then((res: any) => {
                         if (res.success) handleParse(res.text)
                         else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
@@ -373,12 +381,20 @@ export function MagicOnboarding({ onClose }: Props) {
                 >
                   다시 업로드
                 </button>
-                <button 
-                  onClick={handleSaveAll}
-                  className="rounded-xl bg-primary px-12 py-3 text-sm font-bold text-primary-foreground shadow-xl hover:scale-105 transition-all"
-                >
-                  🚀 이대로 데이터 반영하기
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleSaveAll('merge')}
+                    className="rounded-xl border-2 border-primary bg-white px-8 py-3 text-sm font-bold text-primary hover:bg-primary/5 transition-all"
+                  >
+                    🤝 기존 데이터와 병합
+                  </button>
+                  <button 
+                    onClick={() => handleSaveAll('overwrite')}
+                    className="rounded-xl bg-primary px-10 py-3 text-sm font-bold text-primary-foreground shadow-xl hover:scale-105 transition-all"
+                  >
+                    🚀 새 데이터로 덮어쓰기
+                  </button>
+                </div>
               </div>
             </div>
           )}

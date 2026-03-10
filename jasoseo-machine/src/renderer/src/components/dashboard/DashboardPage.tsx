@@ -13,7 +13,6 @@ interface DraftItem {
   company_name: string
   job_title: string
 }
-
 export function DashboardPage() {
   const navigate = useNavigate()
   const { episodes, loadEpisodes } = useEpisodeStore()
@@ -21,15 +20,45 @@ export function DashboardPage() {
   const wizardStore = useWizardStore()
   const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [isMagicOnboardingOpen, setIsMagicOnboardingOpen] = useState(false)
+  const [oldTrashCount, setOldTrashCount] = useState(0)
 
   useEffect(() => {
     loadEpisodes()
     loadApplications()
     loadDrafts()
+    checkMaintenance()
   }, [])
 
-  const loadDrafts = async () => {
-    try {
+  const checkMaintenance = async () => {
+    const count = await (window.api as any).checkTrash()
+    setOldTrashCount(count)
+  }
+
+  const handleEmptyTrash = async () => {
+    if (confirm(`휴지통에 30일이 지난 파일 \${oldTrashCount}개가 있습니다. 영구 삭제하시겠습니까?`)) {
+      await (window.api as any).emptyTrash()
+      setOldTrashCount(0)
+    }
+  }
+...
+  return (
+    <div className="p-8">
+      {/* Maintenance Alert */}
+      {oldTrashCount > 0 && (
+        <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
+          <div className="flex items-center gap-3 text-orange-800">
+            <span className="text-xl">🧹</span>
+            <p className="text-sm font-medium">휴지통에 30일이 지난 오래된 파일 <strong>{oldTrashCount}개</strong>가 있습니다.</p>
+          </div>
+          <button 
+            onClick={handleEmptyTrash}
+            className="rounded-lg bg-orange-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-700 transition-colors"
+          >
+            지금 비우기
+          </button>
+        </div>
+      )}
+
       const result = await window.api.draftList()
       setDrafts((result || []) as DraftItem[])
     } catch {

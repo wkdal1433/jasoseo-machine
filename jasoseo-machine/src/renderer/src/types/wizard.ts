@@ -29,6 +29,7 @@ export interface WizardQuestion {
 
 export interface WizardState {
   applicationId: string
+  boundProfileId: string // 작성 세션이 바인딩된 프로필 ID
   companyName: string
   jobTitle: string
   jobPosting: string

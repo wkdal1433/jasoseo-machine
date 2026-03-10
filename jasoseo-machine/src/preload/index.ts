@@ -36,6 +36,11 @@ const api = {
     return () => ipcRenderer.removeListener(IPC.EPISODES_CHANGED, handler)
   },
 
+  // Maintenance
+  checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
+  emptyTrash: () => ipcRenderer.invoke('maintenance:empty-trash')
+  }
+
   // Applications
   appSave: (app: unknown) => ipcRenderer.invoke(IPC.APP_SAVE, app),
   appList: () => ipcRenderer.invoke(IPC.APP_LIST),
@@ -71,6 +76,7 @@ const api = {
 
   // User Profile
   userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),
+  userProfileGetSync: () => ipcRenderer.invoke('user-profile:get-sync'),
   userProfileSave: (profile: unknown) => ipcRenderer.invoke(IPC.USER_PROFILE_SAVE, profile),
   userProfilesList: () => ipcRenderer.invoke(IPC.USER_PROFILES_LIST),
   userProfileSwitch: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_SWITCH, id),
