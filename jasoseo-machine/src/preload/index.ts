@@ -63,9 +63,11 @@ const api = {
   settingsTestCli: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_CLI),
   settingsTestGemini: () => ipcRenderer.invoke(IPC.SETTINGS_TEST_GEMINI),
 
-  // File System
+  // File system
   readMd: (path: string) => ipcRenderer.invoke(IPC.FS_READ_MD, path),
   selectDirectory: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),
+  parsePdf: (path: string) => ipcRenderer.invoke(IPC.FS_PARSE_PDF, path),
+
 
   // User Profile
   userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),

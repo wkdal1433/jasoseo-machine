@@ -353,6 +353,18 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, filePath) => {
+    try {
+      const pdf = await import('pdf-parse/lib/pdf-parse.js')
+      const dataBuffer = readFileSync(filePath)
+      const data = await pdf.default(dataBuffer)
+      return { success: true, text: data.text }
+    } catch (error: any) {
+      console.error('PDF Parse Error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle(IPC.FS_SELECT_DIR, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) return null

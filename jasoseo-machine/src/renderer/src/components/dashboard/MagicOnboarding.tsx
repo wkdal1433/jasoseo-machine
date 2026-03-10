@@ -46,12 +46,27 @@ export function MagicOnboarding({ onClose }: Props) {
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const content = event.target?.result as string
-      handleParse(content)
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      const parsePdf = async () => {
+        setStep('parsing')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await (window.api as any).parsePdf(file.path)
+        if (res.success) {
+          handleParse(res.text)
+        } else {
+          alert('PDF 파싱 실패: ' + res.error)
+          setStep('welcome')
+        }
+      }
+      parsePdf()
+    } else {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const content = event.target?.result as string
+        handleParse(content)
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
   }, [])
 
   const startInterview = (index: number) => {
@@ -171,9 +186,17 @@ export function MagicOnboarding({ onClose }: Props) {
                 </p>
                 <label className="cursor-pointer rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90">
                   파일 선택하기
-                  <input type="file" className="hidden" accept=".md,.txt" onChange={(e) => {
+                  <input type="file" className="hidden" accept=".md,.txt,.pdf" onChange={(e) => {
                     const file = e.target.files?.[0]
-                    if (file) {
+                    if (!file) return
+                    if (file.name.toLowerCase().endsWith('.pdf')) {
+                      setStep('parsing')
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ;(window.api as any).parsePdf(file.path).then((res: any) => {
+                        if (res.success) handleParse(res.text)
+                        else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
+                      })
+                    } else {
                       const reader = new FileReader()
                       reader.onload = (event) => handleParse(event.target?.result as string)
                       reader.readAsText(file)
@@ -182,7 +205,7 @@ export function MagicOnboarding({ onClose }: Props) {
                 </label>
               </div>
               <p className="mt-8 text-xs text-muted-foreground">
-                ※ PDF 파일의 경우 현재 텍스트 복사 후 텍스트 파일(.txt)로 저장하여 업로드해주세요.
+                ※ PDF 파일 지원이 강화되었습니다. 이제 직접 PDF 파일을 업로드하실 수 있습니다.
               </p>
             </div>
           )}

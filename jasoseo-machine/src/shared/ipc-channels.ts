@@ -46,6 +46,7 @@ export const IPC = {
   // File system
   FS_READ_MD: 'fs:read-md',
   FS_SELECT_DIR: 'fs:select-dir',
+  FS_PARSE_PDF: 'fs:parse-pdf',
 
   // User Profile
   USER_PROFILE_GET: 'user-profile:get',

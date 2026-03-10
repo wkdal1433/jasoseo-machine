@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import type { WizardState, WizardQuestion, WizardStep } from '../types/wizard'
-import type { Strategy, HRIntentItem, AnalysisResult, VerificationResult, QuestionInput } from '../types/application'
+import type { Strategy, HRIntentItem, AnalysisResult, VerificationResult, QuestionInput, RecruitmentContext } from '../types/application'
 
 interface WizardActions {
   initWizard: (companyName: string, jobTitle: string, jobPosting: string, questions: QuestionInput[], strategy?: Strategy) => void
   setStep0Result: (hrIntents: HRIntentItem[], strategy: Strategy) => void
+  setRecruitmentContext: (context: RecruitmentContext) => void
   setQuestionAnalysis: (questionIndex: number, analysis: AnalysisResult) => void
   approveEpisode: (questionIndex: number, episodeId: string) => void
   rejectEpisode: (questionIndex: number, episodeId: string) => void
@@ -29,6 +30,7 @@ const initialState: WizardState = {
   jobPosting: '',
   strategy: null,
   hrIntents: null,
+  recruitmentContext: null,
   questions: [],
   activeQuestionIndex: 0,
   step0Completed: false,
@@ -62,6 +64,7 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
       jobPosting,
       strategy: strategy || null,
       hrIntents: null,
+      recruitmentContext: null,
       questions: wizardQuestions,
       activeQuestionIndex: 0,
       step0Completed: false,
@@ -72,6 +75,10 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
 
   setStep0Result: (hrIntents, strategy) => {
     set({ hrIntents, strategy, step0Completed: true })
+  },
+
+  setRecruitmentContext: (context) => {
+    set({ recruitmentContext: context })
   },
 
   setQuestionAnalysis: (questionIndex, analysis) => {
