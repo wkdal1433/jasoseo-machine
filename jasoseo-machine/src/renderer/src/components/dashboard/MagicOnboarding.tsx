@@ -14,6 +14,7 @@ export function MagicOnboarding({ onClose }: Props) {
   const [step, setStep] = useState<Step>('welcome')
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [progress, setProgress] = useState({ step: '', percent: 0 })
   const [activeInterviewIndex, setActiveInterviewIndex] = useState<number | null>(null)
   const [interviewMessages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [interviewInput, setInterviewInput] = useState('')
@@ -24,14 +25,20 @@ export function MagicOnboarding({ onClose }: Props) {
 
   useEffect(() => {
     setLock(true)
-    return () => setLock(false)
+    // [v20.5] 실시간 프로그레스 구독
+    const unsubscribe = (window.api as any).onOnboardingProgress((data: any) => {
+      setProgress(data)
+    })
+    return () => {
+      setLock(false)
+      if (unsubscribe) unsubscribe()
+    }
   }, [])
 
-  // AI에게 분석을 요청하는 통합 함수
   const requestAiAnalysis = async (input: string) => {
     setStep('parsing')
+    setProgress({ step: '분석 준비 중...', percent: 5 })
     try {
-      // 이제 PDF 경로든 일반 텍스트든 AI가 알아서 처리함
       const response = await window.api.onboardingParseFile(input)
       if (response.success) {
         setResult(response.data)
@@ -49,19 +56,13 @@ export function MagicOnboarding({ onClose }: Props) {
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    
     const file = e.dataTransfer.files[0]
     if (!file) return
-
     if (file.name.toLowerCase().endsWith('.pdf')) {
-      // [v20.0 핵심] 로컬 파싱 없이 파일 경로만 AI에게 전달
       requestAiAnalysis(file.path)
     } else {
       const reader = new FileReader()
-      reader.onload = (event) => {
-        const content = event.target?.result as string
-        requestAiAnalysis(content)
-      }
+      reader.onload = (event) => requestAiAnalysis(event.target?.result as string)
       reader.readAsText(file)
     }
   }, [])
@@ -153,14 +154,34 @@ export function MagicOnboarding({ onClose }: Props) {
                   }} />
                 </label>
               </div>
-              <p className="mt-8 text-xs text-muted-foreground">※ v20.0 AI-Native 기술: AI가 직접 파일을 읽어 분석 정확도를 극대화합니다.</p>
+              <p className="mt-8 text-xs text-muted-foreground">※ v20.5 Real-time Reporter: AI의 분석 과정을 실시간으로 중계합니다.</p>
             </div>
           )}
 
           {step === 'parsing' && (
             <div className="flex h-full flex-col items-center justify-center space-y-8">
-              <div className="h-24 w-24 animate-spin rounded-full border-8 border-primary/20 border-t-primary"></div>
-              <div className="text-center"><p className="text-2xl font-bold animate-pulse">AI가 파일을 직접 읽고 분석 중입니다...</p><p className="text-muted-foreground">약 15~30초 정도 소요될 수 있습니다.</p></div>
+              <div className="relative">
+                <div className="h-24 w-24 animate-spin rounded-full border-8 border-primary/20 border-t-primary"></div>
+                <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-primary">{progress.percent}%</div>
+              </div>
+              <div className="text-center space-y-3">
+                <p className="text-2xl font-bold text-foreground animate-pulse">{progress.step || '마법을 준비 중입니다...'}</p>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  AI가 사용자님의 소중한 경험을 하나하나 정성스럽게 읽어보고 있습니다.<br/>
+                  잠시만 기다려주세요.
+                </p>
+              </div>
+              <div className="w-full max-w-md space-y-2">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-muted shadow-inner text-center">
+                  <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progress.percent}%` }}></div>
+                </div>
+                <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                  <span>Initialization</span>
+                  <span>Data Mining</span>
+                  <span>Verification</span>
+                  <span>Finalizing</span>
+                </div>
+              </div>
             </div>
           )}
 

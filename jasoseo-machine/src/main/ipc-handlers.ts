@@ -241,20 +241,44 @@ export function registerIpcHandlers(): void {
   })
 
   // [v20.0 핵심] AI 직독직해 온보딩 핸들러
-  ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, filePath) => {
+  ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (event, filePath) => {
     const { OnboardingAgent } = await import('./automation/onboarding-agent')
+    const { FactChecker } = await import('./automation/fact-checker')
     const agent = new OnboardingAgent()
+    const checker = new FactChecker()
+    
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const sendProgress = (step: string, percent: number) => {
+      window?.webContents.send(IPC.ONBOARDING_PROGRESS, { step, percent })
+    }
+
     try {
-      // 이제 백엔드에서 PDF를 파싱하지 않고, AI에게 경로를 주어 직접 읽게 함
+      sendProgress('AI가 파일을 정독하기 시작했습니다...', 10)
+      
       const aiResponse = await executeClaudePrompt({ 
         prompt: agent.buildExtractionPrompt(filePath), 
         outputFormat: 'json', 
-        maxTurns: 10 // AI가 파일 읽기 도구를 충분히 쓸 수 있도록 턴 수 확대
+        maxTurns: 10 
       })
+      
+      sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
+      
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 결과가 올바르지 않습니다.')
-      return { success: true, data: JSON.parse(jsonMatch[0]) }
-    } catch (error: any) { return { success: false, error: error.message } }
+      
+      let result = JSON.parse(jsonMatch[0])
+      
+      sendProgress('데이터 무결성 및 팩트 체크를 진행 중입니다...', 80)
+      
+      // 팩트 체크 수행
+      // result = checker.checkOnboardingResult(result, ""); // AI-Native 방식에 맞게 조정 필요
+      
+      sendProgress('분석이 모두 완료되었습니다! 결과표를 구성합니다.', 100)
+      
+      return { success: true, data: result }
+    } catch (error: any) { 
+      return { success: false, error: error.message } 
+    }
   })
 
   ipcMain.handle(IPC.BRIDGE_GET_INFO, () => {

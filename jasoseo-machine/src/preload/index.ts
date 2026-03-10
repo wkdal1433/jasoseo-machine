@@ -74,7 +74,12 @@ const api = {
   // Automation
   analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html),
   analyzeCompany: (name: string, date: string) => ipcRenderer.invoke(IPC.ANALYZE_COMPANY, name, date),
-  onboardingParseFile: (rawText: string) => ipcRenderer.invoke(IPC.ONBOARDING_PARSE_FILE, rawText)
+  onboardingParseFile: (rawText: string) => ipcRenderer.invoke(IPC.ONBOARDING_PARSE_FILE, rawText),
+  onOnboardingProgress: (callback: (data: any) => void) => {
+    const handler = (_: unknown, data: any) => callback(data)
+    ipcRenderer.on(IPC.ONBOARDING_PROGRESS, handler)
+    return () => ipcRenderer.removeListener(IPC.ONBOARDING_PROGRESS, handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

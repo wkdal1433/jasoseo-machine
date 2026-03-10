@@ -60,6 +60,7 @@ export const IPC = {
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',
   ANALYZE_COMPANY: 'analyze-company',
   ONBOARDING_PARSE_FILE: 'onboarding:parse-file',
+  ONBOARDING_PROGRESS: 'onboarding:progress',
 
   // Bridge (v20.0)
   BRIDGE_GET_INFO: 'bridge:get-info',
