@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { cn } from '@/lib/utils'
 
 const MODEL_OPTIONS = [
   { group: 'Claude', models: [
@@ -20,10 +21,23 @@ export function SettingsPage() {
   const [isClaudeTesting, setIsClaudeTesting] = useState(false)
   const [geminiTestResult, setGeminiTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isGeminiTesting, setIsGeminiTesting] = useState(false)
+  
+  const [bridgeInfo, setBridgeInfo] = useState<{ port: string; secret: string } | null>(null)
+  const [showSecret, setShowSecret] = useState(false)
 
   useEffect(() => {
     loadSettings()
+    loadBridgeInfo()
   }, [])
+
+  const loadBridgeInfo = async () => {
+    try {
+      const info = await (window as any).api.bridgeGetInfo()
+      setBridgeInfo(info)
+    } catch (err) {
+      console.error('Failed to load bridge info:', err)
+    }
+  }
 
   const isGeminiModel = model.startsWith('gemini')
 
@@ -59,10 +73,60 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl p-8">
+    <div className="mx-auto max-w-xl p-8 pb-20">
       <h2 className="mb-6 text-xl font-bold">설정</h2>
 
       <div className="space-y-6">
+        {/* v20.0 Chrome Extension Connection */}
+        <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-xl">🧩</span>
+            <h3 className="text-lg font-bold text-primary">하이브리드 확장 프로그램 연동</h3>
+          </div>
+          <p className="mb-6 text-xs text-muted-foreground leading-relaxed">
+            크롬 확장 프로그램을 통해 채용 사이트에 데이터를 직접 주입할 수 있습니다.<br/>
+            아래 정보를 확장 프로그램 설정에 입력하세요.
+          </p>
+          
+          {bridgeInfo ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2 items-center">
+                <span className="text-xs font-bold text-muted-foreground">브릿지 포트</span>
+                <code className="col-span-2 rounded-lg bg-white border border-primary/10 p-2 text-center text-sm font-mono font-bold text-primary">
+                  {bridgeInfo.port}
+                </code>
+              </div>
+              <div className="grid grid-cols-3 gap-2 items-center">
+                <span className="text-xs font-bold text-muted-foreground">보안 시크릿 키</span>
+                <div className="col-span-2 relative">
+                  <code className={cn(
+                    "block w-full rounded-lg bg-white border border-primary/10 p-2 text-center text-xs font-mono font-bold text-primary truncate",
+                    !showSecret && "blur-sm select-none"
+                  )}>
+                    {bridgeInfo.secret}
+                  </code>
+                  <button 
+                    onClick={() => setShowSecret(!showSecret)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors rounded-lg text-[10px] font-bold opacity-0 hover:opacity-100"
+                  >
+                    {showSecret ? '숨기기' : '키 보기'}
+                  </button>
+                </div>
+              </div>
+              <div className="pt-2">
+                <div className="rounded-lg bg-yellow-50 p-3 border border-yellow-100">
+                  <p className="text-[10px] text-yellow-800 leading-tight">
+                    <strong>⚠️ 주의:</strong> 이 키는 확장 프로그램과의 보안 통신을 위한 비밀번호입니다. 
+                    절대 타인에게 공개하지 마세요.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground animate-pulse text-center py-4">서버 정보를 불러오는 중...</p>
+          )}
+        </div>
+
         {/* Model Selection */}
         <div className="rounded-lg border border-border p-4">
           <h3 className="mb-3 text-sm font-semibold">AI 모델 선택</h3>
@@ -98,12 +162,6 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
-          {isGeminiModel && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Gemini CLI는 Google 계정 로그인(무료)으로 사용 가능합니다.
-              터미널에서 <code className="rounded bg-muted px-1">gemini</code> 실행 후 로그인하세요.
-            </p>
-          )}
         </div>
 
         {/* Claude CLI */}
@@ -119,9 +177,6 @@ export function SettingsPage() {
                 placeholder="claude"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                기본값: claude (PATH에 등록된 경우). 아닐 경우 전체 경로 입력
-              </p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -140,47 +195,10 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Gemini CLI */}
-        <div className="rounded-lg border border-border p-4">
-          <h3 className="mb-3 text-sm font-semibold">Gemini CLI</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs text-muted-foreground">CLI 경로</label>
-              <input
-                type="text"
-                value={geminiPath}
-                onChange={(e) => setSetting('gemini_path', e.target.value)}
-                placeholder="gemini"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                기본값: gemini. 설치: <code className="rounded bg-muted px-1">npm i -g @google/gemini-cli</code>
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={testGeminiConnection}
-                disabled={isGeminiTesting}
-                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
-              >
-                {isGeminiTesting ? '테스트 중...' : '연결 테스트'}
-              </button>
-              {geminiTestResult && (
-                <p className={`text-sm ${geminiTestResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {geminiTestResult.success ? '연결 성공' : `연결 실패: ${geminiTestResult.message}`}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Project Directory */}
         <div className="rounded-lg border border-border p-4">
           <h3 className="mb-3 text-sm font-semibold">프로젝트 디렉토리</h3>
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              자기소개서 프로젝트 경로
-            </label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -196,9 +214,6 @@ export function SettingsPage() {
                 폴더 선택
               </button>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              CLAUDE.md와 episodes/ 폴더가 있는 디렉토리
-            </p>
           </div>
         </div>
 
@@ -206,7 +221,6 @@ export function SettingsPage() {
         <div className="rounded-lg border border-border p-4">
           <h3 className="mb-3 text-sm font-semibold">UI 설정</h3>
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">테마</label>
             <select
               value={theme}
               onChange={(e) => setSetting('theme', e.target.value)}

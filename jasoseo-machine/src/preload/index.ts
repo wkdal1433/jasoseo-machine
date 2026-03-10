@@ -36,6 +36,10 @@ const api = {
     return () => ipcRenderer.removeListener(IPC.EPISODES_CHANGED, handler)
   },
 
+  // Bridge
+  bridgeGetInfo: () => ipcRenderer.invoke(IPC.BRIDGE_GET_INFO),
+  bridgeSetScript: (script: string) => ipcRenderer.invoke(IPC.BRIDGE_SET_SCRIPT, script),
+
   // Maintenance
   checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
   emptyTrash: () => ipcRenderer.invoke('maintenance:empty-trash')

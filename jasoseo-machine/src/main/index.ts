@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { initDatabase } from './db'
 import { startFileWatcher, stopFileWatcher } from './file-watcher'
 import { stopAllProcesses } from './claude-bridge'
+import { bridgeServer } from './automation/bridge-server'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -38,8 +39,10 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // 기본 메뉴바 제거
   Menu.setApplicationMenu(null)
+
   electronApp.setAppUserModelId('com.jasoseo-machine')
 
   app.on('browser-window-created', (_, window) => {
@@ -48,6 +51,14 @@ app.whenReady().then(() => {
 
   initDatabase()
   registerIpcHandlers()
+  
+  // [v20.0] 브릿지 서버 시작 (확장 프로그램 연동)
+  try {
+    await bridgeServer.start()
+  } catch (err) {
+    console.error('[Bridge] Failed to start server:', err)
+  }
+
   createWindow()
 
   if (mainWindow) {
@@ -61,12 +72,14 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   stopFileWatcher()
-  stopAllProcesses() // 모든 하위 프로세스 강제 종료 (v10.0 좀비 방지)
+  stopAllProcesses() 
+  bridgeServer.stop() // 브릿지 서버 정지
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
 app.on('will-quit', () => {
-  stopAllProcesses() // 앱 종료 시 최종 확인 사살
+  stopAllProcesses()
+  bridgeServer.stop()
 })

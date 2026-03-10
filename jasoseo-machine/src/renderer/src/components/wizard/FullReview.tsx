@@ -17,14 +17,10 @@ export function FullReview() {
   const [autoFillScript, setAutoFillScript] = useState<string | null>(null)
   const [showSecurityGuide, setShowSecurityGuide] = useState(false)
   const [viewMode, setViewMode] = useState<'split' | 'editor' | 'preview'>('split')
+  const [isSendingToExtension, setIsSendingToExtension] = useState(false)
 
   const allCompleted = questions.every((q) => q.status === 'completed')
   
-  // Combine all texts for the full document preview
-  const fullDocumentText = questions
-    .map((q) => `[문항 ${q.questionNumber}] ${q.question}\n\n${q.generatedText}`)
-    .join('\n\n')
-
   // Episode usage summary
   const episodeMap: Record<string, number[]> = {}
   questions.forEach((q) => {
@@ -51,6 +47,19 @@ export function FullReview() {
       alert('오류 발생: ' + err)
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const sendToExtension = async () => {
+    if (!autoFillScript) return
+    setIsSendingToExtension(true)
+    try {
+      await (window as any).api.bridgeSetScript(autoFillScript)
+      alert('확장 프로그램으로 스크립트가 전송되었습니다. 브라우저에서 [자동 입력] 버튼을 누르세요!')
+    } catch (err) {
+      alert('전송 실패: ' + err)
+    } finally {
+      setIsSendingToExtension(false)
     }
   }
 
@@ -118,7 +127,6 @@ export function FullReview() {
         {/* Left: Editor Column */}
         {(viewMode === 'editor' || viewMode === 'split') && (
           <div className="flex flex-col space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-            {/* Usage Summary */}
             <div className="rounded-2xl border border-border bg-muted/30 p-4">
               <p className="mb-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">Experience Usage</p>
               <div className="flex flex-wrap gap-2">
@@ -130,7 +138,6 @@ export function FullReview() {
               </div>
             </div>
 
-            {/* Editable Question Cards */}
             {questions.map((q, idx) => (
               <div key={q.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
@@ -152,9 +159,7 @@ export function FullReview() {
         {/* Right: A4 Document Preview Column */}
         {(viewMode === 'preview' || viewMode === 'split') && (
           <div className="bg-muted/50 rounded-3xl p-8 overflow-y-auto custom-scrollbar flex justify-center">
-            {/* A4 Paper Mockup */}
             <div className="w-full max-w-[210mm] bg-white shadow-2xl p-[20mm] flex flex-col space-y-10 min-h-[297mm] h-fit">
-              {/* Document Header */}
               <div className="border-b-2 border-black pb-6">
                 <h4 className="text-3xl font-serif font-black tracking-tighter uppercase">{companyName} 입사지원서</h4>
                 <div className="mt-4 flex justify-between text-sm font-medium">
@@ -163,7 +168,6 @@ export function FullReview() {
                 </div>
               </div>
 
-              {/* Document Content */}
               <div className="flex-1 space-y-12">
                 {questions.map((q) => (
                   <div key={q.id} className="space-y-4">
@@ -181,7 +185,6 @@ export function FullReview() {
                 ))}
               </div>
 
-              {/* Document Footer */}
               <div className="pt-10 text-center space-y-2 border-t border-border">
                 <p className="text-sm font-medium">위 내용은 사실과 다름이 없음을 확인합니다.</p>
                 <p className="text-lg font-bold mt-4">지 원 자 : {hrIntents?.[0] ? '장 준 수' : '__________'}</p>
@@ -191,15 +194,15 @@ export function FullReview() {
         )}
       </div>
 
-      {/* 🚀 Magic Auto-Fill Section (Fixed at bottom or after content) */}
+      {/* 🚀 Magic Auto-Fill Section (v20.0 Hybrid Extension Support) */}
       <div className="rounded-3xl border-2 border-primary/20 bg-primary/5 p-8 shadow-inner mt-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h4 className="text-xl font-bold text-primary flex items-center gap-2">
-              <span>⚡</span> 매직 일괄 자동 입력
+              <span>⚡</span> 매직 일괄 자동 입력 (v20.0)
             </h4>
             <p className="mt-1 text-sm text-muted-foreground">
-              분석된 사이트 구조에 맞춰 다듬어진 내용을 한 번에 채워넣습니다.
+              확장 프로그램을 사용하거나 직접 콘솔 스크립트를 생성할 수 있습니다.
             </p>
           </div>
           <button 
@@ -227,12 +230,24 @@ export function FullReview() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-4 animate-in zoom-in-95 duration-300">
-            <div className="flex-1 rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm font-bold text-green-700">
-              ✅ 준비 완료! 콘솔에 붙여넣으세요.
+          <div className="flex flex-col gap-4 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm font-bold text-green-700">
+                ✅ 스크립트가 준비되었습니다!
+              </div>
+              <button 
+                onClick={sendToExtension}
+                disabled={isSendingToExtension}
+                className="rounded-xl bg-orange-500 px-8 py-3 text-sm font-bold text-white shadow-lg hover:bg-orange-600 transition-all active:scale-95"
+              >
+                {isSendingToExtension ? '전송 중...' : '🧩 확장 프로그램으로 전송'}
+              </button>
+              <CopyButton text={autoFillScript} label="콘솔용 복사" className="h-12 px-6 bg-secondary text-secondary-foreground" />
+              <button onClick={() => setAutoFillScript(null)} className="text-xs text-muted-foreground underline">다시 생성</button>
             </div>
-            <CopyButton text={autoFillScript} label="스크립트 복사" className="h-12 px-10 shadow-md" />
-            <button onClick={() => setAutoFillScript(null)} className="text-xs text-muted-foreground underline">다시 생성</button>
+            <p className="text-[10px] text-muted-foreground px-2">
+              * 확장 프로그램으로 전송 시 브라우저에서 클릭 한 번으로 입력이 가능합니다. (F12 불필요)
+            </p>
           </div>
         )}
       </div>
@@ -254,16 +269,22 @@ export function FullReview() {
         </button>
       </div>
 
-      {/* Security Guide Modal (Same as before) */}
+      {/* Security Guide Modal */}
       {showSecurityGuide && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-3xl bg-card p-8 shadow-2xl border border-border animate-in zoom-in-95 duration-300">
-            <h5 className="mb-4 text-xl font-bold flex items-center gap-2">🛡️ 안심 주입 가이드</h5>
-            <div className="space-y-4 text-sm text-muted-foreground">
-              <p>1. 브라우저에서 <strong>F12</strong>를 눌러 개발자 도구를 엽니다.</p>
-              <p>2. <strong>Console</strong> 탭을 클릭합니다.</p>
-              <p>3. 복사한 스크립트를 붙여넣고 <strong>Enter</strong>를 누릅니다.</p>
-              <p className="text-xs bg-muted p-3 rounded-lg italic">※ 'allow pasting' 경고가 뜨면 해당 문구를 직접 타이핑한 뒤 다시 시도하세요.</p>
+            <h5 className="mb-4 text-xl font-bold flex items-center gap-2">🛡️ 사용 방법 안내</h5>
+            <div className="space-y-6 text-sm text-muted-foreground">
+              <div className="space-y-2">
+                <p className="font-bold text-primary">방법 1. 확장 프로그램 (추천)</p>
+                <p>1. 상단의 [🧩 확장 프로그램으로 전송] 버튼을 누릅니다.</p>
+                <p>2. 채용 사이트에서 우리 앱 로고 버튼을 클릭하면 즉시 입력됩니다.</p>
+              </div>
+              <div className="space-y-2 border-t pt-4">
+                <p className="font-bold text-foreground">방법 2. 직접 콘솔 주입</p>
+                <p>1. [콘솔용 복사] 후 브라우저에서 <strong>F12</strong>를 누릅니다.</p>
+                <p>2. <strong>Console</strong> 탭에 붙여넣고 <strong>Enter</strong>를 누릅니다.</p>
+              </div>
             </div>
             <button onClick={() => setShowSecurityGuide(false)} className="mt-8 w-full rounded-2xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-lg">이해했습니다</button>
           </div>

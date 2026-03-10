@@ -448,6 +448,21 @@ export function registerIpcHandlers(): void {
     })
   }
 
+  // === Bridge (v20.0) ===
+  ipcMain.handle(IPC.BRIDGE_GET_INFO, () => {
+    const { bridgeServer } = require('./automation/bridge-server')
+    return {
+      port: getSetting('bridge_port') || '12345',
+      secret: bridgeServer.getSecret()
+    }
+  })
+
+  ipcMain.handle(IPC.BRIDGE_SET_SCRIPT, (_event, script) => {
+    const { bridgeServer } = require('./automation/bridge-server')
+    bridgeServer.setPendingScript(script)
+    return true
+  })
+
   // === File System ===
   ipcMain.handle(IPC.FS_READ_MD, (_event, filePath) => {
     try {

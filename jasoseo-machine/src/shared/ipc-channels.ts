@@ -56,11 +56,14 @@ export const IPC = {
   USER_PROFILE_CREATE: 'user-profile:create',
   USER_PROFILE_DELETE: 'user-profile:delete',
 
-
   // Automation
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',
   ANALYZE_COMPANY: 'analyze-company',
-  ONBOARDING_PARSE_FILE: 'onboarding:parse-file'
+  ONBOARDING_PARSE_FILE: 'onboarding:parse-file',
+
+  // Bridge (v20.0)
+  BRIDGE_GET_INFO: 'bridge:get-info',
+  BRIDGE_SET_SCRIPT: 'bridge:set-script'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]
