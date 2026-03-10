@@ -64,6 +64,29 @@ ${questionList}
   "strategyReason": "전략 선택 근거"
 }`
 }
+// [v21.5] 컨텍스트 트리머: 질문 연관도에 따라 프로필 섹션 필터링
+function trimContext(profile: any, question: string): string {
+  const q = question.toLowerCase();
+  const result: any = { personal: profile.personal }; // 기본 정보는 항상 포함
+
+  // 1. 지원동기/가치관 질문 -> 기업 분석 및 인성 강조
+  if (q.includes('지원동기') || q.includes('포부') || q.includes('가치관')) {
+    result.experience = profile.experience;
+    result.preferences = profile.preferences;
+  }
+  // 2. 기술/직무 역량 질문 -> 스킬 및 프로젝트 강조
+  else if (q.includes('기술') || q.includes('역량') || q.includes('개발') || q.includes('프로젝트')) {
+    result.skills = profile.skills;
+    result.experience = profile.experience;
+    result.education = profile.education;
+  }
+  // 3. 기타 (보수적 접근: 데이터가 적으면 다 보냄)
+  else {
+    return JSON.stringify(profile, null, 2);
+  }
+
+  return JSON.stringify(result, null, 2);
+}
 
 export function buildStep1to2Prompt(
   companyName: string,
@@ -72,17 +95,22 @@ export function buildStep1to2Prompt(
   hrIntents: HRIntentItem[],
   strategy: Strategy,
   question: string,
-  charLimit: number
+  charLimit: number,
+  fullProfile: any // 프로필 전체 전달
 ): string {
   const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
+  const trimmedProfile = trimContext(fullProfile, question);
 
   return `${strategyAnchor}
 
 [Step 1-2: 질문 재해석 + Episode 제안]
 
-CLAUDE.md의 Step 1(질문 재정의)과 Step 2(Episode 제안)를 수행해주세요.
+[최적화된 프로필 데이터]:
+${trimmedProfile}
 
 [자소서 문항]: """${question}"""
+...
+
 [글자수 제한]: ${charLimit}자
 
 수행 사항:
@@ -183,6 +211,36 @@ ${generatedText}
     "overallPassed": true
   }
 }`
+}
+
+// [v21.4] 부분 수술(Surgical Edit) 프롬프트
+export function buildSurgicalEditPrompt(
+  fullText: string,
+  targetSection: string,
+  userInstruction: string,
+  strategy: string
+): string {
+  return `
+# Role: Professional Editor & Copywriter
+# Mission: Revise the [TARGET SECTION] based on the [USER INSTRUCTION] while maintaining the flow of the [FULL CONTEXT].
+
+# FULL CONTEXT (For reference only):
+"""${fullText}"""
+
+# TARGET SECTION (The part to be changed):
+"""${targetSection}"""
+
+# USER INSTRUCTION:
+"""${userInstruction}"""
+
+# WRITING STRATEGY: """${strategy}"""
+
+# Guidelines:
+1. Replace ONLY the [TARGET SECTION].
+2. Ensure the tone and connectives match the surrounding text in [FULL CONTEXT].
+3. Maintain factual consistency.
+4. Respond ONLY with the revised section text (no preamble).
+`;
 }
 
 export { GUI_SYSTEM_PROMPT }

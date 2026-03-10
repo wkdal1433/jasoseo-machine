@@ -145,15 +145,28 @@ export function registerIpcHandlers(): void {
       return true
     } catch { return false }
   })
+if (IPC.EPISODE_SUGGEST_IDEAS) {
+  ipcMain.handle(IPC.EPISODE_SUGGEST_IDEAS, async () => {
+    const { EpisodeInterviewer } = await import('./automation/episode-interviewer')
+    const interviewer = new EpisodeInterviewer()
+    try {
+      const profile = getUserProfile()
+      if (!profile) throw new Error('User profile not found.')
 
-  if (IPC.EPISODE_SUGGEST_IDEAS) {
-    ipcMain.handle(IPC.EPISODE_SUGGEST_IDEAS, async () => {
-      const { EpisodeInterviewer } = await import('./automation/episode-interviewer')
-      const interviewer = new EpisodeInterviewer()
-      try {
-        const profile = getUserProfile()
-        if (!profile) throw new Error('User profile not found.')
-        const aiResponse = await executeClaudePrompt({ prompt: interviewer.buildIdeaSuggestionPrompt(profile), outputFormat: 'json', maxTurns: 5 })
+      // [v21.3 Optimized] 기존 에피소드 목록 읽기
+      const dir = getProfileEpisodeDir()
+      let existingTitles: string[] = []
+      if (dir && existsSync(dir)) {
+        existingTitles = readdirSync(dir).filter(f => f.endsWith('.md'))
+      }
+
+      const aiResponse = await executeClaudePrompt({ 
+        prompt: interviewer.buildIdeaSuggestionPrompt(profile, existingTitles), 
+        outputFormat: 'json', 
+        maxTurns: 5 
+      })
+...
+
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI response invalid.')
         return { success: true, data: JSON.parse(jsonMatch[0]).ideas }
