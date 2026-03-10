@@ -77,20 +77,35 @@ ${cleanForm}
   }
 
   /**
-   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 및 'Fuzzy Selector' 런타임을 결합합니다.
+   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 및 'Fuzzy Selector (with Iframe Support)' 런타임을 결합합니다.
    */
   public wrapWithEventSimulator(aiGeneratedScript: string): string {
     return `
 (function() {
-  console.log('%c🚀 Magic Auto-Fill Agent v7.5 Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+  console.log('%c🚀 Magic Auto-Fill Agent v7.5 (Full Support) Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
   
-  const findElement = (selectors) => {
-    if (!Array.isArray(selectors)) selectors = [selectors];
+  /**
+   * 모든 프레임(Iframe)을 순회하며 요소를 찾는 재귀 함수
+   */
+  const findInAllFrames = (selectors, doc = document) => {
+    // 1. 현재 문서에서 찾기
     for (const s of selectors) {
       try {
-        const el = document.querySelector(s);
+        const el = doc.querySelector(s);
         if (el) return el;
       } catch(e) {}
+    }
+
+    // 2. 하위 아이프레임들 뒤지기 (재귀)
+    const iframes = doc.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        const frameDoc = iframe.contentDocument || iframe.contentWindow.document;
+        const found = findInAllFrames(selectors, frameDoc);
+        if (found) return found;
+      } catch(e) {
+        // 교차 출처(CORS) 제한이 걸린 프레임은 무시
+      }
     }
     return null;
   };
@@ -102,9 +117,11 @@ ${cleanForm}
   };
 
   const injectValue = (selectors, value, type) => {
-    const el = findElement(selectors);
+    if (!Array.isArray(selectors)) selectors = [selectors];
+    const el = findInAllFrames(selectors);
+    
     if (!el) {
-      console.warn('⚠️ Field not found:', selectors);
+      console.warn('⚠️ Field not found in any frame:', selectors);
       return false;
     }
     
@@ -127,7 +144,7 @@ ${cleanForm}
   ${aiGeneratedScript}
   // --- End of Logic ---
 
-  console.log('%c✨ Auto-Fill Task Completed!', 'color: #10b981; font-weight: bold;');
+  console.log('%c✨ Auto-Fill Task Completed! Check all fields.', 'color: #10b981; font-weight: bold;');
 })();
     `.trim();
   }

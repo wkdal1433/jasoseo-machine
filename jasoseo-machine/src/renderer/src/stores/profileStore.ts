@@ -40,6 +40,9 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   isLocked: false,
 
   loadProfile: async () => {
+    // [v7.5 개선] 앱 시작 시 무조건 잠금 해제 (비정상 종료 대응)
+    set({ isLocked: false })
+    
     const data = await window.api.userProfileGet()
     if (data) {
       set({ profile: data, isLoaded: true })

@@ -152,12 +152,16 @@ export function createProfile(name: string): any {
   return newProfile
 }
 
-export function deleteProfile(id: string): void {
+export function deleteProfile(id: string): string | null {
+  const profile = data.profiles.find(p => p.id === id)
+  const profileId = profile?.id || null
+  
   data.profiles = data.profiles.filter(p => p.id !== id)
   if (data.currentProfileId === id) {
     data.currentProfileId = data.profiles.length > 0 ? data.profiles[0].id : null
   }
   save()
+  return profileId // 삭제된 프로필의 ID 반환 (폴더 정리를 위함)
 }
 
 // === Applications ===

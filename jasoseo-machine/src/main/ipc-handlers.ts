@@ -291,7 +291,26 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.USER_PROFILE_DELETE, (_event, id) => {
-    deleteProfile(id)
+    const projectDir = getSetting('project_dir') || ''
+    const deletedId = deleteProfile(id)
+    
+    // [v7.5 개선] 프로필 삭제 시 관련 에피소드 폴더도 .trash로 이동
+    if (deletedId && projectDir) {
+      const sourceDir = join(projectDir, 'episodes', deletedId)
+      const trashDir = join(projectDir, 'episodes', '.trash', `deleted_profile_${deletedId}_${Date.now()}`)
+      
+      if (existsSync(sourceDir)) {
+        try {
+          if (!existsSync(join(projectDir, 'episodes', '.trash'))) {
+            mkdirSync(join(projectDir, 'episodes', '.trash'), { recursive: true })
+          }
+          renameSync(sourceDir, trashDir)
+          console.log(`[Cleanup] Moved deleted profile folder to trash: ${deletedId}`)
+        } catch (err) {
+          console.error(`[Cleanup] Failed to move folder for ${deletedId}`, err)
+        }
+      }
+    }
     return true
   })
 
