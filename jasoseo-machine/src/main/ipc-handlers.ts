@@ -472,29 +472,28 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, filePath) => {
+  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, arrayBuffer) => {
     try {
-      const pdf = await import('pdf-parse/lib/pdf-parse.js')
-      const dataBuffer = readFileSync(filePath)
-      const data = await pdf.default(dataBuffer)
+      const pdf = require('pdf-parse')
+      // [v10.5 개선] 경로 대신 렌더러에서 직접 보낸 데이터 버퍼 사용 (한글 경로 문제 해결)
+      const dataBuffer = Buffer.from(arrayBuffer)
       
-      if (!data.text || data.text.trim().length < 10) {
+      const data = await pdf(dataBuffer)
+      
+      if (!data || !data.text || data.text.trim().length < 5) {
         throw new Error('텍스트가 없는 이미지 PDF이거나 파일이 비어있습니다.')
       }
       
       return { success: true, text: data.text }
     } catch (error: any) {
-      console.error('PDF Parse Error:', error)
+      console.error('[PDF Engine Error]:', error)
       let message = 'PDF 파일을 읽을 수 없습니다.'
       
-      // [v10.5 개선] 상세 에러 진단
-      const errMsg = error.message.toLowerCase()
+      const errMsg = error.toString().toLowerCase()
       if (errMsg.includes('encrypted') || errMsg.includes('password')) {
         message = '비밀번호가 걸려있는 PDF입니다. 암호를 해제한 후 다시 업로드해주세요.'
-      } else if (errMsg.includes('corrupt') || errMsg.includes('invalid pdf')) {
-        message = '손상된 PDF 파일입니다. 정상적인 파일인지 확인해주세요.'
-      } else if (errMsg.includes('이미지 pdf')) {
-        message = '텍스트가 없는 이미지 PDF입니다. 텍스트를 직접 복사해서 붙여넣어 주세요.'
+      } else if (errMsg.includes('이미지 pdf') || errMsg.includes('파일이 비어있습니다')) {
+        message = '텍스트가 없는 이미지 PDF입니다. 직접 복사해서 붙여넣어 주세요.'
       }
       
       return { success: false, error: message }

@@ -4,7 +4,6 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
-import { MagicOnboarding } from './MagicOnboarding'
 
 interface DraftItem {
   applicationId: string
@@ -20,7 +19,6 @@ export function DashboardPage() {
   const { applications, loadApplications } = useHistoryStore()
   const wizardStore = useWizardStore()
   const [drafts, setDrafts] = useState<DraftItem[]>([])
-  const [isMagicOnboardingOpen, setIsMagicOnboardingOpen] = useState(false)
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
 
@@ -100,7 +98,7 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
-      {/* Maintenance Alert (v10.5 Improved) */}
+      {/* Maintenance Alert */}
       {(oldTrashCount > 0 && !hideTrashAlert) && (
         <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
           <div className="flex items-center gap-3 text-orange-800">
@@ -138,7 +136,7 @@ export function DashboardPage() {
                 AI가 12개 섹션 프로필과 고품질 에피소드를 자동으로 세팅해 드립니다.
               </p>
               <button 
-                onClick={() => setIsMagicOnboardingOpen(true)}
+                onClick={() => navigate('/onboarding')}
                 className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all hover:scale-105"
               >
                 마법 시작하기 →
@@ -213,7 +211,7 @@ export function DashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Episode 현황</h3>
           <button 
-            onClick={() => setIsMagicOnboardingOpen(true)}
+            onClick={() => navigate('/onboarding')}
             className="text-xs font-bold text-primary hover:underline"
           >
             + 기존 자소서로 추가하기
@@ -283,14 +281,6 @@ export function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* Magic Onboarding Modal */}
-      {isMagicOnboardingOpen && (
-        <MagicOnboarding onClose={() => {
-          setIsMagicOnboardingOpen(false)
-          loadEpisodes()
-        }} />
-      )}
     </div>
   )
 }

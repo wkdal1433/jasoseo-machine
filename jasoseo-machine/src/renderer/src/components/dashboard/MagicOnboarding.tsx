@@ -26,17 +26,16 @@ export function MagicOnboarding({ onClose }: Props) {
     setLock(true)
     return () => setLock(false)
   }, [])
-const handleParse = async (text: string) => {
-  // [v10.0 개선] 물리적 토큰 보호 가드 (Hard Limiter)
-  if (text.length > 15000) {
-    alert(`파일의 내용이 너무 깁니다 (\${text.length.toLocaleString()}자).\n안정적인 분석을 위해 15,000자 이내로 쪼개서 업로드해 주세요.\n(현재 포트폴리오나 논문 전체가 포함되어 있을 수 있습니다.)`);
-    setStep('welcome');
-    return;
-  }
 
-  setStep('parsing')
-...
+  const handleParse = async (text: string) => {
+    // [v10.0 개선] 물리적 토큰 보호 가드 (Hard Limiter)
+    if (text.length > 15000) {
+      alert(`파일의 내용이 너무 깁니다 (${text.length.toLocaleString()}자).\n안정적인 분석을 위해 15,000자 이내로 쪼개서 업로드해 주세요.`);
+      setStep('welcome');
+      return;
+    }
 
+    setStep('parsing')
     try {
       const response = await window.api.onboardingParseFile(text)
       if (response.success) {
@@ -62,7 +61,9 @@ const handleParse = async (text: string) => {
     if (file.name.toLowerCase().endsWith('.pdf')) {
       const parsePdf = async () => {
         setStep('parsing')
-        const res = await (window.api as any).parsePdf(file.path)
+        // [v10.5 개선] 한글 경로 문제 해결을 위해 ArrayBuffer 직접 전달
+        const arrayBuffer = await file.arrayBuffer()
+        const res = await (window.api as any).parsePdf(arrayBuffer)
         if (res.success) {
           handleParse(res.text)
         } else {
@@ -145,11 +146,10 @@ const handleParse = async (text: string) => {
       
       if (mode === 'merge') {
         const currentProfile = await window.api.userProfileGet();
-        // 지능형 병합 로직 (기존 정보 우선)
         finalProfile = {
           ...result.profile,
-          ...currentProfile, // 기존 프로필 덮어씌우기 (기존 데이터 보존)
-          id: currentProfile.id // ID 유지 필수
+          ...currentProfile,
+          id: currentProfile.id
         };
       }
 
@@ -215,9 +215,11 @@ const handleParse = async (text: string) => {
                     if (!file) return
                     if (file.name.toLowerCase().endsWith('.pdf')) {
                       setStep('parsing')
-                      ;(window.api as any).parsePdf(file.path).then((res: any) => {
-                        if (res.success) handleParse(res.text)
-                        else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
+                      file.arrayBuffer().then((arrayBuffer) => {
+                        ;(window.api as any).parsePdf(arrayBuffer).then((res: any) => {
+                          if (res.success) handleParse(res.text)
+                          else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
+                        })
                       })
                     } else {
                       const reader = new FileReader()
@@ -228,7 +230,7 @@ const handleParse = async (text: string) => {
                 </label>
               </div>
               <p className="mt-8 text-xs text-muted-foreground">
-                ※ PDF 파일 지원이 강화되었습니다. 이제 직접 PDF 파일을 업로드하실 수 있습니다.
+                ※ v20.0 기술: 한글 경로 및 보안 아이프레임을 완벽히 지원합니다.
               </p>
             </div>
           )}

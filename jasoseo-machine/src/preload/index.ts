@@ -8,22 +8,6 @@ const api = {
   claudeCancel: () => ipcRenderer.invoke(IPC.CLAUDE_CANCEL),
   claudeCheckStatus: () => ipcRenderer.invoke(IPC.CLAUDE_CHECK_STATUS),
 
-  onStreamChunk: (callback: (event: unknown) => void) => {
-    const handler = (_: unknown, data: unknown) => callback(data)
-    ipcRenderer.on(IPC.CLAUDE_STREAM_CHUNK, handler)
-    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_CHUNK, handler)
-  },
-  onStreamEnd: (callback: (data: unknown) => void) => {
-    const handler = (_: unknown, data: unknown) => callback(data)
-    ipcRenderer.on(IPC.CLAUDE_STREAM_END, handler)
-    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_END, handler)
-  },
-  onStreamError: (callback: (data: unknown) => void) => {
-    const handler = (_: unknown, data: unknown) => callback(data)
-    ipcRenderer.on(IPC.CLAUDE_STREAM_ERROR, handler)
-    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_ERROR, handler)
-  },
-
   // Episodes
   episodesLoad: () => ipcRenderer.invoke(IPC.EPISODES_LOAD),
   episodeDelete: (fileName: string) => ipcRenderer.invoke(IPC.EPISODE_DELETE, fileName),
@@ -36,35 +20,36 @@ const api = {
     return () => ipcRenderer.removeListener(IPC.EPISODES_CHANGED, handler)
   },
 
-  // Bridge
+  // Bridge (v20.0)
   bridgeGetInfo: () => ipcRenderer.invoke(IPC.BRIDGE_GET_INFO),
   bridgeSetScript: (script: string) => ipcRenderer.invoke(IPC.BRIDGE_SET_SCRIPT, script),
 
   // Maintenance
   checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
-  emptyTrash: () => ipcRenderer.invoke('maintenance:empty-trash')
-  }
+  emptyTrash: () => ipcRenderer.invoke('maintenance:empty-trash'),
 
   // Applications
   appSave: (app: unknown) => ipcRenderer.invoke(IPC.APP_SAVE, app),
   appList: () => ipcRenderer.invoke(IPC.APP_LIST),
   appGet: (id: string) => ipcRenderer.invoke(IPC.APP_GET, id),
   appDelete: (id: string) => ipcRenderer.invoke(IPC.APP_DELETE, id),
-  appUpdateStatus: (id: string, status: string, note?: string) =>
-    ipcRenderer.invoke(IPC.APP_UPDATE_STATUS, id, status, note),
+  appUpdateStatus: (id: string, status: string, feedbackNote: string | null) =>
+    ipcRenderer.invoke(IPC.APP_UPDATE_STATUS, id, status, feedbackNote),
 
   // Cover Letters
   clSave: (cl: unknown) => ipcRenderer.invoke(IPC.CL_SAVE, cl),
+  clGet: (id: string) => ipcRenderer.invoke(IPC.CL_GET, id),
   clUpdate: (id: string, updates: unknown) => ipcRenderer.invoke(IPC.CL_UPDATE, id, updates),
 
   // Drafts
-  draftSave: (appId: string, state: unknown) => ipcRenderer.invoke(IPC.DRAFT_SAVE, appId, state),
-  draftGet: (appId: string) => ipcRenderer.invoke(IPC.DRAFT_GET, appId),
-  draftDelete: (appId: string) => ipcRenderer.invoke(IPC.DRAFT_DELETE, appId),
+  draftSave: (applicationId: string, wizardState: unknown) =>
+    ipcRenderer.invoke(IPC.DRAFT_SAVE, applicationId, wizardState),
+  draftGet: (applicationId: string) => ipcRenderer.invoke(IPC.DRAFT_GET, applicationId),
+  draftDelete: (applicationId: string) => ipcRenderer.invoke(IPC.DRAFT_DELETE, applicationId),
   draftList: () => ipcRenderer.invoke(IPC.DRAFT_LIST),
 
   // Episode Usage
-  episodeUsage: (appId?: string) => ipcRenderer.invoke(IPC.EPISODE_USAGE, appId),
+  episodeUsage: (applicationId?: string) => ipcRenderer.invoke(IPC.EPISODE_USAGE, applicationId),
 
   // Settings
   settingsGet: (key: string) => ipcRenderer.invoke(IPC.SETTINGS_GET, key),
@@ -76,7 +61,6 @@ const api = {
   readMd: (path: string) => ipcRenderer.invoke(IPC.FS_READ_MD, path),
   selectDirectory: () => ipcRenderer.invoke(IPC.FS_SELECT_DIR),
   parsePdf: (path: string) => ipcRenderer.invoke(IPC.FS_PARSE_PDF, path),
-
 
   // User Profile
   userProfileGet: () => ipcRenderer.invoke(IPC.USER_PROFILE_GET),

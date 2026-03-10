@@ -54,7 +54,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="border-t border-border p-3">
-        <p className="text-xs text-muted-foreground text-center font-bold">v6.0.0 Stable</p>
+        <p className="text-xs text-muted-foreground text-center font-bold">v20.0.0 Stable</p>
       </div>
     </aside>
   )

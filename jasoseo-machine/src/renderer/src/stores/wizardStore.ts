@@ -25,6 +25,7 @@ interface WizardActions {
 
 const initialState: WizardState = {
   applicationId: '',
+  boundProfileId: '',
   companyName: '',
   jobTitle: '',
   jobPosting: '',
@@ -34,50 +35,48 @@ const initialState: WizardState = {
   questions: [],
   activeQuestionIndex: 0,
   step0Completed: false,
-  const initialState: WizardState = {
-    applicationId: '',
-    boundProfileId: '',
-    companyName: '',
-  ...
-  export const useWizardStore = create<WizardState & WizardActions>((set, get) => ({
-    ...initialState,
+  isGenerating: false,
+  isVerifying: false
+}
 
-    initWizard: (companyName, jobTitle, jobPosting, questions, strategy) => {
-      const appId = uuidv4()
-      // [v8.5 개선] 현재 활성화된 프로필 ID를 세션에 바인딩
-      const currentProfileId = (window as any).api.userProfileGetSync?.().id || 'default'
+export const useWizardStore = create<WizardState & WizardActions>((set, get) => ({
+  ...initialState,
 
-      const wizardQuestions: WizardQuestion[] = questions.map((q, i) => ({
-        id: uuidv4(),
-        questionNumber: i + 1,
-        question: q.question,
-        charLimit: q.charLimit,
-        currentStep: 0 as WizardStep,
-        analysisResult: null,
-        approvedEpisodes: [],
-        generatedText: '',
-        generatedSections: { opening: '', body: '', closing: '' },
-        verificationResult: null,
-        status: 'pending'
-      }))
+  initWizard: (companyName, jobTitle, jobPosting, questions, strategy) => {
+    const appId = uuidv4()
+    // 현재 활성화된 프로필 ID를 세션에 바인딩
+    const currentProfileId = (window as any).api.userProfileGetSync?.()?.id || 'default'
+    
+    const wizardQuestions: WizardQuestion[] = questions.map((q, i) => ({
+      id: uuidv4(),
+      questionNumber: i + 1,
+      question: q.question,
+      charLimit: q.charLimit,
+      currentStep: 0 as WizardStep,
+      analysisResult: null,
+      approvedEpisodes: [],
+      generatedText: '',
+      generatedSections: { opening: '', body: '', closing: '' },
+      verificationResult: null,
+      status: 'pending'
+    }))
 
-      set({
-        applicationId: appId,
-        boundProfileId: currentProfileId,
-        companyName,
-        jobTitle,
-        jobPosting,
-        strategy: strategy || null,
-        hrIntents: null,
-        recruitmentContext: null,
-        questions: wizardQuestions,
-        activeQuestionIndex: 0,
-        step0Completed: false,
-        isGenerating: false,
-        isVerifying: false
-      })
-    },
-
+    set({
+      applicationId: appId,
+      boundProfileId: currentProfileId,
+      companyName,
+      jobTitle,
+      jobPosting,
+      strategy: strategy || null,
+      hrIntents: null,
+      recruitmentContext: null,
+      questions: wizardQuestions,
+      activeQuestionIndex: 0,
+      step0Completed: false,
+      isGenerating: false,
+      isVerifying: false
+    })
+  },
 
   setStep0Result: (hrIntents, strategy) => {
     set({ hrIntents, strategy, step0Completed: true })
