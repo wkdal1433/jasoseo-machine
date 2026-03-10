@@ -1,10 +1,28 @@
 import type { Strategy, HRIntentItem, QuestionInput } from '../types/application'
 
+/**
+ * v9.5 방탄 프롬프트 빌더
+ * 1. 프롬프트 인젝션 방어용 구분자(""") 도입
+ * 2. 글로벌 전략 일관성 유지를 위한 닻(Anchor) 로직 강화
+ */
+
 const GUI_SYSTEM_PROMPT = `You are operating inside the 자소서 머신 GUI.
 Follow CLAUDE.md's 9-Step Workflow strictly.
 Do not include markdown code blocks around JSON responses.
 Return ONLY the JSON object, no extra text before or after.
 Respond in Korean unless the JSON schema requires otherwise.`
+
+// 글로벌 전략 닻(Anchor) 생성 헬퍼
+function buildGlobalStrategyAnchor(companyName: string, jobTitle: string, hrIntents: HRIntentItem[], strategy: Strategy): string {
+  return `
+# GLOBAL STRATEGY ANCHOR (NEVER IGNORE)
+- TARGET COMPANY: """${companyName}"""
+- TARGET JOB: """${jobTitle}"""
+- HR INTENTS: """${hrIntents.map(h => `${h.type}(${h.reason})`).join(', ')}"""
+- WRITING STRATEGY: """${strategy}"""
+# All subsequent steps MUST align with this strategy.
+`;
+}
 
 export function buildStep0Prompt(
   companyName: string,
@@ -14,37 +32,64 @@ export function buildStep0Prompt(
   strategy?: Strategy
 ): string {
   const questionList = questions
-    .map((q, i) => `문항 ${i + 1}: ${q.question} (${q.charLimit}자)`)
+    .map((q, i) => `문항 ${i + 1}: """${q.question}""" (${q.charLimit}자)`)
     .join('\n')
 
   return `[Step 0: 기업 전략 해석]
 
 다음 기업의 채용공고를 분석하고, CLAUDE.md의 9-Step Workflow에 따라 Step 0을 수행해주세요.
 
-먼저 MASTER_INDEX.md를 읽어서 HR 의도 분류 기준과 작성 전략 결정 규칙을 확인하세요.
-
-[기업명]: ${companyName}
-[직무명]: ${jobTitle}
-${strategy ? `[선호 전략]: ${strategy}` : ''}
+[기업명]: """${companyName}"""
+[직무명]: """${jobTitle}"""
+${strategy ? `[선호 전략]: """${strategy}"""` : ''}
 
 [채용공고 전문]:
+"""
 ${jobPosting}
+"""
 
 [자소서 문항]:
 ${questionList}
 
 수행 사항:
-1. 채용공고에서 반복·강조되는 키워드를 추출
-2. 키워드를 HR 의도 4가지(Execution, Growth, Stability, Communication)로 분류
-3. 상위 HR 의도 2개를 결정하고 근거 제시
-4. Conservative/Balanced/Aggressive 중 최적 전략 선택 및 근거
+... (생략) ...
+`
+}
 
-결과를 다음 JSON 형식으로 반환해주세요:
-{
-  "hrIntents": [{"type": "Execution|Growth|Stability|Communication", "reason": "선택 근거"}],
-  "strategy": "Conservative|Balanced|Aggressive",
-  "strategyReason": "전략 선택 근거"
-}`
+export function buildStep3to5Prompt(
+  companyName: string,
+  jobTitle: string,
+  jobPosting: string,
+  hrIntents: HRIntentItem[],
+  strategy: Strategy,
+  questionReframe: string,
+  question: string,
+  charLimit: number,
+  approvedEpisodes: string[],
+  angles: Record<string, string>
+): string {
+  const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
+  
+  const episodeInfo = approvedEpisodes
+    .map((ep) => `"""${ep}""" (앵글: """${angles[ep] || '기본'}""")`)
+    .join(', ')
+
+  return `${strategyAnchor}
+
+[Step 3-5: 자소서 생성]
+
+[질문 재해석]: """${questionReframe}"""
+[승인된 Episode]: ${episodeInfo}
+[글자수 제한]: ${charLimit}자
+
+[자소서 문항]:
+"""
+${question}
+"""
+
+작성 규칙:
+... (생략) ...
+`
 }
 
 export function buildStep1to2Prompt(

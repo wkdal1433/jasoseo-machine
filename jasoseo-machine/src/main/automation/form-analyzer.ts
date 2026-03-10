@@ -88,9 +88,12 @@ ${cleanForm}
   const failedFields = [];
 
   /**
-   * 모든 프레임(Iframe)을 순회하며 요소를 찾는 재귀 함수
+   * 모든 프레임(Iframe)을 순회하며 요소를 찾는 재귀 함수 (깊이 제한 추가)
    */
-  const findInAllFrames = (selectors, doc = document) => {
+  const findInAllFrames = (selectors, doc = document, depth = 0) => {
+    // [v9.5 개선] 재귀 깊이 제한 (Stack Overflow 방지)
+    if (depth > 5) return null;
+
     for (const s of selectors) {
       try {
         const el = doc.querySelector(s);
@@ -101,12 +104,10 @@ ${cleanForm}
     const iframes = doc.querySelectorAll('iframe');
     for (const iframe of iframes) {
       try {
-        // CORS 체크: contentDocument 접근 시도
         const frameDoc = iframe.contentDocument || iframe.contentWindow.document;
-        const found = findInAllFrames(selectors, frameDoc);
+        const found = findInAllFrames(selectors, frameDoc, depth + 1);
         if (found) return found;
       } catch(e) {
-        // CORS 차단된 프레임 기록
         if (!corsBlockedFrames.includes(iframe.src)) {
           corsBlockedFrames.push(iframe.src || 'Unknown Source');
         }
