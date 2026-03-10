@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { OnboardingResult } from '../../../../main/automation/onboarding-agent'
+import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,37 @@ export function MagicOnboarding({ onClose }: Props) {
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile } = useProfileStore()
 
-  // ... (handleParse, onDrop functions same as before)
+  const handleParse = async (text: string) => {
+    setStep('parsing')
+    try {
+      const response = await window.api.onboardingParseFile(text)
+      if (response.success) {
+        setResult(response.data)
+        setStep('result')
+      } else {
+        alert('분석에 실패했습니다: ' + response.error)
+        setStep('welcome')
+      }
+    } catch (err) {
+      console.error(err)
+      setStep('welcome')
+    }
+  }
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      handleParse(content)
+    }
+    reader.readAsText(file)
+  }, [])
 
   const startInterview = (index: number) => {
     const ep = result?.episodes[index]
@@ -60,7 +90,6 @@ export function MagicOnboarding({ onClose }: Props) {
       })
       setMessages((prev) => [...prev, { role: 'ai', content: response }])
       
-      // 만약 응답에 마크다운이 포함되어 있다면 결과 데이터 업데이트
       if (response.includes('```markdown')) {
         const match = response.match(/```markdown\n([\s\S]*)\n```/)
         if (match) {
@@ -82,10 +111,25 @@ export function MagicOnboarding({ onClose }: Props) {
   }
 
   const handleSaveAll = async () => {
-    // ... (same as before)
-  }
+    if (!result) return
 
-  // ... (render logic below)
+    try {
+      await window.api.userProfileSave(result.profile)
+      
+      for (let i = 0; i < result.episodes.length; i++) {
+        const ep = result.episodes[i]
+        const fileName = `ep_magic_${Date.now()}_${i}.md`
+        await window.api.episodeSaveFile(fileName, ep.content)
+      }
+
+      await loadProfile()
+      await loadEpisodes()
+      alert('모든 데이터가 성공적으로 반영되었습니다!')
+      onClose()
+    } catch (err) {
+      alert('저장 중 오류가 발생했습니다.')
+    }
+  }
 
   return (
     <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">

@@ -1,5 +1,4 @@
-import { UserProfile } from '../../renderer/src/types/profile';
-import { EpisodeStatus } from '../../renderer/src/types/episode';
+import { OnboardingResult } from '../../shared/types/automation';
 
 /**
  * Magic Onboarding Agent
@@ -10,18 +9,6 @@ import { EpisodeStatus } from '../../renderer/src/types/episode';
  * 3. AI를 통해 본문 내의 경험들을 S-P-A-A-R-L 에피소드로 자동 분해.
  * 4. 각 데이터의 신뢰도/완성도에 따라 피드백 메시지 생성.
  */
-
-export interface OnboardingResult {
-  profile: Partial<UserProfile>;
-  episodes: Array<{
-    title: string;
-    content: string; // S-P-A-A-R-L 마크다운
-    status: EpisodeStatus;
-    reason: string; // 왜 이 상태인지 (부족한 부분 설명)
-  }>;
-  missingFields: string[]; // 프로필에서 누락된 필드 목록
-}
-
 export class OnboardingAgent {
   /**
    * AI 분석용 통합 프롬프트 빌더.
@@ -66,7 +53,13 @@ ${rawText}
 
 # OUTPUT FORMAT (JSON ONLY, NO PREAMBLE):
 {
-  "profile": { ... },
+  "profile": {
+    "personal": { "name": "...", "email": "..." },
+    "education": [],
+    "career": [],
+    "skills": [],
+    "military": {}
+  },
   "episodes": [
     {
       "title": "...",

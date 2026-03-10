@@ -20,7 +20,6 @@ export function ProfilePage() {
     profile, 
     profiles, 
     loadProfile, 
-    loadProfilesList, 
     saveProfile, 
     switchProfile, 
     createProfile, 
@@ -62,9 +61,33 @@ export function ProfilePage() {
       alert('최소 하나의 프로필은 유지되어야 합니다.')
       return
     }
-    if (confirm(`'${profile.personal.name}' 프로필을 정말 삭제하시겠습니까? 관련 데이터가 모두 사라집니다.`)) {
+    if (confirm(`'${localProfile.personal.name}' 프로필을 정말 삭제하시겠습니까? 관련 데이터가 모두 사라집니다.`)) {
       await deleteProfile((profile as any).id)
     }
+  }
+
+  const updatePersonal = (updates: Partial<UserProfile['personal']>) => {
+    setLocalProfile({
+      ...localProfile!,
+      personal: { ...localProfile!.personal, ...updates }
+    })
+  }
+
+  const updatePreferences = (updates: Partial<UserProfile['preferences']>) => {
+    setLocalProfile({
+      ...localProfile!,
+      preferences: { ...localProfile!.preferences, ...updates }
+    })
+  }
+
+  const updateMilitary = (updates: Partial<UserProfile['preferences']['military']>) => {
+    setLocalProfile({
+      ...localProfile!,
+      preferences: { 
+        ...localProfile!.preferences, 
+        military: { ...localProfile!.preferences.military, ...updates } 
+      }
+    })
   }
 
   const tabs = [
@@ -214,9 +237,8 @@ export function ProfilePage() {
                       value={localProfile.personal.address}
                       onChange={(e) => updatePersonal({ address: e.target.value })}
                       className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="돋보기 아이콘 연동 검색 지원 예정"
+                      placeholder="주소를 입력하세요"
                     />
-                    <button className="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">🔍 검색</button>
                   </div>
                 </div>
               </div>
