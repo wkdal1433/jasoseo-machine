@@ -4,6 +4,7 @@ import { StringDecoder } from 'string_decoder'
 import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import { getSetting } from './db'
+import path from 'path'
 
 const activeProcesses = new Set<ChildProcess>()
 
@@ -65,6 +66,7 @@ export interface ClaudeExecuteOptions {
   jsonSchema?: string
   maxTurns?: number
   appendSystemPrompt?: string
+  filePath?: string // [v20.7] 분석 파일 경로 필드 추가
 }
 
 function sanitizePromptForGemini(prompt: string): string {
@@ -94,14 +96,22 @@ function unwrapGeminiResponse(raw: string): string {
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
   const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
+  
+  // [v20.7] 동적 디렉토리 허용 목록 생성
+  const includeDirs: string[] = []
+  if (projectDir) includeDirs.push(projectDir)
+  if (options.filePath && path.isAbsolute(options.filePath)) {
+    includeDirs.push(path.dirname(options.filePath))
+  }
+  const includeFlags = includeDirs.flatMap(dir => ['--include-directories', dir])
+
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = buildGeminiPrompt(options)
-    // [v20.7] --yolo와 --approval-mode 중복 사용 방지 (후자만 사용)
-    args = ['--output-format', options.outputFormat, '-m', model, '--approval-mode', 'yolo']
+    args = ['--output-format', options.outputFormat, '-m', model, '--approval-mode', 'yolo', ...includeFlags]
   } else {
     prompt = options.prompt
-    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]
+    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags]
     if (options.jsonSchema) args.push('--json-schema', options.jsonSchema)
     if (options.appendSystemPrompt) args.push('--append-system-prompt', options.appendSystemPrompt)
     args.push('-p', prompt)
@@ -126,14 +136,22 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
 export function executeClaudeStream(options: ClaudeExecuteOptions, window: BrowserWindow): ChildProcess {
   const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
   const outputFormat = 'stream-json' as const
+  
+  // [v20.7] 스트리밍에서도 동적 디렉토리 허용
+  const includeDirs: string[] = []
+  if (projectDir) includeDirs.push(projectDir)
+  if (options.filePath && path.isAbsolute(options.filePath)) {
+    includeDirs.push(path.dirname(options.filePath))
+  }
+  const includeFlags = includeDirs.flatMap(dir => ['--include-directories', dir])
+
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    // [v20.7] --approval-mode yolo만 사용하여 충돌 방지
-    args = ['--output-format', outputFormat, '-m', model, '--approval-mode', 'yolo']
+    args = ['--output-format', outputFormat, '-m', model, '--approval-mode', 'yolo', ...includeFlags]
   } else {
     prompt = options.prompt
-    args = ['--output-format', outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]
+    args = ['--output-format', outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags]
     if (options.jsonSchema) args.push('--json-schema', options.jsonSchema)
     if (options.appendSystemPrompt) args.push('--append-system-prompt', options.appendSystemPrompt)
     args.push('-p', prompt)

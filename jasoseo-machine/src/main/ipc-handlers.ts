@@ -253,7 +253,8 @@ export function registerIpcHandlers(): void {
       const aiResponse = await executeClaudePrompt({ 
         prompt: agent.buildExtractionPrompt(filePath), 
         outputFormat: 'json', 
-        maxTurns: 10 
+        maxTurns: 10,
+        filePath // [v20.7] AI에게 파일 경로를 알려주어 접근 권한 확보
       })
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
