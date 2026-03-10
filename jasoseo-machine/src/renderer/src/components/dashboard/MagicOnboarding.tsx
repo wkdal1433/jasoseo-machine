@@ -303,19 +303,36 @@ export function MagicOnboarding({ onClose }: Props) {
 
                         {/* Inline Interview Chat */}
                         {activeInterviewIndex === i && (
-                          <div className="rounded-2xl border border-primary/20 bg-muted/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                          <div className="rounded-2xl border border-primary/20 bg-muted/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-300 relative">
+                            <button 
+                              onClick={() => setActiveInterviewIndex(null)}
+                              className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+                            </button>
                             <div className="max-h-60 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                               {interviewMessages.map((msg, idx) => (
                                 <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
                                   <div className={cn(
-                                    "max-w-[90%] rounded-xl px-3 py-2 text-xs",
+                                    "max-w-[90%] rounded-xl px-3 py-2 text-xs shadow-sm",
                                     msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-card border border-border"
                                   )}>
                                     <p className="whitespace-pre-wrap">{msg.content}</p>
+                                    {msg.content.includes('```markdown') && (
+                                      <div className="mt-2 pt-2 border-t border-border/50">
+                                        <p className="text-[10px] font-bold text-green-600 mb-2">✨ 에피소드가 보강되었습니다!</p>
+                                        <button 
+                                          onClick={() => setActiveInterviewIndex(null)}
+                                          className="w-full rounded-lg bg-green-500 py-1.5 text-[10px] font-bold text-white hover:bg-green-600 transition-colors"
+                                        >
+                                          완료하고 닫기
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
-                              {isAiTyping && <div className="text-[10px] text-muted-foreground animate-pulse ml-1">AI가 분석 중...</div>}
+                              {isAiTyping && <div className="text-[10px] text-muted-foreground animate-pulse ml-1">AI 컨설턴트 분석 중...</div>}
                             </div>
                             <div className="flex gap-2">
                               <input 
@@ -323,13 +340,13 @@ export function MagicOnboarding({ onClose }: Props) {
                                 value={interviewInput}
                                 onChange={(e) => setInterviewInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendInterviewMessage()}
-                                placeholder="답변을 입력하세요..."
+                                placeholder="추가 정보를 입력하세요..."
                                 className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/20"
                               />
                               <button 
                                 onClick={handleSendInterviewMessage}
                                 disabled={!interviewInput.trim() || isAiTyping}
-                                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-all active:scale-95 disabled:opacity-50"
+                                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-all active:scale-95 disabled:opacity-50"
                               >
                                 전송
                               </button>
