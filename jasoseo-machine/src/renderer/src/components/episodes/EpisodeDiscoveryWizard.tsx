@@ -11,34 +11,34 @@ type Step = 'loading' | 'suggest' | 'interview'
 export function EpisodeDiscoveryWizard({ onClose }: Props) {
   const [step, setStep] = useState<Step>('loading')
   const [ideas, setIdeas] = useState<EpisodeIdea[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0) // 캐로절 인덱스
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [progress, setProgress] = useState({ step: '', percent: 0 })
   const [rawLogs, setRawLogs] = useState<string[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
+  
   const [selectedIdea, setSelectedIdea] = useState<EpisodeIdea | null>(null)
   const [messages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
+  const [hiddenState, setHiddenState] = useState<string>('') // AI의 '자기 기록' 닻
   const [input, setInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
   
   const chatEndRef = useRef<HTMLDivElement>(null)
   const terminalEndRef = useRef<HTMLDivElement>(null)
 
-  // 1. 프로필 분석 및 구독 설정
   useEffect(() => {
-    // 실시간 로그/프로그레스 구독
     const unsubProgress = (window.api as any).onOnboardingProgress((data: any) => setProgress(data))
     const unsubLogs = (window.api as any).onClaudeRawLog((data: string) => {
       if (data.trim()) setRawLogs(prev => [...prev.slice(-50), data.trim()])
     })
 
     const fetchIdeas = async () => {
-      // 자동 복구 체크
       const savedSession = localStorage.getItem('episode_interview_session')
       if (savedSession) {
-        const { idea, msgs } = JSON.parse(savedSession)
+        const { idea, msgs, state } = JSON.parse(savedSession)
         if (confirm(`'${idea.title}' 인터뷰 기록이 있습니다. 이어서 진행할까요?`)) {
           setSelectedIdea(idea)
           setMessages(msgs)
+          setHiddenState(state || '')
           setStep('interview')
           return
         } else {
@@ -52,8 +52,7 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
           setIdeas(result.data)
           setStep('suggest')
         } else {
-          alert('분석 실패: ' + result.error)
-          onClose()
+          alert('분석 실패: ' + result.error); onClose()
         }
       } catch { onClose() }
     }
@@ -65,9 +64,14 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     if (selectedIdea && messages.length > 0) {
-      localStorage.setItem('episode_interview_session', JSON.stringify({ idea: selectedIdea, msgs: messages }))
+      // [v21.1] 대화와 함께 AI의 내부 상태(hiddenState)도 함께 저장
+      localStorage.setItem('episode_interview_session', JSON.stringify({ 
+        idea: selectedIdea, 
+        msgs: messages,
+        state: hiddenState 
+      }))
     }
-  }, [messages])
+  }, [messages, hiddenState])
 
   useEffect(() => {
     if (showTerminal) terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -76,6 +80,7 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
   const handleSelectIdea = (idea: EpisodeIdea) => {
     setSelectedIdea(idea)
     setMessages([{ role: 'ai', content: `좋습니다! "${idea.title}" 에피소드를 만들어볼까요?\n\n${idea.hookMessage}` }])
+    setHiddenState(`START: ${idea.title}`)
     setStep('interview')
   }
 
@@ -87,11 +92,32 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
     setIsAiAiTyping(true)
 
     try {
+      // [v21.1] AI에게 이전 상태(닻)를 함께 전달하여 비정합성 제어
       const response = await window.api.claudeExecute({
-        prompt: `에피소드 인터뷰 중...\n[주제]: ${selectedIdea?.title}\n[대화]: ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}\nuser: ${userMsg}\n\n정보가 충분하면 최종 Markdown을 \`\`\`markdown 태그로 감싸서 출력하세요.`,
+        prompt: `사용자와의 에피소드 인터뷰 중입니다. 흐름을 완벽하게 유지하세요.
+        
+        [현재 분석 상태]: """${hiddenState}"""
+        [주제]: ${selectedIdea?.title}
+        [대화 내역]:
+        ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
+        user: ${userMsg}
+        
+        [지시사항]:
+        1. S-P-A-A-R-L 구조 중 부족한 부분을 채우기 위한 질문을 하세요.
+        2. 답변 마지막에 반드시 [SESSION_ANCHOR: {SPAARL 진행 상황 | 지금 파고드는 핵심 포인트}] 형태의 태그를 붙이세요.
+        3. 완벽해지면 최종 Markdown을 \`\`\`markdown 태그로 감싸 출력하세요.`,
         maxTurns: 1
       })
-      setMessages(prev => [...prev, { role: 'ai', content: response }])
+
+      // 태그 파싱 및 유저 화면용 텍스트 정제
+      const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
+      let cleanText = response
+      if (anchorMatch) {
+        setHiddenState(anchorMatch[1])
+        cleanText = response.replace(anchorMatch[0], '').trim()
+      }
+
+      setMessages(prev => [...prev, { role: 'ai', content: cleanText }])
     } catch {
       setMessages(prev => [...prev, { role: 'ai', content: '에러가 발생했습니다.' }])
     } finally { setIsAiAiTyping(false) }
@@ -103,9 +129,6 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
     }
   }
 
-  const nextIdea = () => currentIndex + 3 < ideas.length && setCurrentIndex(currentIndex + 3)
-  const prevIdea = () => currentIndex - 3 >= 0 && setCurrentIndex(currentIndex - 3)
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
@@ -115,14 +138,17 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
             <span className="text-2xl">✨</span>
             <div>
               <h2 className="text-xl font-bold">AI 에피소드 발굴 마법사</h2>
-              <p className="text-xs text-muted-foreground">프로필에서 보석 같은 순간을 찾아냅니다.</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                프로필에서 보석 같은 순간을 찾아냅니다.
+                {hiddenState && <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-mono opacity-70">닻: {hiddenState.slice(0, 30)}...</span>}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             {step === 'interview' && (
               <button onClick={() => setStep('suggest')} className="text-sm font-bold text-primary hover:underline">← 목록으로</button>
             )}
-            <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+            <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
             </button>
           </div>
@@ -169,7 +195,7 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
               </div>
               
               <div className="flex items-center gap-4 flex-1 overflow-hidden">
-                <button onClick={prevIdea} disabled={currentIndex === 0} className="p-3 rounded-full hover:bg-muted disabled:opacity-20 transition-all">
+                <button onClick={() => currentIndex > 0 && setCurrentIndex(currentIndex - 3)} disabled={currentIndex === 0} className="p-3 rounded-full hover:bg-muted disabled:opacity-20 transition-all">
                   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"></path></svg>
                 </button>
                 
@@ -177,14 +203,14 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
                   {ideas.slice(currentIndex, currentIndex + 3).map((idea, i) => (
                     <button key={i} onClick={() => handleSelectIdea(idea)} className="flex flex-col text-left rounded-3xl border border-border bg-muted/20 p-6 transition-all hover:border-primary hover:bg-primary/5 hover:scale-105 shadow-sm">
                       <span className="mb-3 inline-block rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold text-primary uppercase">{idea.theme}</span>
-                      <h4 className="mb-4 text-lg font-bold leading-tight">{idea.title}</h4>
+                      <h4 className="mb-4 text-lg font-bold leading-tight line-clamp-2">{idea.title}</h4>
                       <p className="flex-1 text-xs text-muted-foreground leading-relaxed line-clamp-4">{idea.hookMessage}</p>
                       <div className="mt-6 text-xs font-bold text-primary flex items-center gap-2">인터뷰 시작 <span className="text-lg">→</span></div>
                     </button>
                   ))}
                 </div>
 
-                <button onClick={nextIdea} disabled={currentIndex + 3 >= ideas.length} className="p-3 rounded-full hover:bg-muted disabled:opacity-20 transition-all">
+                <button onClick={() => currentIndex + 3 < ideas.length && setCurrentIndex(currentIndex + 3)} disabled={currentIndex + 3 >= ideas.length} className="p-3 rounded-full hover:bg-muted disabled:opacity-20 transition-all">
                   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path></svg>
                 </button>
               </div>
@@ -212,11 +238,11 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
                     </div>
                   </div>
                 ))}
-                {isAiTyping && <div className="text-[10px] text-muted-foreground animate-pulse ml-4">AI 컨설턴트 분석 중...</div>}
+                {isAiTyping && <div className="text-[10px] text-muted-foreground animate-pulse ml-4 font-bold">AI가 답변을 다듬고 상태를 기록 중입니다...</div>}
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="flex gap-2 bg-muted/30 p-2 rounded-2xl border border-border">
+              <div className="flex gap-2 bg-muted/30 p-2 rounded-2xl border border-border focus-within:border-primary/50 transition-colors">
                 <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="AI의 질문에 대답하세요..." className="flex-1 bg-transparent px-4 py-2 text-sm outline-none" />
                 <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-xl bg-primary px-6 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50">전송</button>
               </div>
