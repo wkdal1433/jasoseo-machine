@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "자소서 머신: Hands of God",
+  "version": "20.0.0",
+  "description": "채용 사이트에 자소서를 클릭 한 번으로 주입합니다.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["http://localhost/*", "https://*/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*"],
+      "js": ["content.js"],
+      "all_frames": true
+    }
+  ]
+}

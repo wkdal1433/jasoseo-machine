@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 300px; padding: 15px; font-family: sans-serif; background: #f9fafb; }
+    h2 { font-size: 16px; color: #4f46e5; margin-bottom: 15px; }
+    .field { margin-bottom: 10px; }
+    label { display: block; font-size: 11px; font-weight: bold; color: #6b7280; margin-bottom: 4px; }
+    input { width: 100%; padding: 8px; border: 1px border #d1d5db; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
+    button { width: 100%; padding: 10px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .status { margin-top: 10px; font-size: 11px; text-align: center; color: #10b981; }
+  </style>
+</head>
+<body>
+  <h2>🧙‍♂️ Hands of God 설정</h2>
+  <div class="field">
+    <label>브릿지 포트</label>
+    <input type="text" id="port" placeholder="12345">
+  </div>
+  <div class="field">
+    <label>보안 시크릿 키</label>
+    <input type="password" id="secret" placeholder="앱 설정에서 복사한 키">
+  </div>
+  <button id="save">연동 정보 저장</button>
+  <div id="status" class="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

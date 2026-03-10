@@ -34,48 +34,33 @@ import {
 } from './claude-bridge'
 
 export function registerIpcHandlers(): void {
-  // 안전 진단: IPC 객체의 모든 키가 유효한지 확인
   Object.entries(IPC).forEach(([key, value]) => {
-    if (value === undefined) {
-      console.error(`[IPC Error] Channel "${key}" is undefined!`);
-    }
+    if (value === undefined) console.error(`[IPC Error] Channel "${key}" is undefined!`);
   });
 
-  // 유틸리티: 현재 프로필에 따른 에피소드 폴더 경로 가져오기
   const getProfileEpisodeDir = () => {
     const projectDir = getSetting('project_dir') || ''
     if (!projectDir) return null
-
     const profile = getUserProfile()
     if (!profile) return null
-
-    // [v7.0 개선] 이름 대신 고유 ID를 폴더명으로 사용
     const folderName = profile.id || 'default'
     const dir = join(projectDir, 'episodes', folderName)
-    
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     return dir
   }
 
-  // [v8.5 개선] 휴지통 및 유지보수 관리 채널
   ipcMain.handle('maintenance:check-trash', () => {
     const projectDir = getSetting('project_dir') || ''
     const trashDir = join(projectDir, 'episodes', '.trash')
     if (!existsSync(trashDir)) return 0
-    
     try {
       const now = Date.now()
       const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
-      const files = readdirSync(trashDir)
-      const oldFiles = files.filter(file => {
+      return readdirSync(trashDir).filter(file => {
         try {
-          const stats = require('fs').statSync(join(trashDir, file))
-          return (now - stats.mtimeMs) > thirtyDaysMs
+          return (now - require('fs').statSync(join(trashDir, file)).mtimeMs) > thirtyDaysMs
         } catch { return false }
-      })
-      return oldFiles.length
+      }).length
     } catch { return 0 }
   })
 
@@ -83,132 +68,81 @@ export function registerIpcHandlers(): void {
     const projectDir = getSetting('project_dir') || ''
     const trashDir = join(projectDir, 'episodes', '.trash')
     if (!existsSync(trashDir)) return true
-    
     try {
       const now = Date.now()
       const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
-      const files = readdirSync(trashDir)
-      files.forEach(file => {
+      readdirSync(trashDir).forEach(file => {
         const filePath = join(trashDir, file)
         try {
-          const stats = require('fs').statSync(filePath)
-          if (now - stats.mtimeMs > thirtyDaysMs) {
-            unlinkSync(filePath)
-          }
+          if (now - require('fs').statSync(filePath).mtimeMs > thirtyDaysMs) unlinkSync(filePath)
         } catch { /* ignore */ }
       })
       return true
     } catch { return false }
   })
 
-  // 마이그레이션: 기존 이름 기반 폴더를 ID 기반으로 변경
   const migrateFolderNaming = () => {
     const projectDir = getSetting('project_dir') || ''
     if (!projectDir) return
-
     const profiles = listProfiles()
     let changed = false
-
     profiles.forEach((p: any) => {
       if (p.id && p.name && !p.isMigrated) {
         const oldDir = join(projectDir, 'episodes', p.name)
         const newDir = join(projectDir, 'episodes', p.id)
-        
         let success = false
         if (existsSync(oldDir) && !existsSync(newDir)) {
           try {
             renameSync(oldDir, newDir)
-            // 실제 이동 후 존재 여부 재확인 (Verification)
             if (existsSync(newDir)) success = true
-          } catch (err) {
-            console.error(`[Migration] Transaction failed for ${p.name}`, err)
-          }
-        } else if (existsSync(newDir)) {
-          // 이미 누군가에 의해 혹은 수동으로 옮겨져 있다면 성공으로 간주
-          success = true
-        }
-
+          } catch { /* error */ }
+        } else if (existsSync(newDir)) success = true
         if (success) {
-          const fullProfile = data.profiles.find(prof => prof.id === p.id)
-          if (fullProfile) {
-            fullProfile.isMigrated = true
-            changed = true
-          }
+          const fullProfile = (data as any).profiles.find(prof => prof.id === p.id)
+          if (fullProfile) { fullProfile.isMigrated = true; changed = true; }
         }
       }
     })
-
-    if (changed) {
-      saveUserProfile(getUserProfile())
-    }
+    if (changed) saveUserProfile(getUserProfile())
   }
-
   migrateFolderNaming()
 
-  // === Claude CLI ===
-  ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {
-    return executeClaudePrompt(options)
-  })
-
+  ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => executeClaudePrompt(options))
   ipcMain.on(IPC.CLAUDE_EXECUTE_STREAM, (event, options) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) {
-      executeClaudeStream(options, window)
-    }
+    if (window) executeClaudeStream(options, window)
   })
+  ipcMain.handle(IPC.CLAUDE_CANCEL, () => cancelActiveProcess())
+  ipcMain.handle(IPC.CLAUDE_CHECK_STATUS, async () => testClaudeConnection())
 
-  ipcMain.handle(IPC.CLAUDE_CANCEL, () => {
-    return cancelActiveProcess()
-  })
-
-  ipcMain.handle(IPC.CLAUDE_CHECK_STATUS, async () => {
-    return testClaudeConnection()
-  })
-
-  // === Episodes ===
   ipcMain.handle(IPC.EPISODES_LOAD, () => {
-    const episodesDir = getProfileEpisodeDir()
-    if (!episodesDir) return []
-
+    const dir = getProfileEpisodeDir()
+    if (!dir) return []
     try {
-      const files = readdirSync(episodesDir).filter((f) => f.endsWith('.md'))
-      return files.map((file) => {
-        const content = readFileSync(join(episodesDir, file), 'utf-8')
-        return { fileName: file, content }
-      })
-    } catch {
-      return []
-    }
+      return readdirSync(dir).filter(f => f.endsWith('.md')).map(file => ({
+        fileName: file, content: readFileSync(join(dir, file), 'utf-8')
+      }))
+    } catch { return [] }
   })
 
   ipcMain.handle(IPC.EPISODE_DELETE, (_event, fileName) => {
-    const episodesDir = getProfileEpisodeDir()
-    if (!episodesDir) return false
-    
+    const dir = getProfileEpisodeDir()
+    if (!dir) return false
     try {
-      const trashDir = join(episodesDir, '.trash')
+      const trashDir = join(dir, '.trash')
       if (!existsSync(trashDir)) mkdirSync(trashDir, { recursive: true })
-      
-      const sourcePath = join(episodesDir, fileName)
-      const destPath = join(trashDir, `${Date.now()}_${fileName}`)
-      
-      renameSync(sourcePath, destPath)
+      renameSync(join(dir, fileName), join(trashDir, `${Date.now()}_${fileName}`))
       return true
-    } catch (err) {
-      console.error('Delete error:', err)
-      return false
-    }
+    } catch { return false }
   })
 
   ipcMain.handle(IPC.EPISODE_SAVE_FILE, (_event, fileName, content) => {
-    const episodesDir = getProfileEpisodeDir()
-    if (!episodesDir) return false
+    const dir = getProfileEpisodeDir()
+    if (!dir) return false
     try {
-      writeFileSync(join(episodesDir, fileName), content, 'utf-8')
+      writeFileSync(join(dir, fileName), content, 'utf-8')
       return true
-    } catch {
-      return false
-    }
+    } catch { return false }
   })
 
   if (IPC.EPISODE_SUGGEST_IDEAS) {
@@ -218,303 +152,126 @@ export function registerIpcHandlers(): void {
       try {
         const profile = getUserProfile()
         if (!profile) throw new Error('User profile not found.')
-        const prompt = interviewer.buildIdeaSuggestionPrompt(profile)
-        const aiResponse = await executeClaudePrompt(prompt)
+        const aiResponse = await executeClaudePrompt({ prompt: interviewer.buildIdeaSuggestionPrompt(profile), outputFormat: 'json', maxTurns: 5 })
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI response invalid.')
-        const result = JSON.parse(jsonMatch[0])
-        return { success: true, data: result.ideas }
-      } catch (error: any) {
-        return { success: false, error: error.message }
-      }
+        return { success: true, data: JSON.parse(jsonMatch[0]).ideas }
+      } catch (error: any) { return { success: false, error: error.message } }
     })
   }
 
-  // === Applications ===
   ipcMain.handle(IPC.APP_SAVE, (_event, app) => {
-    // [v9.0 개선] 바인딩된 프로필 생존 여부 검증 (Ghost Session 방지)
-    const profiles = listProfiles()
-    const currentProfile = getUserProfile()
-    
-    // 만약 위자드가 바인딩된 프로필 ID 정보를 담고 있다면 (클라이언트에서 전달 시)
-    // 여기서는 간단하게 현재 선택된 프로필이 있는지 체크
-    if (!currentProfile) {
-      return { success: false, error: '활성화된 프로필이 없습니다. 프로필을 먼저 생성해주세요.' }
-    }
-
-    saveApplication(app)
-    return { success: true }
+    if (!getUserProfile()) return { success: false, error: '프로필이 없습니다.' }
+    saveApplication(app); return { success: true }
   })
+  ipcMain.handle(IPC.APP_LIST, () => listApplications())
+  ipcMain.handle(IPC.APP_GET, (_event, id) => getApplication(id))
+  ipcMain.handle(IPC.APP_DELETE, (_event, id) => { deleteApplication(id); return true })
+  ipcMain.handle(IPC.APP_UPDATE_STATUS, (_event, id, status, note) => { updateApplicationStatus(id, status, note); return true })
 
-  ipcMain.handle(IPC.APP_LIST, () => {
-    return listApplications()
-  })
+  ipcMain.handle(IPC.CL_SAVE, (_event, cl) => { saveCoverLetter(cl); return true })
+  ipcMain.handle(IPC.CL_GET, (_event, id) => getCoverLetter(id))
+  ipcMain.handle(IPC.CL_UPDATE, (_event, id, updates) => { updateCoverLetter(id, updates); return true })
 
-  ipcMain.handle(IPC.APP_GET, (_event, id) => {
-    return getApplication(id)
-  })
+  ipcMain.handle(IPC.DRAFT_SAVE, (_event, id, state) => { saveDraft(id, JSON.stringify(state)); return true })
+  ipcMain.handle(IPC.DRAFT_GET, (_event, id) => getDraft(id))
+  ipcMain.handle(IPC.DRAFT_DELETE, (_event, id) => { deleteDraft(id); return true })
+  ipcMain.handle(IPC.DRAFT_LIST, () => listDrafts())
 
-  ipcMain.handle(IPC.APP_DELETE, (_event, id) => {
-    deleteApplication(id)
-    return true
-  })
+  ipcMain.handle(IPC.EPISODE_USAGE, (_event, id) => getEpisodeUsage(id))
+  ipcMain.handle(IPC.SETTINGS_GET, (_event, key) => getSetting(key))
+  ipcMain.handle(IPC.SETTINGS_SET, (_event, key, value) => { setSetting(key, value); return true })
+  ipcMain.handle(IPC.SETTINGS_TEST_CLI, async () => testClaudeConnection())
+  ipcMain.handle(IPC.SETTINGS_TEST_GEMINI, async () => testGeminiConnection())
 
-  ipcMain.handle(IPC.APP_UPDATE_STATUS, (_event, id, status, feedbackNote) => {
-    updateApplicationStatus(id, status, feedbackNote)
-    return true
-  })
-
-  // === Cover Letters ===
-  ipcMain.handle(IPC.CL_SAVE, (_event, cl) => {
-    saveCoverLetter(cl)
-    return true
-  })
-
-  ipcMain.handle(IPC.CL_GET, (_event, id) => {
-    return getCoverLetter(id)
-  })
-
-  ipcMain.handle(IPC.CL_UPDATE, (_event, id, updates) => {
-    updateCoverLetter(id, updates)
-    return true
-  })
-
-  // === Drafts ===
-  ipcMain.handle(IPC.DRAFT_SAVE, (_event, applicationId, wizardState) => {
-    saveDraft(applicationId, JSON.stringify(wizardState))
-    return true
-  })
-
-  ipcMain.handle(IPC.DRAFT_GET, (_event, applicationId) => {
-    return getDraft(applicationId)
-  })
-
-  ipcMain.handle(IPC.DRAFT_DELETE, (_event, applicationId) => {
-    deleteDraft(applicationId)
-    return true
-  })
-
-  ipcMain.handle(IPC.DRAFT_LIST, () => {
-    return listDrafts()
-  })
-
-  // === Episode Usage ===
-  ipcMain.handle(IPC.EPISODE_USAGE, (_event, applicationId) => {
-    return getEpisodeUsage(applicationId)
-  })
-
-  // === Settings ===
-  ipcMain.handle(IPC.SETTINGS_GET, (_event, key) => {
-    return getSetting(key)
-  })
-
-  ipcMain.handle(IPC.SETTINGS_SET, (_event, key, value) => {
-    setSetting(key, value)
-    return true
-  })
-
-  ipcMain.handle(IPC.SETTINGS_TEST_CLI, async () => {
-    return testClaudeConnection()
-  })
-
-  ipcMain.handle(IPC.SETTINGS_TEST_GEMINI, async () => {
-    return testGeminiConnection()
-  })
-
-  // === User Profile ===
-  ipcMain.handle(IPC.USER_PROFILE_GET, () => {
-    return getUserProfile()
-  })
-
-  ipcMain.handle(IPC.USER_PROFILE_SAVE, (_event, profile) => {
-    saveUserProfile(profile)
-    return true
-  })
-
-  ipcMain.handle(IPC.USER_PROFILES_LIST, () => {
-    return listProfiles()
-  })
-
-  ipcMain.handle(IPC.USER_PROFILE_SWITCH, (_event, id) => {
-    switchProfile(id)
-    return true
-  })
-
-  ipcMain.handle(IPC.USER_PROFILE_CREATE, (_event, name) => {
-    return createProfile(name)
-  })
-
+  ipcMain.handle(IPC.USER_PROFILE_GET, () => getUserProfile())
+  ipcMain.handle('user-profile:get-sync', () => getUserProfile())
+  ipcMain.handle(IPC.USER_PROFILE_SAVE, (_event, profile) => { saveUserProfile(profile); return true })
+  ipcMain.handle(IPC.USER_PROFILES_LIST, () => listProfiles())
+  ipcMain.handle(IPC.USER_PROFILE_SWITCH, (_event, id) => { switchProfile(id); return true })
+  ipcMain.handle(IPC.USER_PROFILE_CREATE, (_event, name) => createProfile(name))
   ipcMain.handle(IPC.USER_PROFILE_DELETE, (_event, id) => {
     const projectDir = getSetting('project_dir') || ''
     const deletedId = deleteProfile(id)
-    
     if (deletedId && projectDir) {
       const sourceDir = join(projectDir, 'episodes', deletedId)
-      const trashDir = join(projectDir, 'episodes', '.trash', `deleted_profile_${deletedId}_${Date.now()}`)
-      
       if (existsSync(sourceDir)) {
-        try {
-          if (!existsSync(join(projectDir, 'episodes', '.trash'))) {
-            mkdirSync(join(projectDir, 'episodes', '.trash'), { recursive: true })
-          }
-          renameSync(sourceDir, trashDir)
-        } catch (err) {
-          console.error(`[Cleanup] Error: ${deletedId}`, err)
-        }
+        const trashDir = join(projectDir, 'episodes', '.trash', `deleted_profile_${deletedId}_${Date.now()}`)
+        if (!existsSync(join(projectDir, 'episodes', '.trash'))) mkdirSync(join(projectDir, 'episodes', '.trash'), { recursive: true })
+        try { renameSync(sourceDir, trashDir) } catch { /* ignore */ }
       }
     }
     return true
   })
 
-  // === Automation (Input Proxy Agent & Company Analyst) ===
-  if (IPC.ANALYZE_FORM_STRUCTURE) {
-    ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, formHtml) => {
-      const { FormAnalyzer } = await import('./automation/form-analyzer')
-      const analyzer = new FormAnalyzer()
-      try {
-        const profile = getUserProfile()
-        if (!profile) throw new Error('User profile not found.')
-        const prompt = analyzer.buildBatchPrompt(formHtml, profile)
-        const aiResponse = await executeClaudePrompt(prompt)
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('AI response is not valid JSON.')
-        const result = JSON.parse(jsonMatch[0])
-        return { success: true, data: { ...result, script: analyzer.wrapWithEventSimulator(result.script) } }
-      } catch (error: any) {
-        return { success: false, error: error.message }
+  ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, html) => {
+    const { FormAnalyzer } = await import('./automation/form-analyzer')
+    const analyzer = new FormAnalyzer()
+    try {
+      const profile = getUserProfile()
+      if (!profile) throw new Error('프로필이 없습니다.')
+      const aiResponse = await executeClaudePrompt({ prompt: analyzer.buildBatchPrompt(html, profile), outputFormat: 'json', maxTurns: 5 })
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('AI 응답이 올바르지 않습니다.')
+      const result = JSON.parse(jsonMatch[0])
+      return { success: true, data: { ...result, script: analyzer.wrapWithEventSimulator(result.script) } }
+    } catch (error: any) { return { success: false, error: error.message } }
+  })
+
+  ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, name, date) => {
+    const { CompanyAnalyst } = await import('./automation/company-analyst')
+    const analyst = new CompanyAnalyst()
+    try {
+      const query = analyst.buildSearchQuery(name, date)
+      const aiResponse = await executeClaudePrompt({ prompt: analyst.buildAnalysisPrompt(name, `[Search for ${query}]`, date), outputFormat: 'json', maxTurns: 5 })
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('AI 분석 실패')
+      let result = JSON.parse(jsonMatch[0])
+      if (result.foundLinks) {
+        const validated = await Promise.all(result.foundLinks.map(async (l: any) => {
+          try {
+            const res = await fetch(l.url, { method: 'HEAD', signal: AbortSignal.timeout(2000) })
+            return { ...l, isValid: res.ok }
+          } catch { return { ...l, isValid: false } }
+        }))
+        result.foundLinks = validated.filter((l: any) => l.isValid)
       }
-    })
-  }
+      return { success: true, data: result }
+    } catch (error: any) { return { success: false, error: error.message } }
+  })
 
-  if (IPC.ANALYZE_COMPANY) {
-    ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, companyName, currentDate) => {
-      const { CompanyAnalyst } = await import('./automation/company-analyst')
-      const analyst = new CompanyAnalyst()
-      try {
-        const query = analyst.buildSearchQuery(companyName, currentDate)
-        const aiResponse = await executeClaudePrompt(analyst.buildAnalysisPrompt(companyName, `[Search the web for ${query}]`, currentDate))
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('AI analysis failed.')
-        
-        const result = JSON.parse(jsonMatch[0])
+  // [v20.0 핵심] AI 직독직해 온보딩 핸들러
+  ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, filePath) => {
+    const { OnboardingAgent } = await import('./automation/onboarding-agent')
+    const agent = new OnboardingAgent()
+    try {
+      // 이제 백엔드에서 PDF를 파싱하지 않고, AI에게 경로를 주어 직접 읽게 함
+      const aiResponse = await executeClaudePrompt({ 
+        prompt: agent.buildExtractionPrompt(filePath), 
+        outputFormat: 'json', 
+        maxTurns: 10 // AI가 파일 읽기 도구를 충분히 쓸 수 있도록 턴 수 확대
+      })
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('AI 분석 결과가 올바르지 않습니다.')
+      return { success: true, data: JSON.parse(jsonMatch[0]) }
+    } catch (error: any) { return { success: false, error: error.message } }
+  })
 
-        // [v9.0 개선] 정교한 링크 유효성 체크
-        const validatedLinks = await Promise.all(
-          result.foundLinks.map(async (link: any) => {
-            const fetchOptions = {
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-              signal: AbortSignal.timeout(3000)
-            };
-            try {
-              // 1. 가벼운 HEAD 요청 시도
-              let response = await fetch(link.url, { ...fetchOptions, method: 'HEAD' })
-              if (response.ok) return { ...link, isValid: true }
-              
-              // 2. HEAD 실패 시 실제 GET 시도 (일부 사이트 보안 대응)
-              response = await fetch(link.url, { ...fetchOptions, method: 'GET' })
-              return { ...link, isValid: response.ok }
-            } catch { return { ...link, isValid: false } }
-          })
-        )
-        result.foundLinks = validatedLinks.filter((l: any) => l.isValid)
-
-        if (result.recruitmentSeason && !result.recruitmentSeason.includes('2026')) {
-          result.analysisNote = `[Warning] Found older recruitment data (${result.recruitmentSeason}).`
-        }
-        return { success: true, data: result }
-      } catch (error: any) {
-        return { success: false, error: error.message }
-      }
-    })
-  }
-
-  if (IPC.ONBOARDING_PARSE_FILE) {
-    ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, rawText) => {
-      const { OnboardingAgent } = await import('./automation/onboarding-agent')
-      const { FactChecker } = await import('./automation/fact-checker')
-      const agent = new OnboardingAgent()
-      const checker = new FactChecker()
-      try {
-        const prompt = agent.buildExtractionPrompt(rawText)
-        const aiResponse = await executeClaudePrompt(prompt)
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('AI extraction failed.')
-        let result = JSON.parse(jsonMatch[0])
-        result = checker.checkOnboardingResult(result, rawText)
-        return { success: true, data: result }
-      } catch (error: any) {
-        return { success: false, error: error.message }
-      }
-    })
-  }
-
-  // === Bridge (v20.0) ===
   ipcMain.handle(IPC.BRIDGE_GET_INFO, () => {
     const { bridgeServer } = require('./automation/bridge-server')
-    return {
-      port: getSetting('bridge_port') || '12345',
-      secret: bridgeServer.getSecret()
-    }
+    return { port: getSetting('bridge_port') || '12345', secret: bridgeServer.getSecret() }
   })
-
   ipcMain.handle(IPC.BRIDGE_SET_SCRIPT, (_event, script) => {
     const { bridgeServer } = require('./automation/bridge-server')
-    bridgeServer.setPendingScript(script)
-    return true
+    bridgeServer.setPendingScript(script); return true
   })
 
-  // === File System ===
-  ipcMain.handle(IPC.FS_READ_MD, (_event, filePath) => {
-    try {
-      return readFileSync(filePath, 'utf-8')
-    } catch {
-      return null
-    }
-  })
-
-  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, data) => {
-    try {
-      const pdfParse = require('pdf-parse')
-      // [v10.5 개선] 라이브러리 호출 방식 유연화 (객체 또는 함수 대응)
-      const parseFunc = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
-      
-      if (!parseFunc) throw new Error('PDF library not loaded correctly');
-
-      // [v10.5 개선] 전달받은 데이터 유효성 검사 및 버퍼 변환
-      if (!data) throw new Error('No data received from renderer');
-      const dataBuffer = Buffer.from(data);
-      
-      const parsedData = await parseFunc(dataBuffer)
-      
-      if (!parsedData || !parsedData.text || parsedData.text.trim().length < 5) {
-        throw new Error('텍스트가 없는 이미지 PDF이거나 파일이 비어있습니다.')
-      }
-      
-      return { success: true, text: parsedData.text }
-    } catch (error: any) {
-      console.error('[PDF Engine Error]:', error)
-      let message = 'PDF 파일을 읽을 수 없습니다.'
-      // ... (rest of error logic)
-      
-      const errMsg = error.toString().toLowerCase()
-      if (errMsg.includes('encrypted') || errMsg.includes('password')) {
-        message = '비밀번호가 걸려있는 PDF입니다. 암호를 해제한 후 다시 업로드해주세요.'
-      } else if (errMsg.includes('이미지 pdf') || errMsg.includes('파일이 비어있습니다')) {
-        message = '텍스트가 없는 이미지 PDF입니다. 직접 복사해서 붙여넣어 주세요.'
-      }
-      
-      return { success: false, error: message }
-    }
-  })
-
+  ipcMain.handle(IPC.FS_READ_MD, (_event, path) => { try { return readFileSync(path, 'utf-8') } catch { return null } })
+  
   ipcMain.handle(IPC.FS_SELECT_DIR, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) return null
-    const result = await dialog.showOpenDialog(window, {
-      properties: ['openDirectory'],
-      title: '프로젝트 디렉토리 선택'
-    })
-    if (result.canceled || result.filePaths.length === 0) return null
-    return result.filePaths[0]
+    const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: '폴더 선택' })
+    return (result.canceled || result.filePaths.length === 0) ? null : result.filePaths[0]
   })
 }

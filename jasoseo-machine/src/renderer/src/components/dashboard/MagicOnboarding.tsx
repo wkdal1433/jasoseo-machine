@@ -27,16 +27,12 @@ export function MagicOnboarding({ onClose }: Props) {
     return () => setLock(false)
   }, [])
 
-  const handleParse = async (text: string) => {
-    if (text.length > 15000) {
-      alert(`파일의 내용이 너무 깁니다 (${text.length.toLocaleString()}자).\n안정적인 분석을 위해 15,000자 이내로 쪼개서 업로드해 주세요.`);
-      setStep('welcome');
-      return;
-    }
-
+  // AI에게 분석을 요청하는 통합 함수
+  const requestAiAnalysis = async (input: string) => {
     setStep('parsing')
     try {
-      const response = await window.api.onboardingParseFile(text)
+      // 이제 PDF 경로든 일반 텍스트든 AI가 알아서 처리함
+      const response = await window.api.onboardingParseFile(input)
       if (response.success) {
         setResult(response.data)
         setStep('result')
@@ -58,28 +54,13 @@ export function MagicOnboarding({ onClose }: Props) {
     if (!file) return
 
     if (file.name.toLowerCase().endsWith('.pdf')) {
-      const parsePdf = async () => {
-        setStep('parsing')
-        try {
-          const buffer = await file.arrayBuffer()
-          const res = await (window.api as any).parsePdf(buffer)
-          if (res.success) {
-            handleParse(res.text)
-          } else {
-            alert('PDF 파싱 실패: ' + res.error)
-            setStep('welcome')
-          }
-        } catch (err) {
-          alert('파일을 읽는 중 오류가 발생했습니다.')
-          setStep('welcome')
-        }
-      }
-      parsePdf()
+      // [v20.0 핵심] 로컬 파싱 없이 파일 경로만 AI에게 전달
+      requestAiAnalysis(file.path)
     } else {
       const reader = new FileReader()
       reader.onload = (event) => {
         const content = event.target?.result as string
-        handleParse(content)
+        requestAiAnalysis(content)
       }
       reader.readAsText(file)
     }
@@ -88,39 +69,26 @@ export function MagicOnboarding({ onClose }: Props) {
   const startInterview = (index: number) => {
     const ep = result?.episodes[index]
     if (!ep) return
-    
     setActiveInterviewIndex(index)
-    setMessages([
-      {
-        role: 'ai',
-        content: `안녕하세요! "${ep.title}" 에피소드의 완성도를 높여볼까요?\n\n현재 분석 결과: ${ep.reason}\n\n부족한 부분을 채우기 위해 제가 질문을 드릴게요. 준비되셨나요?`
-      }
-    ])
+    setMessages([{
+      role: 'ai',
+      content: `안녕하세요! "${ep.title}" 에피소드의 완성도를 높여볼까요?\n\n현재 분석 결과: ${ep.reason}\n\n부족한 부분을 채우기 위해 제가 질문을 드릴게요. 준비되셨나요?`
+    }])
   }
 
   const handleSendInterviewMessage = async () => {
     if (!interviewInput.trim() || isAiTyping || activeInterviewIndex === null) return
-
     const userMsg = interviewInput.trim()
     setMessages((prev) => [...prev, { role: 'user', content: userMsg }])
     setInterviewInput('')
     setIsAiAiTyping(true)
-
     try {
       const ep = result!.episodes[activeInterviewIndex]
       const response = await window.api.claudeExecute({
-        prompt: `에피소드 인라인 인터뷰 중입니다.
-        [대상 에피소드]: ${ep.title}
-        [기존 내용]: ${ep.content}
-        [대화 내역]: ${interviewMessages.map(m => `${m.role}: ${m.content}`).join('\n')}
-        user: ${userMsg}
-        
-        [지시]: 부족한 S-P-A-A-R-L 요소를 채우기 위한 질문을 하세요. 
-        만약 완벽해졌다면 최종 Markdown을 \`\`\`markdown 태그로 감싸서 보내고 '수정이 완료되었습니다!'라고 하세요.`,
+        prompt: `에피소드 인라인 인터뷰 중입니다.\n[대상 에피소드]: ${ep.title}\n[기존 내용]: ${ep.content}\n[대화 내역]: ${interviewMessages.map(m => `${m.role}: ${m.content}`).join('\n')}\nuser: ${userMsg}\n\n[지시]: 부족한 S-P-A-A-R-L 요소를 채우기 위한 질문을 하세요. 완벽해졌다면 최종 Markdown을 \`\`\`markdown 태그로 감싸서 보내주세요.`,
         maxTurns: 1
       })
       setMessages((prev) => [...prev, { role: 'ai', content: response }])
-      
       if (response.includes('```markdown')) {
         const match = response.match(/```markdown\n([\s\S]*)\n```/)
         if (match) {
@@ -129,288 +97,114 @@ export function MagicOnboarding({ onClose }: Props) {
             ...updatedEpisodes[activeInterviewIndex],
             content: match[1],
             status: 'ready',
-            reason: '인터뷰를 통해 팩트 체크 및 내용 보강이 완료되었습니다.'
+            reason: '인터뷰 완료'
           }
           setResult({ ...result!, episodes: updatedEpisodes })
         }
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'ai', content: '오류가 발생했습니다.' }])
-    } finally {
-      setIsAiAiTyping(false)
-    }
+      setMessages((prev) => [...prev, { role: 'ai', content: '오류 발생' }])
+    } finally { setIsAiAiTyping(false) }
   }
 
   const handleSaveAll = async (mode: 'merge' | 'overwrite') => {
     if (!result) return
-
     try {
+      const currentProfile = await window.api.userProfileGet();
       let finalProfile = result.profile;
-      
-      if (mode === 'merge') {
-        const currentProfile = await window.api.userProfileGet();
-        finalProfile = {
-          ...result.profile,
-          ...currentProfile,
-          id: currentProfile.id
-        };
+      if (mode === 'merge' && currentProfile) {
+        finalProfile = { ...result.profile, ...currentProfile, id: currentProfile.id };
       }
-
       await window.api.userProfileSave(finalProfile)
-      
       for (let i = 0; i < result.episodes.length; i++) {
         const ep = result.episodes[i]
-        const fileName = `ep_magic_${Date.now()}_${i}.md`
-        await window.api.episodeSaveFile(fileName, ep.content)
+        await window.api.episodeSaveFile(`ep_magic_${Date.now()}_${i}.md`, ep.content)
       }
-
-      await loadProfile()
-      await loadEpisodes()
-      alert('모든 데이터가 성공적으로 반영되었습니다!')
-      onClose()
-    } catch (err) {
-      alert('저장 중 오류가 발생했습니다.')
-    }
+      await loadProfile(); await loadEpisodes();
+      alert('데이터 반영 완료!'); onClose();
+    } catch { alert('저장 실패'); }
   }
 
   return (
     <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">
       <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg flex-1">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🧙‍♂️</span>
-            <div>
-              <h2 className="text-xl font-bold">매직 온보딩 에이전트</h2>
-              <p className="text-xs text-muted-foreground">기존 자소서만 주시면 나머지는 제가 다 할게요.</p>
-            </div>
+            <div><h2 className="text-xl font-bold">매직 온보딩 에이전트</h2><p className="text-xs text-muted-foreground">PDF/MD 파일을 던져주세요.</p></div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors text-muted-foreground">
-            뒤로가기
-          </button>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors text-muted-foreground">뒤로가기</button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
           {step === 'welcome' && (
             <div className="flex h-full flex-col items-center justify-center text-center">
-              <div 
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                className={cn(
-                  "relative flex h-80 w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 border-dashed transition-all",
-                  isDragging ? "border-primary bg-primary/5 scale-105" : "border-border bg-muted/20"
-                )}
-              >
-                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-4xl">
-                  📄
-                </div>
-                <h3 className="mb-2 text-2xl font-bold text-foreground">이력서나 자소서를 던져주세요</h3>
-                <p className="mb-8 text-muted-foreground px-10">
-                  PDF, MD, 또는 텍스트 파일을 이곳에 드래그하세요.<br/>
-                  AI가 12개 섹션 프로필과 S-P-A-A-R-L 에피소드를 즉시 생성합니다.
-                </p>
+              <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={onDrop}
+                className={cn("relative flex h-80 w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 border-dashed transition-all", isDragging ? "border-primary bg-primary/5 scale-105" : "border-border bg-muted/20")}>
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-4xl">📄</div>
+                <h3 className="mb-2 text-2xl font-bold">이력서나 자소서를 던져주세요</h3>
+                <p className="mb-8 text-muted-foreground px-10">AI가 직접 파일을 읽고 12개 섹션 프로필과 에피소드를 구성합니다.</p>
                 <label className="cursor-pointer rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90">
                   파일 선택하기
                   <input type="file" className="hidden" accept=".md,.txt,.pdf" onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    if (file.name.toLowerCase().endsWith('.pdf')) {
-                      const parse = async () => {
-                        setStep('parsing')
-                        try {
-                          const buffer = await file.arrayBuffer()
-                          const res = await (window.api as any).parsePdf(buffer)
-                          if (res.success) handleParse(res.text)
-                          else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
-                        } catch { alert('파일 읽기 에러'); setStep('welcome'); }
-                      }
-                      parse()
-                    } else {
-                      const reader = new FileReader()
-                      reader.onload = (event) => handleParse(event.target?.result as string)
-                      reader.readAsText(file)
-                    }
+                    const file = e.target.files?.[0]; if (!file) return;
+                    if (file.name.toLowerCase().endsWith('.pdf')) requestAiAnalysis(file.path);
+                    else { const reader = new FileReader(); reader.onload = (ev) => requestAiAnalysis(ev.target?.result as string); reader.readAsText(file); }
                   }} />
                 </label>
               </div>
-              <p className="mt-8 text-xs text-muted-foreground">
-                ※ v20.0 기술: 한글 경로 및 보안 아이프레임을 완벽히 지원합니다.
-              </p>
+              <p className="mt-8 text-xs text-muted-foreground">※ v20.0 AI-Native 기술: AI가 직접 파일을 읽어 분석 정확도를 극대화합니다.</p>
             </div>
           )}
 
           {step === 'parsing' && (
             <div className="flex h-full flex-col items-center justify-center space-y-8">
-              <div className="relative">
-                <div className="h-24 w-24 animate-spin rounded-full border-8 border-primary/20 border-t-primary"></div>
-                <div className="absolute inset-0 flex items-center justify-center text-2xl">⚡</div>
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-2xl font-bold animate-pulse">마법이 일어나는 중입니다...</p>
-                <p className="text-muted-foreground">데이터를 추출하고 구조화하고 있습니다. (약 15초 소요)</p>
-              </div>
-              <div className="w-full max-w-md space-y-2">
-                <div className="flex justify-between text-xs font-medium">
-                  <span>프로필 추출</span>
-                  <span className="text-primary">진행 중...</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div className="h-full w-2/3 bg-primary animate-[progress_2s_ease-in-out_infinite]"></div>
-                </div>
-              </div>
+              <div className="h-24 w-24 animate-spin rounded-full border-8 border-primary/20 border-t-primary"></div>
+              <div className="text-center"><p className="text-2xl font-bold animate-pulse">AI가 파일을 직접 읽고 분석 중입니다...</p><p className="text-muted-foreground">약 15~30초 정도 소요될 수 있습니다.</p></div>
             </div>
           )}
 
           {step === 'result' && result && (
             <div className="space-y-10 animate-in fade-in duration-500">
-              <div className="text-center">
-                <h3 className="text-3xl font-bold">🎉 세팅이 완료되었습니다!</h3>
-                <p className="mt-2 text-muted-foreground">AI가 찾아낸 데이터들을 확인하고 승인해주세요.</p>
-              </div>
-
+              <div className="text-center"><h3 className="text-3xl font-bold">🎉 분석 완료!</h3><p className="mt-2 text-muted-foreground">AI가 추출한 데이터를 확인해주세요.</p></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Profile Result */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-bold flex items-center gap-2">📂 프로필 추출 결과</h4>
-                    <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold text-green-600">
-                      80% 완성
-                    </span>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-muted/30 p-5 space-y-3">
-                    {result.missingFields.length > 0 ? (
-                      <div className="rounded-lg bg-yellow-500/10 p-3 text-xs text-yellow-700 border border-yellow-500/20">
-                        ⚠️ <strong>누락된 항목:</strong> {result.missingFields.join(', ')} <br/>
-                        <span className="mt-1 block opacity-80">이 데이터들은 나중에 프로필 페이지에서 채워주세요.</span>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg bg-green-500/10 p-3 text-xs text-green-700 border border-green-500/20">
-                        ✅ 모든 필수 필드가 성공적으로 추출되었습니다!
-                      </div>
-                    )}
-                    <div className="text-sm space-y-1">
-                      <p><strong>성함:</strong> {result.profile.personal?.name || '미확인'}</p>
-                      <p><strong>학력:</strong> {result.profile.education?.[0]?.schoolName || '미확인'}</p>
-                      <p><strong>경력:</strong> {result.profile.career?.length || 0}건 발견</p>
-                    </div>
+                  <h4 className="text-lg font-bold">📂 프로필 결과</h4>
+                  <div className="rounded-2xl border border-border bg-muted/30 p-5 text-sm space-y-1">
+                    <p><strong>성함:</strong> {result.profile.personal?.name || '미확인'}</p>
+                    <p><strong>학력:</strong> {result.profile.education?.[0]?.name || '미확인'}</p>
+                    {result.missingFields.length > 0 && <p className="text-xs text-orange-600 mt-2">⚠️ 누락: {result.missingFields.join(', ')}</p>}
                   </div>
                 </div>
-
-                {/* Episode Result */}
                 <div className="space-y-4">
-                  <h4 className="text-lg font-bold flex items-center gap-2">✨ 에피소드 추출 결과</h4>
+                  <h4 className="text-lg font-bold">✨ 에피소드 결과</h4>
                   <div className="space-y-3">
                     {result.episodes.map((ep, i) => (
-                      <div key={i} className="flex flex-col gap-2">
-                        <button 
-                          onClick={() => activeInterviewIndex === i ? setActiveInterviewIndex(null) : startInterview(i)}
-                          className={cn(
-                            "group text-left rounded-2xl border bg-card p-4 shadow-sm transition-all hover:border-primary/50",
-                            activeInterviewIndex === i ? "border-primary ring-2 ring-primary/10" : "border-border"
-                          )}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className={cn(
-                                "h-3 w-3 rounded-full",
-                                ep.status === 'ready' ? "bg-green-500" : 
-                                ep.status === 'needs_review' ? "bg-yellow-500" : "bg-red-500"
-                              )} title={ep.status}></div>
-                              <span className="text-sm font-bold truncate max-w-[150px]">{ep.title}</span>
-                            </div>
-                            <span className="text-[10px] font-medium text-muted-foreground uppercase">{ep.status}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                            {ep.reason}
-                          </p>
-                          {ep.status !== 'ready' && activeInterviewIndex !== i && (
-                            <div className="mt-2 text-[10px] font-bold text-primary animate-pulse">
-                              내용 보강하기 →
-                            </div>
-                          )}
-                        </button>
-
-                        {/* Inline Interview Chat */}
+                      <button key={i} onClick={() => activeInterviewIndex === i ? setActiveInterviewIndex(null) : startInterview(i)}
+                        className={cn("w-full text-left rounded-2xl border bg-card p-4 shadow-sm", activeInterviewIndex === i ? "border-primary" : "border-border")}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={cn("h-3 w-3 rounded-full", ep.status === 'ready' ? "bg-green-500" : ep.status === 'needs_review' ? "bg-yellow-500" : "bg-red-500")}></div>
+                          <span className="text-sm font-bold">{ep.title}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{ep.reason}</p>
                         {activeInterviewIndex === i && (
-                          <div className="rounded-2xl border border-primary/20 bg-muted/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-300 relative">
-                            <button 
-                              onClick={() => setActiveInterviewIndex(null)}
-                              className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
-                            </button>
-                            <div className="max-h-60 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                              {interviewMessages.map((msg, idx) => (
-                                <div key={idx} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
-                                  <div className={cn(
-                                    "max-w-[90%] rounded-xl px-3 py-2 text-xs shadow-sm",
-                                    msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-card border border-border"
-                                  )}>
-                                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                                    {msg.content.includes('```markdown') && (
-                                      <div className="mt-2 pt-2 border-t border-border/50">
-                                        <p className="text-[10px] font-bold text-green-600 mb-2">✨ 에피소드가 보강되었습니다!</p>
-                                        <button 
-                                          onClick={() => setActiveInterviewIndex(null)}
-                                          className="w-full rounded-lg bg-green-500 py-1.5 text-[10px] font-bold text-white hover:bg-green-600 transition-colors"
-                                        >
-                                          완료하고 닫기
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                              {isAiTyping && <div className="text-[10px] text-muted-foreground animate-pulse ml-1">AI 컨설턴트 분석 중...</div>}
-                            </div>
-                            <div className="flex gap-2">
-                              <input 
-                                type="text"
-                                value={interviewInput}
-                                onChange={(e) => setInterviewInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendInterviewMessage()}
-                                placeholder="추가 정보를 입력하세요..."
-                                className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/20"
-                              />
-                              <button 
-                                onClick={handleSendInterviewMessage}
-                                disabled={!interviewInput.trim() || isAiTyping}
-                                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-all active:scale-95 disabled:opacity-50"
-                              >
-                                전송
-                              </button>
+                          <div className="mt-4 p-3 bg-muted rounded-xl text-xs space-y-2">
+                            {interviewMessages.map((m, idx) => <div key={idx} className={m.role === 'user' ? 'text-right' : 'text-left'}>{m.content}</div>)}
+                            <div className="flex gap-2 mt-2">
+                              <input type="text" value={interviewInput} onChange={(e) => setInterviewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendInterviewMessage()} className="flex-1 bg-background border p-1 rounded" />
+                              <button onClick={handleSendInterviewMessage} className="bg-primary text-white px-2 rounded">전송</button>
                             </div>
                           </div>
                         )}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
               </div>
-
-              <div className="flex justify-center gap-4 pt-6">
-                <button 
-                  onClick={() => setStep('welcome')}
-                  className="rounded-xl border border-border bg-card px-8 py-3 text-sm font-bold hover:bg-muted transition-colors"
-                >
-                  다시 업로드
-                </button>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleSaveAll('merge')}
-                    className="rounded-xl border-2 border-primary bg-white px-8 py-3 text-sm font-bold text-primary hover:bg-primary/5 transition-all"
-                  >
-                    🤝 기존 데이터와 병합
-                  </button>
-                  <button 
-                    onClick={() => handleSaveAll('overwrite')}
-                    className="rounded-xl bg-primary px-10 py-3 text-sm font-bold text-primary-foreground shadow-xl hover:scale-105 transition-all"
-                  >
-                    🚀 새 데이터로 덮어쓰기
-                  </button>
-                </div>
+              <div className="flex justify-center gap-4">
+                <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold">다시 업로드</button>
+                <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold">🤝 병합 저장</button>
+                <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-6 py-3 font-bold">🚀 덮어쓰기</button>
               </div>
             </div>
           )}
