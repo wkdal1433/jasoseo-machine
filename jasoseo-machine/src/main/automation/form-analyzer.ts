@@ -77,18 +77,20 @@ ${cleanForm}
   }
 
   /**
-   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 및 'Fuzzy Selector (with Iframe Support)' 런타임을 결합합니다.
+   * 생성된 스크립트에 '상태 업데이트 시뮬레이터' 및 'Fuzzy Selector (with CORS detection)' 런타임을 결합합니다.
    */
   public wrapWithEventSimulator(aiGeneratedScript: string): string {
     return `
 (function() {
-  console.log('%c🚀 Magic Auto-Fill Agent v7.5 (Full Support) Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+  console.log('%c🚀 Magic Auto-Fill Agent v8.0 (Enterprise) Active', 'color: #fff; background: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
   
+  const corsBlockedFrames = [];
+  const failedFields = [];
+
   /**
    * 모든 프레임(Iframe)을 순회하며 요소를 찾는 재귀 함수
    */
   const findInAllFrames = (selectors, doc = document) => {
-    // 1. 현재 문서에서 찾기
     for (const s of selectors) {
       try {
         const el = doc.querySelector(s);
@@ -96,15 +98,18 @@ ${cleanForm}
       } catch(e) {}
     }
 
-    // 2. 하위 아이프레임들 뒤지기 (재귀)
     const iframes = doc.querySelectorAll('iframe');
     for (const iframe of iframes) {
       try {
+        // CORS 체크: contentDocument 접근 시도
         const frameDoc = iframe.contentDocument || iframe.contentWindow.document;
         const found = findInAllFrames(selectors, frameDoc);
         if (found) return found;
       } catch(e) {
-        // 교차 출처(CORS) 제한이 걸린 프레임은 무시
+        // CORS 차단된 프레임 기록
+        if (!corsBlockedFrames.includes(iframe.src)) {
+          corsBlockedFrames.push(iframe.src || 'Unknown Source');
+        }
       }
     }
     return null;
@@ -116,12 +121,12 @@ ${cleanForm}
     if (el._valueTracker) el._valueTracker.setValue(el.value);
   };
 
-  const injectValue = (selectors, value, type) => {
+  const injectValue = (selectors, value, type, fieldName) => {
     if (!Array.isArray(selectors)) selectors = [selectors];
     const el = findInAllFrames(selectors);
     
     if (!el) {
-      console.warn('⚠️ Field not found in any frame:', selectors);
+      failedFields.push({ name: fieldName || selectors[0], selectors });
       return false;
     }
     
@@ -132,10 +137,10 @@ ${cleanForm}
         el.value = value;
       }
       triggerUpdate(el);
-      console.log('✅ Filled:', el.name || el.id || selectors[0]);
+      console.log(\`✅ Filled: \${fieldName || el.name || el.id}\`);
       return true;
     } catch (err) {
-      console.error('❌ Injection failed:', selectors[0], err);
+      console.error('❌ Injection failed:', fieldName, err);
       return false;
     }
   };
@@ -144,7 +149,19 @@ ${cleanForm}
   ${aiGeneratedScript}
   // --- End of Logic ---
 
-  console.log('%c✨ Auto-Fill Task Completed! Check all fields.', 'color: #10b981; font-weight: bold;');
+  console.log('%c✨ Auto-Fill Task Completed!', 'color: #10b981; font-weight: bold; font-size: 14px;');
+  
+  if (corsBlockedFrames.length > 0) {
+    console.warn('%c🛡️ 보안 영역(CORS) 감지:', 'color: #f59e0b; font-weight: bold;', 
+      '일부 입력창이 보안 아이프레임 안에 있어 자동 입력이 차단되었습니다.\\n' +
+      '다음 필드들은 직접 복사해서 입력해 주세요:\\n', 
+      failedFields.map(f => \`- \${f.name}\`).join('\\n')
+    );
+  } else if (failedFields.length > 0) {
+    console.log('%c📝 미입력 필드 안내:', 'color: #6366f1; font-weight: bold;', 
+      failedFields.map(f => \`- \${f.name}\`).join('\\n')
+    );
+  }
 })();
     `.trim();
   }

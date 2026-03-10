@@ -21,16 +21,11 @@ export function startFileWatcher(window: BrowserWindow): void {
     }
   })
 
-  watcher.on('change', (path) => {
-    window.webContents.send(IPC.EPISODES_CHANGED, { path, type: 'change' })
-  })
-
-  watcher.on('add', (path) => {
-    window.webContents.send(IPC.EPISODES_CHANGED, { path, type: 'add' })
-  })
-
-  watcher.on('unlink', (path) => {
-    window.webContents.send(IPC.EPISODES_CHANGED, { path, type: 'unlink' })
+  watcher.on('all', (event, path) => {
+    // 모든 윈도우에 변경 알림 전송 (Multi-window sync)
+    BrowserWindow.getAllWindows().forEach(win => {
+      win.webContents.send(IPC.EPISODES_CHANGED, { path, type: event })
+    })
   })
 }
 

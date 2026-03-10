@@ -59,31 +59,46 @@ export function registerIpcHandlers(): void {
     return dir
   }
 
-  // 마이그레이션: 기존 이름 기반 폴더를 ID 기반으로 변경
-  const migrateFolderNaming = () => {
+  // 마이그레이션 및 시스템 유지보수
+  const runSystemMaintenance = () => {
     const projectDir = getSetting('project_dir') || ''
     if (!projectDir) return
 
+    // 1. 휴지통 자동 정리 (30일 경과 파일 삭제)
+    const trashDir = join(projectDir, 'episodes', '.trash')
+    if (existsSync(trashDir)) {
+      try {
+        const now = Date.now()
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+        const files = readdirSync(trashDir)
+        
+        files.forEach(file => {
+          const filePath = join(trashDir, file)
+          const stats = require('fs').statSync(filePath)
+          if (now - stats.mtimeMs > thirtyDaysMs) {
+            unlinkSync(filePath)
+            console.log(`[Maintenance] Permanently deleted old trash file: ${file}`)
+          }
+        })
+      } catch (err) {
+        console.error('[Maintenance] Trash cleanup error:', err)
+      }
+    }
+
+    // 2. 폴더 마이그레이션 (기존 로직)
     const profiles = listProfiles()
     let changed = false
-
     profiles.forEach((p: any) => {
-      // 이미 마이그레이션된 프로필(id가 name과 같은 특수 케이스 제외)은 스킵
       if (p.id && p.name && !p.isMigrated) {
         const oldDir = join(projectDir, 'episodes', p.name)
         const newDir = join(projectDir, 'episodes', p.id)
-        
-        // 1. 이름 폴더가 실제로 존재할 때만 이동
         if (existsSync(oldDir) && !existsSync(newDir)) {
           try {
             renameSync(oldDir, newDir)
-            console.log(`[Migration] Success: "${p.name}" -> "${p.id}"`)
           } catch (err) {
-            console.error(`[Migration] Error renaming folder for ${p.name}`, err)
+            console.error(`[Migration] Error: ${p.name}`, err)
           }
         }
-
-        // 2. 이동 성공 여부와 상관없이(혹은 이미 수동으로 했더라도) 마이그레이션 완료 플래그 기록
         const fullProfile = data.profiles.find(prof => prof.id === p.id)
         if (fullProfile) {
           fullProfile.isMigrated = true
@@ -91,14 +106,11 @@ export function registerIpcHandlers(): void {
         }
       }
     })
-
-    if (changed) {
-      saveUserProfile(getUserProfile()) // DB 저장 강제 트리거
-    }
+    if (changed) saveUserProfile(getUserProfile())
   }
 
-  // 앱 기동 시 마이그레이션 수행
-  migrateFolderNaming()
+  // 앱 기동 시 유지보수 수행
+  runSystemMaintenance()
 
   // === Claude CLI ===
   ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {

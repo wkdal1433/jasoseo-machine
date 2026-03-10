@@ -8,6 +8,12 @@ export function EpisodeListPage() {
 
   useEffect(() => {
     loadEpisodes()
+
+    // [v8.0 Hot-Reload] 파일 시스템 변경 감지 시 자동 갱신
+    const unsubscribe = window.api.onEpisodesChanged(() => {
+      loadEpisodes()
+    })
+    return () => { if (unsubscribe) unsubscribe() }
   }, [])
 
   const handleDelete = async (fileName: string) => {
