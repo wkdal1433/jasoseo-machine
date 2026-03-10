@@ -5,57 +5,32 @@ import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import { getSetting } from './db'
 
-// 실행 중인 모든 하위 프로세스 관리 (v10.0 좀비 킬러)
 const activeProcesses = new Set<ChildProcess>()
 
-/**
- * 모든 활성 프로세스를 강제 종료합니다. (Graceful Shutdown)
- */
 export function stopAllProcesses(): void {
   for (const proc of activeProcesses) {
-    try {
-      proc.kill('SIGKILL')
-    } catch (err) {
-      console.error('[Zombie Killer] Error:', err)
-    }
+    try { proc.kill('SIGKILL') } catch (err) { console.error('[Zombie Killer] Error:', err) }
   }
   activeProcesses.clear()
 }
 
-// 모든 윈도우에 날것의 로그 전송 (v20.6 실시간 중계)
 function sendRawLog(data: string): void {
   BrowserWindow.getAllWindows().forEach(win => {
-    if (!win.isDestroyed()) {
-      win.webContents.send(IPC.CLAUDE_RAW_LOG, data)
-    }
+    if (!win.isDestroyed()) win.webContents.send(IPC.CLAUDE_RAW_LOG, data)
   })
 }
 
-// ─── Provider Detection ───
-
 type AIProvider = 'claude' | 'gemini'
 
-function getModel(): string {
-  return getSetting('model') || 'opus'
-}
-
+function getModel(): string { return getSetting('model') || 'opus' }
 function getProvider(): AIProvider {
   const model = getModel()
   return model.startsWith('gemini') ? 'gemini' : 'claude'
 }
-
 function getCliPath(provider: AIProvider): string {
-  if (provider === 'gemini') {
-    return getSetting('gemini_path') || 'gemini'
-  }
-  return getSetting('claude_path') || 'claude'
+  return provider === 'gemini' ? (getSetting('gemini_path') || 'gemini') : (getSetting('claude_path') || 'claude')
 }
-
-function getProjectDir(): string {
-  return getSetting('project_dir') || ''
-}
-
-// ─── Error Classification ───
+function getProjectDir(): string { return getSetting('project_dir') || '' }
 
 interface ClassifiedError {
   type: 'rate_limit' | 'auth' | 'not_found' | 'timeout' | 'unknown'
@@ -65,7 +40,7 @@ interface ClassifiedError {
 function classifyError(stderr: string, exitCode: number): ClassifiedError {
   const lower = stderr.toLowerCase()
   if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429') || lower.includes('quota')) {
-    return { type: 'rate_limit', message: 'AI 사용량 한도에 도달했습니다. 잠시 후 다시 시도해주세요.' }
+    return { type: 'rate_limit', message: 'AI 사용량 한도에 도달했습니다. 다른 모델(제미나이 등)로 교체하거나 잠시 후 시도해주세요.' }
   }
   if (lower.includes('unauthorized') || lower.includes('401') || lower.includes('auth') || lower.includes('not logged in')) {
     return { type: 'auth', message: 'AI 인증이 필요합니다. 터미널에서 로그인해주세요.' }
@@ -73,19 +48,17 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
   if (lower.includes('enoent') || lower.includes('not found') || lower.includes('command not found')) {
     return { type: 'not_found', message: 'AI CLI가 설치되어 있지 않거나 경로가 잘못되었습니다.' }
   }
-  if (lower.includes('timeout') || lower.includes('etimedout') || lower.includes('network')) {
-    return { type: 'timeout', message: '네트워크 연결 시간이 초과되었습니다.' }
+  if (lower.includes('timeout') || lower.includes('etimedout') || lower.includes('network') || lower.includes('mcp connection error')) {
+    return { type: 'timeout', message: '네트워크 또는 MCP 연결 시간이 초과되었습니다.' }
   }
   return { type: 'unknown', message: `AI 오류 (코드 ${exitCode}): ${stderr.trim().slice(0, 100)}` }
 }
 
 function buildSpawnEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env }
-  delete env.CLAUDECODE
+  // [v20.7] 환경 변수 유지 (MCP 설정 로드 보장)
   return env
 }
-
-// ─── Prompt Helpers ───
 
 export interface ClaudeExecuteOptions {
   prompt: string
@@ -96,10 +69,7 @@ export interface ClaudeExecuteOptions {
 }
 
 function sanitizePromptForGemini(prompt: string): string {
-  let result = prompt
-  result = result.replace(/먼저 MASTER_INDEX\.md를 읽어서[^\n]*\n?\n?/g, '')
-  result = result.replace(/먼저 다음 파일들을 읽어주세요:\n(?:- [^\n]+\n)*/g, '')
-  return result
+  return prompt.replace(/먼저 MASTER_INDEX\.md를 읽어서[^\n]*\n?\n?/g, '').replace(/먼저 다음 파일들을 읽어주세요:\n(?:- [^\n]+\n)*/g, '')
 }
 
 function buildGeminiPrompt(options: ClaudeExecuteOptions): string {
@@ -123,18 +93,13 @@ function unwrapGeminiResponse(raw: string): string {
   return result
 }
 
-// ─── Execute (single-shot) ───
-
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
-  const model = getModel()
-  const provider = getProvider()
-  const projectDir = getProjectDir()
-  const cli = getCliPath(provider)
-
+  const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = buildGeminiPrompt(options)
-    args = ['--output-format', options.outputFormat, '-m', model]
+    // [v20.7] 제미나이 도구 자동 승인 플래그 추가
+    args = ['--output-format', options.outputFormat, '-m', model, '-y', '--approval-mode', 'yolo']
   } else {
     prompt = options.prompt
     args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]
@@ -146,52 +111,27 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   return new Promise((resolve, reject) => {
     const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(), stdio: ['pipe', 'pipe', 'pipe'] })
     activeProcesses.add(child)
-
-    if (provider === 'gemini') {
-      child.stdin?.write(prompt)
-      child.stdin?.end()
-    }
-
-    const decoder = new StringDecoder('utf8')
-    let output = '', stderrOutput = ''
-
-    child.stdout?.on('data', (chunk: Buffer) => { 
-      const decoded = decoder.write(chunk)
-      output += decoded
-      sendRawLog(decoded) 
-    })
-    child.stderr?.on('data', (chunk: Buffer) => { 
-      const decoded = decoder.write(chunk)
-      stderrOutput += decoded
-      sendRawLog(decoded)
-    })
-
+    if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
+    const decoder = new StringDecoder('utf8'); let output = '', stderrOutput = ''
+    child.stdout?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); output += d; sendRawLog(d) })
+    child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
     child.on('close', (code) => {
       activeProcesses.delete(child)
       if (code === 0) resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output.trim())
       else reject(new Error(classifyError(stderrOutput, code || 1).message))
     })
-
-    child.on('error', (err) => {
-      activeProcesses.delete(child)
-      reject(new Error(classifyError(err.message, -1).message))
-    })
+    child.on('error', (err) => { activeProcesses.delete(child); reject(new Error(classifyError(err.message, -1).message)) })
   })
 }
 
-// ─── Execute (streaming) ───
-
 export function executeClaudeStream(options: ClaudeExecuteOptions, window: BrowserWindow): ChildProcess {
-  const model = getModel()
-  const provider = getProvider()
-  const projectDir = getProjectDir()
-  const cli = getCliPath(provider)
+  const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
   const outputFormat = 'stream-json' as const
-
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    args = ['--output-format', outputFormat, '-m', model]
+    // [v20.7] 제미나이 스트리밍 도구 자동 승인
+    args = ['--output-format', outputFormat, '-m', model, '-y', '--approval-mode', 'yolo']
   } else {
     prompt = options.prompt
     args = ['--output-format', outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model]
@@ -202,92 +142,42 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
 
   const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(), stdio: ['pipe', 'pipe', 'pipe'] })
   activeProcesses.add(child)
-
-  if (provider === 'gemini') {
-    child.stdin?.write(prompt)
-    child.stdin?.end()
-  }
-
-  const decoder = new StringDecoder('utf8')
-  let buffer = '', stderrOutput = '', geminiFullText = ''
-
+  if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
+  const decoder = new StringDecoder('utf8'); let buffer = '', stderrOutput = '', geminiFullText = ''
   let lastPacketTime = Date.now()
   const watchdog = setInterval(() => {
     if (Date.now() - lastPacketTime > 15000) { 
-      console.error('[Watchdog] Stream timed out. Killing process.')
-      child.kill('SIGKILL')
-      window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 응답이 15초간 없어 연결을 강제 종료했습니다.' })
-      clearInterval(watchdog)
+      child.kill('SIGKILL'); window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 응답이 15초간 없어 연결을 종료했습니다.' }); clearInterval(watchdog)
     }
   }, 2000)
 
   child.stdout?.on('data', (chunk: Buffer) => {
-    lastPacketTime = Date.now()
-    const decoded = decoder.write(chunk)
-    sendRawLog(decoded)
-    
-    buffer += decoded
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
+    lastPacketTime = Date.now(); const d = decoder.write(chunk); sendRawLog(d); buffer += d
+    const lines = buffer.split('\n'); buffer = lines.pop() || ''
     for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
+      const trimmed = line.trim(); if (!trimmed) continue
       try {
         const event = JSON.parse(trimmed)
         if (provider === 'gemini') {
           if (event.type === 'message' && event.role === 'assistant' && event.delta) {
-            geminiFullText += event.content || ''
-            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
+            geminiFullText += event.content || ''; window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
           } else if (event.type === 'result') {
             window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
           }
-        } else {
-          window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event)
-        }
+        } else { window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event) }
       } catch { /* ignore */ }
     }
   })
-
-  child.stderr?.on('data', (chunk: Buffer) => { 
-    const decoded = decoder.write(chunk)
-    stderrOutput += decoded 
-    sendRawLog(decoded)
-  })
-
-  child.on('close', (code) => {
-    clearInterval(watchdog)
-    activeProcesses.delete(child)
-    window.webContents.send(IPC.CLAUDE_STREAM_END, { code })
-  })
-
-  child.on('error', (err) => {
-    clearInterval(watchdog)
-    activeProcesses.delete(child)
-    window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: classifyError(err.message, -1).message })
-  })
-
+  child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
+  child.on('close', (code) => { clearInterval(watchdog); activeProcesses.delete(child); window.webContents.send(IPC.CLAUDE_STREAM_END, { code }) })
+  child.on('error', (err) => { clearInterval(watchdog); activeProcesses.delete(child); window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: classifyError(err.message, -1).message }) })
   return child
 }
 
-export function cancelActiveProcess(): boolean {
-  stopAllProcesses()
-  return true
-}
-
+export function cancelActiveProcess(): boolean { stopAllProcesses(); return true }
 export async function testClaudeConnection(): Promise<{ success: boolean; message: string }> {
-  try {
-    const result = await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 })
-    return { success: true, message: result }
-  } catch (err) {
-    return { success: false, message: (err as Error).message }
-  }
+  try { return { success: true, message: await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 }) } } catch (err) { return { success: false, message: (err as Error).message } }
 }
-
 export async function testGeminiConnection(): Promise<{ success: boolean; message: string }> {
-  try {
-    const result = await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 })
-    return { success: true, message: result }
-  } catch (err) {
-    return { success: false, message: (err as Error).message }
-  }
+  try { return { success: true, message: await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 }) } } catch (err) { return { success: false, message: (err as Error).message } }
 }
