@@ -33,14 +33,25 @@ function getCliPath(provider: AIProvider): string {
 function getProjectDir(): string { return getSetting('project_dir') || '' }
 
 interface ClassifiedError {
-  type: 'rate_limit' | 'auth' | 'not_found' | 'timeout' | 'unknown'
+  type: 'rate_limit' | 'quota_exhausted' | 'auth' | 'not_found' | 'timeout' | 'unknown'
   message: string
 }
 
 function classifyError(stderr: string, exitCode: number): ClassifiedError {
   const lower = stderr.toLowerCase()
-  if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429') || lower.includes('quota')) {
-    return { type: 'rate_limit', message: 'AI 사용량 한도에 도달했습니다. 다른 모델(제미나이 등)로 교체하거나 잠시 후 시도해주세요.' }
+  
+  // [v20.7] 토큰/쿼터 소진 정밀 감지
+  if (
+    lower.includes('credit limit reached') || 
+    lower.includes('insufficient_quota') || 
+    lower.includes('billing_error') ||
+    lower.includes('out of credits')
+  ) {
+    return { type: 'quota_exhausted', message: '현재 계정의 토큰 또는 크레딧이 모두 소진되었습니다. 다른 AI 엔진으로 교체해 주세요.' }
+  }
+
+  if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')) {
+    return { type: 'rate_limit', message: '단기간 사용량 한도에 도달했습니다. 잠시 후 다시 시도하거나 다른 엔진으로 교체해 주세요.' }
   }
   if (lower.includes('unauthorized') || lower.includes('401') || lower.includes('auth') || lower.includes('not logged in')) {
     return { type: 'auth', message: 'AI 인증이 필요합니다. 터미널에서 로그인해주세요.' }

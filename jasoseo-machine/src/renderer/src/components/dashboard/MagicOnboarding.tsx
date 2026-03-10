@@ -2,7 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { EngineSwapModal } from '../common/EngineSwapModal'
 
 interface Props {
   onClose: () => void
@@ -15,8 +17,9 @@ export function MagicOnboarding({ onClose }: Props) {
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [progress, setProgress] = useState({ step: '', percent: 0 })
-  const [rawLogs, setRawLogs] = useState<string[]>([]) // 날것의 로그 저장
-  const [showTerminal, setShowTerminal] = useState(false) // 터미널 토글 상태
+  const [rawLogs, setRawLogs] = useState<string[]>([])
+  const [showTerminal, setShowTerminal] = useState(false)
+  const [errorInfo, setErrorInfo] = useState<{ type: string; message: string } | null>(null)
   const [activeInterviewIndex, setActiveInterviewIndex] = useState<number | null>(null)
   const [interviewMessages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [interviewInput, setInterviewInput] = useState('')
@@ -25,22 +28,18 @@ export function MagicOnboarding({ onClose }: Props) {
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile, setLock } = useProfileStore()
+  const { model } = useSettingsStore()
 
   useEffect(() => {
     setLock(true)
-    
-    // [v20.5] 실시간 프로그레스 구독
     const unsubscribeProgress = (window.api as any).onOnboardingProgress((data: any) => {
       setProgress(data)
     })
-
-    // [v20.6] 실시간 날것의 로그 구독
     const unsubscribeLogs = (window.api as any).onClaudeRawLog((data: string) => {
       if (data.trim()) {
-        setRawLogs((prev) => [...prev.slice(-100), data.trim()]) // 최근 100줄만 유지
+        setRawLogs((prev) => [...prev.slice(-100), data.trim()])
       }
     })
-
     return () => {
       setLock(false)
       if (unsubscribeProgress) unsubscribeProgress()
@@ -48,7 +47,6 @@ export function MagicOnboarding({ onClose }: Props) {
     }
   }, [])
 
-  // 터미널 자동 스크롤
   useEffect(() => {
     if (showTerminal) {
       terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -57,6 +55,7 @@ export function MagicOnboarding({ onClose }: Props) {
 
   const requestAiAnalysis = async (input: string) => {
     setStep('parsing')
+    setErrorInfo(null)
     setRawLogs(['분석 세션을 시작합니다...'])
     setProgress({ step: '분석 준비 중...', percent: 5 })
     try {
@@ -65,7 +64,13 @@ export function MagicOnboarding({ onClose }: Props) {
         setResult(response.data)
         setStep('result')
       } else {
-        alert('분석에 실패했습니다: ' + response.error)
+        // [v20.7] 쿼터/한도 에러 감지
+        if (response.error.includes('한도') || response.error.includes('소진')) {
+          const type = response.error.includes('소진') ? 'quota_exhausted' : 'rate_limit'
+          setErrorInfo({ type, message: response.error })
+        } else {
+          alert('분석에 실패했습니다: ' + response.error)
+        }
         setStep('welcome')
       }
     } catch (err) {
@@ -147,7 +152,6 @@ export function MagicOnboarding({ onClose }: Props) {
     } catch { alert('저장 실패'); }
   }
 
-  // 로그 하이라이팅 헬퍼
   const formatLog = (log: string) => {
     if (log.includes('Reading') || log.includes('tool')) return <span className="text-cyan-400">{log}</span>
     if (log.includes('Thinking') || log.includes('analyzing')) return <span className="text-purple-400 italic">{log}</span>
@@ -156,7 +160,7 @@ export function MagicOnboarding({ onClose }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">
+    <div className="flex flex-col h-full p-8 animate-in fade-in duration-500 relative">
       <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg flex-1">
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
@@ -174,7 +178,7 @@ export function MagicOnboarding({ onClose }: Props) {
                 <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-4xl">📄</div>
                 <h3 className="mb-2 text-2xl font-bold">이력서나 자소서를 던져주세요</h3>
                 <p className="mb-8 text-muted-foreground px-10">AI가 직접 파일을 읽고 12개 섹션 프로필과 에피소드를 구성합니다.</p>
-                <label className="cursor-pointer rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90">
+                <label className="cursor-pointer rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all active:scale-95">
                   파일 선택하기
                   <input type="file" className="hidden" accept=".md,.txt,.pdf" onChange={(e) => {
                     const file = e.target.files?.[0]; if (!file) return;
@@ -183,7 +187,7 @@ export function MagicOnboarding({ onClose }: Props) {
                   }} />
                 </label>
               </div>
-              <p className="mt-8 text-xs text-muted-foreground">※ v20.6 Inspector: 이제 AI의 모든 분석 과정을 실시간 로그로 확인할 수 있습니다.</p>
+              <p className="mt-8 text-xs text-muted-foreground">※ v20.7 Engine Guard: 토큰 소진 시 즉각적인 대체 엔진 전환을 지원합니다.</p>
             </div>
           )}
 
@@ -202,25 +206,14 @@ export function MagicOnboarding({ onClose }: Props) {
                 <div className="h-3 w-full overflow-hidden rounded-full bg-muted shadow-inner">
                   <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress.percent}%` }}></div>
                 </div>
-
-                {/* 👁️ Inspector Toggle */}
                 <div className="pt-4 flex flex-col items-center">
-                  <button 
-                    onClick={() => setShowTerminal(!showTerminal)}
-                    className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors bg-muted/50 px-3 py-1.5 rounded-full"
-                  >
+                  <button onClick={() => setShowTerminal(!showTerminal)} className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors bg-muted/50 px-3 py-1.5 rounded-full">
                     {showTerminal ? '▲ AI 작업 로그 숨기기' : '▼ 👁️ AI 작업 로그 확인하기'}
                   </button>
-                  
                   {showTerminal && (
                     <div className="mt-4 w-full max-w-2xl animate-in slide-in-from-top-2 duration-300">
                       <div className="rounded-xl bg-black/90 p-4 shadow-2xl border border-white/10 font-mono text-[10px] leading-relaxed text-green-400/90 h-40 overflow-y-auto custom-scrollbar">
-                        {rawLogs.map((log, i) => (
-                          <div key={i} className="mb-1">
-                            <span className="opacity-30 mr-2">[{new Date().toLocaleTimeString()}]</span>
-                            {formatLog(log)}
-                          </div>
-                        ))}
+                        {rawLogs.map((log, i) => <div key={i} className="mb-1"><span className="opacity-30 mr-2">[{new Date().toLocaleTimeString()}]</span>{formatLog(log)}</div>)}
                         <div ref={terminalEndRef} />
                       </div>
                     </div>
@@ -254,7 +247,8 @@ export function MagicOnboarding({ onClose }: Props) {
                         </div>
                         <p className="text-[10px] text-muted-foreground">{ep.reason}</p>
                         {activeInterviewIndex === i && (
-                          <div className="mt-4 p-3 bg-muted rounded-xl text-xs space-y-2">
+                          <div className="mt-4 p-3 bg-muted rounded-xl text-xs space-y-2 relative">
+                            <button onClick={(e) => { e.stopPropagation(); setActiveInterviewIndex(null); }} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">×</button>
                             {interviewMessages.map((m, idx) => <div key={idx} className={m.role === 'user' ? 'text-right' : 'text-left'}>{m.content}</div>)}
                             <div className="flex gap-2 mt-2">
                               <input type="text" value={interviewInput} onChange={(e) => setInterviewInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendInterviewMessage()} className="flex-1 bg-background border p-1 rounded" />
@@ -268,14 +262,29 @@ export function MagicOnboarding({ onClose }: Props) {
                 </div>
               </div>
               <div className="flex justify-center gap-4">
-                <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold transition-all hover:bg-muted">다시 업로드</button>
-                <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold transition-all hover:bg-primary/5">🤝 병합 저장</button>
-                <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-6 py-3 font-bold transition-all hover:opacity-90">🚀 덮어쓰기</button>
+                <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold transition-all hover:bg-muted text-sm">다시 업로드</button>
+                <div className="flex gap-2">
+                  <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold transition-all hover:bg-primary/5 text-sm">🤝 기존 데이터와 병합</button>
+                  <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-8 py-3 font-bold transition-all hover:opacity-90 text-sm shadow-xl">🚀 새 데이터로 덮어쓰기</button>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* 🔄 엔진 교체 모달 (v20.7) */}
+      {errorInfo && (
+        <EngineSwapModal 
+          failedModel={model}
+          errorType={errorInfo.type}
+          onClose={() => setErrorInfo(null)}
+          onSwapped={() => {
+            setErrorInfo(null)
+            alert('AI 엔진이 성공적으로 교체되었습니다. 다시 파일을 올려주세요!')
+          }}
+        />
+      )}
     </div>
   )
 }
