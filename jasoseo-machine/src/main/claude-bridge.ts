@@ -22,6 +22,15 @@ export function stopAllProcesses(): void {
   activeProcesses.clear()
 }
 
+// 모든 윈도우에 날것의 로그 전송 (v20.6 실시간 중계)
+function sendRawLog(data: string): void {
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC.CLAUDE_RAW_LOG, data)
+    }
+  })
+}
+
 // ─── Provider Detection ───
 
 type AIProvider = 'claude' | 'gemini'
@@ -146,8 +155,16 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     const decoder = new StringDecoder('utf8')
     let output = '', stderrOutput = ''
 
-    child.stdout?.on('data', (chunk: Buffer) => { output += decoder.write(chunk) })
-    child.stderr?.on('data', (chunk: Buffer) => { stderrOutput += decoder.write(chunk) })
+    child.stdout?.on('data', (chunk: Buffer) => { 
+      const decoded = decoder.write(chunk)
+      output += decoded
+      sendRawLog(decoded) 
+    })
+    child.stderr?.on('data', (chunk: Buffer) => { 
+      const decoded = decoder.write(chunk)
+      stderrOutput += decoded
+      sendRawLog(decoded)
+    })
 
     child.on('close', (code) => {
       activeProcesses.delete(child)
@@ -194,20 +211,22 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   const decoder = new StringDecoder('utf8')
   let buffer = '', stderrOutput = '', geminiFullText = ''
 
-  // [v10.0 Watchdog] 패킷 간격 감시 (10초 타임아웃)
   let lastPacketTime = Date.now()
   const watchdog = setInterval(() => {
-    if (Date.now() - lastPacketTime > 15000) { // 15초 무응답 시
+    if (Date.now() - lastPacketTime > 15000) { 
       console.error('[Watchdog] Stream timed out. Killing process.')
       child.kill('SIGKILL')
-      window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 응답이 15초간 없어 연결을 강제 종료했습니다. (네트워크 확인 필요)' })
+      window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 응답이 15초간 없어 연결을 강제 종료했습니다.' })
       clearInterval(watchdog)
     }
   }, 2000)
 
   child.stdout?.on('data', (chunk: Buffer) => {
-    lastPacketTime = Date.now() // 패킷 수신 시 시간 갱신
-    buffer += decoder.write(chunk)
+    lastPacketTime = Date.now()
+    const decoded = decoder.write(chunk)
+    sendRawLog(decoded)
+    
+    buffer += decoded
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
     for (const line of lines) {
@@ -229,12 +248,15 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
     }
   })
 
-  child.stderr?.on('data', (chunk: Buffer) => { stderrOutput += decoder.write(chunk) })
+  child.stderr?.on('data', (chunk: Buffer) => { 
+    const decoded = decoder.write(chunk)
+    stderrOutput += decoded 
+    sendRawLog(decoded)
+  })
 
   child.on('close', (code) => {
     clearInterval(watchdog)
     activeProcesses.delete(child)
-    // ... (rest of close logic)
     window.webContents.send(IPC.CLAUDE_STREAM_END, { code })
   })
 

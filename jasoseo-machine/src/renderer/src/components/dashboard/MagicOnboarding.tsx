@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
@@ -15,28 +15,49 @@ export function MagicOnboarding({ onClose }: Props) {
   const [result, setResult] = useState<OnboardingResult | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [progress, setProgress] = useState({ step: '', percent: 0 })
+  const [rawLogs, setRawLogs] = useState<string[]>([]) // 날것의 로그 저장
+  const [showTerminal, setShowTerminal] = useState(false) // 터미널 토글 상태
   const [activeInterviewIndex, setActiveInterviewIndex] = useState<number | null>(null)
   const [interviewMessages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [interviewInput, setInterviewInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
   
+  const terminalEndRef = useRef<HTMLDivElement>(null)
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile, setLock } = useProfileStore()
 
   useEffect(() => {
     setLock(true)
+    
     // [v20.5] 실시간 프로그레스 구독
-    const unsubscribe = (window.api as any).onOnboardingProgress((data: any) => {
+    const unsubscribeProgress = (window.api as any).onOnboardingProgress((data: any) => {
       setProgress(data)
     })
+
+    // [v20.6] 실시간 날것의 로그 구독
+    const unsubscribeLogs = (window.api as any).onClaudeRawLog((data: string) => {
+      if (data.trim()) {
+        setRawLogs((prev) => [...prev.slice(-100), data.trim()]) // 최근 100줄만 유지
+      }
+    })
+
     return () => {
       setLock(false)
-      if (unsubscribe) unsubscribe()
+      if (unsubscribeProgress) unsubscribeProgress()
+      if (unsubscribeLogs) unsubscribeLogs()
     }
   }, [])
 
+  // 터미널 자동 스크롤
+  useEffect(() => {
+    if (showTerminal) {
+      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [rawLogs, showTerminal])
+
   const requestAiAnalysis = async (input: string) => {
     setStep('parsing')
+    setRawLogs(['분석 세션을 시작합니다...'])
     setProgress({ step: '분석 준비 중...', percent: 5 })
     try {
       const response = await window.api.onboardingParseFile(input)
@@ -126,6 +147,14 @@ export function MagicOnboarding({ onClose }: Props) {
     } catch { alert('저장 실패'); }
   }
 
+  // 로그 하이라이팅 헬퍼
+  const formatLog = (log: string) => {
+    if (log.includes('Reading') || log.includes('tool')) return <span className="text-cyan-400">{log}</span>
+    if (log.includes('Thinking') || log.includes('analyzing')) return <span className="text-purple-400 italic">{log}</span>
+    if (log.includes('Error') || log.includes('failed')) return <span className="text-red-400 font-bold">{log}</span>
+    return <span>{log}</span>
+  }
+
   return (
     <div className="flex flex-col h-full p-8 animate-in fade-in duration-500">
       <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg flex-1">
@@ -137,7 +166,7 @@ export function MagicOnboarding({ onClose }: Props) {
           <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors text-muted-foreground">뒤로가기</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-8 flex flex-col">
           {step === 'welcome' && (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={onDrop}
@@ -154,7 +183,7 @@ export function MagicOnboarding({ onClose }: Props) {
                   }} />
                 </label>
               </div>
-              <p className="mt-8 text-xs text-muted-foreground">※ v20.5 Real-time Reporter: AI의 분석 과정을 실시간으로 중계합니다.</p>
+              <p className="mt-8 text-xs text-muted-foreground">※ v20.6 Inspector: 이제 AI의 모든 분석 과정을 실시간 로그로 확인할 수 있습니다.</p>
             </div>
           )}
 
@@ -166,20 +195,36 @@ export function MagicOnboarding({ onClose }: Props) {
               </div>
               <div className="text-center space-y-3">
                 <p className="text-2xl font-bold text-foreground animate-pulse">{progress.step || '마법을 준비 중입니다...'}</p>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  AI가 사용자님의 소중한 경험을 하나하나 정성스럽게 읽어보고 있습니다.<br/>
-                  잠시만 기다려주세요.
-                </p>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">AI가 사용자님의 소중한 경험을 정성스럽게 읽어보고 있습니다.</p>
               </div>
-              <div className="w-full max-w-md space-y-2">
-                <div className="h-3 w-full overflow-hidden rounded-full bg-muted shadow-inner text-center">
-                  <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progress.percent}%` }}></div>
+              
+              <div className="w-full max-w-md space-y-4">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-muted shadow-inner">
+                  <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress.percent}%` }}></div>
                 </div>
-                <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
-                  <span>Initialization</span>
-                  <span>Data Mining</span>
-                  <span>Verification</span>
-                  <span>Finalizing</span>
+
+                {/* 👁️ Inspector Toggle */}
+                <div className="pt-4 flex flex-col items-center">
+                  <button 
+                    onClick={() => setShowTerminal(!showTerminal)}
+                    className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors bg-muted/50 px-3 py-1.5 rounded-full"
+                  >
+                    {showTerminal ? '▲ AI 작업 로그 숨기기' : '▼ 👁️ AI 작업 로그 확인하기'}
+                  </button>
+                  
+                  {showTerminal && (
+                    <div className="mt-4 w-full max-w-2xl animate-in slide-in-from-top-2 duration-300">
+                      <div className="rounded-xl bg-black/90 p-4 shadow-2xl border border-white/10 font-mono text-[10px] leading-relaxed text-green-400/90 h-40 overflow-y-auto custom-scrollbar">
+                        {rawLogs.map((log, i) => (
+                          <div key={i} className="mb-1">
+                            <span className="opacity-30 mr-2">[{new Date().toLocaleTimeString()}]</span>
+                            {formatLog(log)}
+                          </div>
+                        ))}
+                        <div ref={terminalEndRef} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -223,9 +268,9 @@ export function MagicOnboarding({ onClose }: Props) {
                 </div>
               </div>
               <div className="flex justify-center gap-4">
-                <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold">다시 업로드</button>
-                <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold">🤝 병합 저장</button>
-                <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-6 py-3 font-bold">🚀 덮어쓰기</button>
+                <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold transition-all hover:bg-muted">다시 업로드</button>
+                <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold transition-all hover:bg-primary/5">🤝 병합 저장</button>
+                <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-6 py-3 font-bold transition-all hover:opacity-90">🚀 덮어쓰기</button>
               </div>
             </div>
           )}
