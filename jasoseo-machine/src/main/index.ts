@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc-handlers'
@@ -38,6 +38,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // 기본 메뉴바 제거 (v7.0 UI/UX 고도화)
+  Menu.setApplicationMenu(null)
+
   electronApp.setAppUserModelId('com.jasoseo-machine')
 
   app.on('browser-window-created', (_, window) => {

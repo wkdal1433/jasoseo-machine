@@ -47,15 +47,44 @@ export function registerIpcHandlers(): void {
     if (!projectDir) return null
 
     const profile = getUserProfile()
-    // 프로필 이름이 없으면 'default' 폴더 사용
-    const profileName = profile?.personal?.name || 'default'
-    const dir = join(projectDir, 'episodes', profileName)
+    if (!profile) return null
+
+    // [v7.0 개선] 이름 대신 고유 ID를 폴더명으로 사용 (특수문자 및 이름 변경 대응)
+    const folderName = profile.id || 'default'
+    const dir = join(projectDir, 'episodes', folderName)
     
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
     }
     return dir
   }
+
+  // 마이그레이션: 기존 이름 기반 폴더를 ID 기반으로 변경
+  const migrateFolderNaming = () => {
+    const projectDir = getSetting('project_dir') || ''
+    if (!projectDir) return
+
+    const profiles = listProfiles() // db.ts의 profiles 배열 가져오기
+    profiles.forEach((p: any) => {
+      if (p.id && p.name) {
+        const oldDir = join(projectDir, 'episodes', p.name)
+        const newDir = join(projectDir, 'episodes', p.id)
+        
+        // 이름 폴더는 있고 ID 폴더는 없을 때 마이그레이션 수행
+        if (existsSync(oldDir) && !existsSync(newDir) && p.name !== p.id) {
+          try {
+            renameSync(oldDir, newDir)
+            console.log(`[Migration] Migrated episode folder from "${p.name}" to "${p.id}"`)
+          } catch (err) {
+            console.error(`[Migration] Failed to migrate folder for ${p.name}`, err)
+          }
+        }
+      }
+    })
+  }
+
+  // 앱 기동 시 마이그레이션 수행
+  migrateFolderNaming()
 
   // === Claude CLI ===
   ipcMain.handle(IPC.CLAUDE_EXECUTE, async (_event, options) => {
@@ -292,13 +321,22 @@ export function registerIpcHandlers(): void {
   if (IPC.ONBOARDING_PARSE_FILE) {
     ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (_event, rawText) => {
       const { OnboardingAgent } = await import('./automation/onboarding-agent')
+      const { FactChecker } = await import('./automation/fact-checker')
+      
       const agent = new OnboardingAgent()
+      const checker = new FactChecker()
+      
       try {
         const prompt = agent.buildExtractionPrompt(rawText)
         const aiResponse = await executeClaudePrompt(prompt)
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI extraction failed.')
-        const result = JSON.parse(jsonMatch[0])
+        
+        let result = JSON.parse(jsonMatch[0])
+        
+        // [v7.0 팩트 가드] 코드로 직접 원본 텍스트와 대조 검증 수행
+        result = checker.checkOnboardingResult(result, rawText)
+        
         return { success: true, data: result }
       } catch (error: any) {
         return { success: false, error: error.message }

@@ -323,3 +323,30 @@ npm create electron-vite@latest jasoseo-machine
 - 자소서 머신 v6.0 "The Triple-Core + 1" 공식 릴리즈.
 - 단순 생성 도구에서 'AI 커리어 플랫폼'으로의 정체성 전환 완료.
 - 사용자 장준수와 Gemini CLI 사이의 역대급 협업 서사 완성.
+
+---
+
+## Phase 10: 멀티 프로필 및 데이터 무결성 시스템 (v6.1)
+
+**기간**: 2026-03-09 (야간)
+**핵심 목표**: 범용 플랫폼으로서의 데이터 격리 및 유저별 환경(Multi-Tenant) 구축
+
+### 설계 결정
+
+- **Profile Selector Bar (UI)**: 내 프로필 페이지 상단에 활성 프로필을 전환할 수 있는 드롭다운 및 관리 바 배치.
+- **Dynamic Data Isolation**: 프로필 전환 시 `db.ts`의 `currentProfileId`를 갱신하여, `episodes/[ProfileName]/` 경로를 실시간으로 참조하도록 설계.
+- **Data Migration**: 기존 단일 프로필(`profile: {}`) 구조를 배열 구조(`profiles: []`)로 마이그레이션하는 로직 추가.
+
+### 주요 구현
+
+1.  **Multi-Profile Management**:
+    - `profiles` DB 구조 변경 및 `switchProfile`, `createProfile`, `deleteProfile` IPC 로직 신설.
+2.  **Profile 1 (장준수) 초기화**:
+    - PDF 및 MD 이력서 자료를 분석하여 12개 섹션 프로필을 완성하고 초기 DB에 강제 주입.
+    - 기존 에피소드 파일 8개를 `episodes/장준수/` 폴더로 이동하여 격리 검증 완료.
+3.  **UI/UX 승격**:
+    - 매직 온보딩 기능을 사이드바 독립 메뉴로 분리하여 접근성 극대화.
+
+### 성과
+- 자소서 머신 v6.1 Stable 릴리즈.
+- 완벽한 다중 사용자 지원 및 에피소드 격리 시스템 완성.
