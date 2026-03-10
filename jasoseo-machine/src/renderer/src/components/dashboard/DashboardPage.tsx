@@ -13,6 +13,7 @@ interface DraftItem {
   company_name: string
   job_title: string
 }
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const { episodes, loadEpisodes } = useEpisodeStore()
@@ -21,6 +22,7 @@ export function DashboardPage() {
   const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [isMagicOnboardingOpen, setIsMagicOnboardingOpen] = useState(false)
   const [oldTrashCount, setOldTrashCount] = useState(0)
+  const [hideTrashAlert, setHideTrashAlert] = useState(false)
 
   useEffect(() => {
     loadEpisodes()
@@ -35,30 +37,14 @@ export function DashboardPage() {
   }
 
   const handleEmptyTrash = async () => {
-    if (confirm(`휴지통에 30일이 지난 파일 \${oldTrashCount}개가 있습니다. 영구 삭제하시겠습니까?`)) {
+    if (confirm(`휴지통에 30일이 지난 파일 ${oldTrashCount}개가 있습니다. 영구 삭제하시겠습니까?`)) {
       await (window.api as any).emptyTrash()
       setOldTrashCount(0)
     }
   }
-...
-  return (
-    <div className="p-8">
-      {/* Maintenance Alert */}
-      {oldTrashCount > 0 && (
-        <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
-          <div className="flex items-center gap-3 text-orange-800">
-            <span className="text-xl">🧹</span>
-            <p className="text-sm font-medium">휴지통에 30일이 지난 오래된 파일 <strong>{oldTrashCount}개</strong>가 있습니다.</p>
-          </div>
-          <button 
-            onClick={handleEmptyTrash}
-            className="rounded-lg bg-orange-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-700 transition-colors"
-          >
-            지금 비우기
-          </button>
-        </div>
-      )}
 
+  const loadDrafts = async () => {
+    try {
       const result = await window.api.draftList()
       setDrafts((result || []) as DraftItem[])
     } catch {
@@ -69,7 +55,6 @@ export function DashboardPage() {
   const resumeDraft = async (draft: DraftItem) => {
     try {
       const state = JSON.parse(draft.wizardState)
-      // Restore wizard state
       wizardStore.initWizard(
         state.companyName,
         state.jobTitle,
@@ -115,6 +100,31 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
+      {/* Maintenance Alert (v10.5 Improved) */}
+      {(oldTrashCount > 0 && !hideTrashAlert) && (
+        <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
+          <div className="flex items-center gap-3 text-orange-800">
+            <span className="text-xl">🧹</span>
+            <p className="text-sm font-medium">휴지통에 30일이 지난 오래된 파일 <strong>{oldTrashCount}개</strong>가 있습니다.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleEmptyTrash}
+              className="rounded-lg bg-orange-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-700 transition-colors shadow-sm"
+            >
+              지금 비우기
+            </button>
+            <button 
+              onClick={() => setHideTrashAlert(true)}
+              className="text-orange-400 hover:text-orange-600 p-1 transition-colors"
+              title="닫기"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Magic Onboarding Banner */}
       {(episodes.length === 0 && drafts.length === 0) && (
         <div className="mb-10 overflow-hidden rounded-3xl border border-primary/20 bg-primary/5 p-8 shadow-sm animate-in slide-in-from-top duration-700">

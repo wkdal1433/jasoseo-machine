@@ -462,10 +462,27 @@ export function registerIpcHandlers(): void {
       const pdf = await import('pdf-parse/lib/pdf-parse.js')
       const dataBuffer = readFileSync(filePath)
       const data = await pdf.default(dataBuffer)
+      
+      if (!data.text || data.text.trim().length < 10) {
+        throw new Error('텍스트가 없는 이미지 PDF이거나 파일이 비어있습니다.')
+      }
+      
       return { success: true, text: data.text }
     } catch (error: any) {
       console.error('PDF Parse Error:', error)
-      return { success: false, error: error.message }
+      let message = 'PDF 파일을 읽을 수 없습니다.'
+      
+      // [v10.5 개선] 상세 에러 진단
+      const errMsg = error.message.toLowerCase()
+      if (errMsg.includes('encrypted') || errMsg.includes('password')) {
+        message = '비밀번호가 걸려있는 PDF입니다. 암호를 해제한 후 다시 업로드해주세요.'
+      } else if (errMsg.includes('corrupt') || errMsg.includes('invalid pdf')) {
+        message = '손상된 PDF 파일입니다. 정상적인 파일인지 확인해주세요.'
+      } else if (errMsg.includes('이미지 pdf')) {
+        message = '텍스트가 없는 이미지 PDF입니다. 텍스트를 직접 복사해서 붙여넣어 주세요.'
+      }
+      
+      return { success: false, error: message }
     }
   })
 

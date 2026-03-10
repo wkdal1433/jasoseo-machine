@@ -88,12 +88,12 @@ ${cleanForm}
   const failedFields = [];
 
   /**
-   * 모든 프레임(Iframe)을 순회하며 요소를 찾는 재귀 함수 (깊이 제한 추가)
+   * 모든 프레임(Iframe) 및 Shadow DOM을 순회하며 요소를 찾는 재귀 함수
    */
   const findInAllFrames = (selectors, doc = document, depth = 0) => {
-    // [v9.5 개선] 재귀 깊이 제한 (Stack Overflow 방지)
-    if (depth > 5) return null;
+    if (depth > 10) return null; // 깊이 제한 소폭 상향
 
+    // 1. 현재 문서(또는 Shadow Root)에서 찾기
     for (const s of selectors) {
       try {
         const el = doc.querySelector(s);
@@ -101,6 +101,16 @@ ${cleanForm}
       } catch(e) {}
     }
 
+    // 2. [v10.5 추가] 현재 문서의 모든 요소를 뒤져서 Shadow Root 내부 탐색
+    const allElements = doc.querySelectorAll('*');
+    for (const el of allElements) {
+      if (el.shadowRoot) {
+        const found = findInAllFrames(selectors, el.shadowRoot, depth + 1);
+        if (found) return found;
+      }
+    }
+
+    // 3. 하위 아이프레임들 뒤지기
     const iframes = doc.querySelectorAll('iframe');
     for (const iframe of iframes) {
       try {
