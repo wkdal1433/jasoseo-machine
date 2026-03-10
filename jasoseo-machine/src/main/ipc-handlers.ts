@@ -472,22 +472,29 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, arrayBuffer) => {
+  ipcMain.handle(IPC.FS_PARSE_PDF, async (_event, data) => {
     try {
-      const pdf = require('pdf-parse')
-      // [v10.5 개선] 경로 대신 렌더러에서 직접 보낸 데이터 버퍼 사용 (한글 경로 문제 해결)
-      const dataBuffer = Buffer.from(arrayBuffer)
+      const pdfParse = require('pdf-parse')
+      // [v10.5 개선] 라이브러리 호출 방식 유연화 (객체 또는 함수 대응)
+      const parseFunc = typeof pdfParse === 'function' ? pdfParse : pdfParse.default;
       
-      const data = await pdf(dataBuffer)
+      if (!parseFunc) throw new Error('PDF library not loaded correctly');
+
+      // [v10.5 개선] 전달받은 데이터 유효성 검사 및 버퍼 변환
+      if (!data) throw new Error('No data received from renderer');
+      const dataBuffer = Buffer.from(data);
       
-      if (!data || !data.text || data.text.trim().length < 5) {
+      const parsedData = await parseFunc(dataBuffer)
+      
+      if (!parsedData || !parsedData.text || parsedData.text.trim().length < 5) {
         throw new Error('텍스트가 없는 이미지 PDF이거나 파일이 비어있습니다.')
       }
       
-      return { success: true, text: data.text }
+      return { success: true, text: parsedData.text }
     } catch (error: any) {
       console.error('[PDF Engine Error]:', error)
       let message = 'PDF 파일을 읽을 수 없습니다.'
+      // ... (rest of error logic)
       
       const errMsg = error.toString().toLowerCase()
       if (errMsg.includes('encrypted') || errMsg.includes('password')) {

@@ -28,7 +28,6 @@ export function MagicOnboarding({ onClose }: Props) {
   }, [])
 
   const handleParse = async (text: string) => {
-    // [v10.0 개선] 물리적 토큰 보호 가드 (Hard Limiter)
     if (text.length > 15000) {
       alert(`파일의 내용이 너무 깁니다 (${text.length.toLocaleString()}자).\n안정적인 분석을 위해 15,000자 이내로 쪼개서 업로드해 주세요.`);
       setStep('welcome');
@@ -61,13 +60,17 @@ export function MagicOnboarding({ onClose }: Props) {
     if (file.name.toLowerCase().endsWith('.pdf')) {
       const parsePdf = async () => {
         setStep('parsing')
-        // [v10.5 개선] 한글 경로 문제 해결을 위해 ArrayBuffer 직접 전달
-        const arrayBuffer = await file.arrayBuffer()
-        const res = await (window.api as any).parsePdf(arrayBuffer)
-        if (res.success) {
-          handleParse(res.text)
-        } else {
-          alert('PDF 파싱 실패: ' + res.error)
+        try {
+          const buffer = await file.arrayBuffer()
+          const res = await (window.api as any).parsePdf(buffer)
+          if (res.success) {
+            handleParse(res.text)
+          } else {
+            alert('PDF 파싱 실패: ' + res.error)
+            setStep('welcome')
+          }
+        } catch (err) {
+          alert('파일을 읽는 중 오류가 발생했습니다.')
           setStep('welcome')
         }
       }
@@ -214,13 +217,16 @@ export function MagicOnboarding({ onClose }: Props) {
                     const file = e.target.files?.[0]
                     if (!file) return
                     if (file.name.toLowerCase().endsWith('.pdf')) {
-                      setStep('parsing')
-                      file.arrayBuffer().then((arrayBuffer) => {
-                        ;(window.api as any).parsePdf(arrayBuffer).then((res: any) => {
+                      const parse = async () => {
+                        setStep('parsing')
+                        try {
+                          const buffer = await file.arrayBuffer()
+                          const res = await (window.api as any).parsePdf(buffer)
                           if (res.success) handleParse(res.text)
                           else { alert('PDF 파싱 실패: ' + res.error); setStep('welcome'); }
-                        })
-                      })
+                        } catch { alert('파일 읽기 에러'); setStep('welcome'); }
+                      }
+                      parse()
                     } else {
                       const reader = new FileReader()
                       reader.onload = (event) => handleParse(event.target?.result as string)
