@@ -114,18 +114,26 @@ export function registerIpcHandlers(): void {
         const oldDir = join(projectDir, 'episodes', p.name)
         const newDir = join(projectDir, 'episodes', p.id)
         
+        let success = false
         if (existsSync(oldDir) && !existsSync(newDir)) {
           try {
             renameSync(oldDir, newDir)
+            // 실제 이동 후 존재 여부 재확인 (Verification)
+            if (existsSync(newDir)) success = true
           } catch (err) {
-            console.error(`[Migration] Error: ${p.name}`, err)
+            console.error(`[Migration] Transaction failed for ${p.name}`, err)
           }
+        } else if (existsSync(newDir)) {
+          // 이미 누군가에 의해 혹은 수동으로 옮겨져 있다면 성공으로 간주
+          success = true
         }
 
-        const fullProfile = data.profiles.find(prof => prof.id === p.id)
-        if (fullProfile) {
-          fullProfile.isMigrated = true
-          changed = true
+        if (success) {
+          const fullProfile = data.profiles.find(prof => prof.id === p.id)
+          if (fullProfile) {
+            fullProfile.isMigrated = true
+            changed = true
+          }
         }
       }
     })
@@ -224,8 +232,18 @@ export function registerIpcHandlers(): void {
 
   // === Applications ===
   ipcMain.handle(IPC.APP_SAVE, (_event, app) => {
+    // [v9.0 개선] 바인딩된 프로필 생존 여부 검증 (Ghost Session 방지)
+    const profiles = listProfiles()
+    const currentProfile = getUserProfile()
+    
+    // 만약 위자드가 바인딩된 프로필 ID 정보를 담고 있다면 (클라이언트에서 전달 시)
+    // 여기서는 간단하게 현재 선택된 프로필이 있는지 체크
+    if (!currentProfile) {
+      return { success: false, error: '활성화된 프로필이 없습니다. 프로필을 먼저 생성해주세요.' }
+    }
+
     saveApplication(app)
-    return true
+    return { success: true }
   })
 
   ipcMain.handle(IPC.APP_LIST, () => {
@@ -380,18 +398,25 @@ export function registerIpcHandlers(): void {
         
         const result = JSON.parse(jsonMatch[0])
 
-        // [v8.5 개선] 링크 유효성 체크
-        if (result.foundLinks && Array.isArray(result.foundLinks)) {
-          const validatedLinks = await Promise.all(
-            result.foundLinks.map(async (link: any) => {
-              try {
-                const response = await fetch(link.url, { method: 'HEAD', signal: AbortSignal.timeout(2000) })
-                return { ...link, isValid: response.ok }
-              } catch { return { ...link, isValid: false } }
-            })
-          )
-          result.foundLinks = validatedLinks.filter((l: any) => l.isValid)
-        }
+        // [v9.0 개선] 정교한 링크 유효성 체크
+        const validatedLinks = await Promise.all(
+          result.foundLinks.map(async (link: any) => {
+            const fetchOptions = {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+              signal: AbortSignal.timeout(3000)
+            };
+            try {
+              // 1. 가벼운 HEAD 요청 시도
+              let response = await fetch(link.url, { ...fetchOptions, method: 'HEAD' })
+              if (response.ok) return { ...link, isValid: true }
+              
+              // 2. HEAD 실패 시 실제 GET 시도 (일부 사이트 보안 대응)
+              response = await fetch(link.url, { ...fetchOptions, method: 'GET' })
+              return { ...link, isValid: response.ok }
+            } catch { return { ...link, isValid: false } }
+          })
+        )
+        result.foundLinks = validatedLinks.filter((l: any) => l.isValid)
 
         if (result.recruitmentSeason && !result.recruitmentSeason.includes('2026')) {
           result.analysisNote = `[Warning] Found older recruitment data (${result.recruitmentSeason}).`

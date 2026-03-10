@@ -64,7 +64,17 @@ function getDbPath(): string {
 }
 
 function save(): void {
-  writeFileSync(getDbPath(), JSON.stringify(data, null, 2), 'utf-8')
+  const path = getDbPath()
+  const tempPath = path + '.tmp'
+  try {
+    const content = JSON.stringify(data, null, 2)
+    writeFileSync(tempPath, content, 'utf-8')
+    // 임시 파일 쓰기 성공 후 원본 파일 교체 (Atomic Rename)
+    renameSync(tempPath, path)
+  } catch (err) {
+    console.error('[DB] Atomic save failed:', err)
+    if (existsSync(tempPath)) unlinkSync(tempPath)
+  }
 }
 
 export function initDatabase(): void {
