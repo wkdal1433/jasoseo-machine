@@ -143,6 +143,10 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
   }
 
+  // 디버그: 실제 실행 커맨드 콘솔에 출력
+  console.log(`[AI Spawn] ${cli} ${args.join(' ')}`)
+  sendRawLog(`[CMD] ${cli} ${args.slice(0, 6).join(' ')} ...`)
+
   return new Promise((resolve, reject) => {
     const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
     activeProcesses.add(child)
@@ -157,14 +161,21 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
       if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
       if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
 
+      console.log(`[AI Exit] code=${code} stderr=${stderrOutput.slice(0, 200)}`)
       if (code === 0) {
         resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output)
-      } else reject(new Error(classifyError(stderrOutput, code || 1).message))
+      } else {
+        const err = classifyError(stderrOutput, code || 1)
+        sendRawLog(`[ERROR] exit=${code} | ${stderrOutput.slice(0, 300)}`)
+        reject(new Error(err.message))
+      }
     })
-    child.on('error', (err) => { 
+    child.on('error', (err) => {
       activeProcesses.delete(child)
       if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
       if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
+      console.log(`[AI Spawn Error] ${err.message}`)
+      sendRawLog(`[SPAWN ERROR] ${err.message}`)
       reject(new Error(classifyError(err.message, -1).message)) 
     })
   })
