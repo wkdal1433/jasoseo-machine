@@ -1,7 +1,6 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { readFileSync, readdirSync, unlinkSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'fs'
-import { join, extname } from 'path'
-import { createRequire } from 'module'
+import { join } from 'path'
 import { IPC } from '../shared/ipc-channels'
 import { bridgeServer } from './automation/bridge-server'
 import {
@@ -254,28 +253,6 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     } catch (error: any) { return { success: false, error: error.message } }
   })
 
-  // PDF/텍스트 파일 내용을 서버에서 직접 읽어 문자열로 반환 (Gemini 호환)
-  const readFileAsText = async (input: string): Promise<{ content: string; isFilePath: boolean }> => {
-    if (!existsSync(input)) {
-      // 파일 경로가 아니라 이미 읽힌 텍스트 내용
-      return { content: input, isFilePath: false }
-    }
-    const ext = extname(input).toLowerCase()
-    if (ext === '.pdf') {
-      try {
-        const _require = createRequire(import.meta.url)
-        const pdfParse = _require('pdf-parse')
-        const buffer = readFileSync(input)
-        const data = await pdfParse(buffer)
-        return { content: data.text, isFilePath: true }
-      } catch (e) {
-        console.error('[PDF Parse] Failed, falling back to file path mode:', e)
-        return { content: '', isFilePath: true }  // Claude fallback
-      }
-    }
-    return { content: readFileSync(input, 'utf-8'), isFilePath: true }
-  }
-
   ipcMain.handle(IPC.ONBOARDING_PARSE_FILE, async (event, filePath) => {
     const { OnboardingAgent } = await import('./automation/onboarding-agent')
     const agent = new OnboardingAgent()
@@ -284,21 +261,12 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
       window?.webContents.send(IPC.ONBOARDING_PROGRESS, { step, percent })
     }
     try {
-      sendProgress('파일 내용을 읽는 중...', 5)
-      const { content, isFilePath } = await readFileAsText(filePath)
-
       sendProgress('AI가 파일을 정독하기 시작했습니다...', 10)
-
-      // 내용을 성공적으로 읽었으면 content 기반 프롬프트 사용 (Gemini/Claude 공용)
-      // 읽기 실패한 PDF는 Claude 전용 file path 방식으로 fallback
-      const useContentMode = !isFilePath || content.length > 0
       const aiResponse = await executeClaudePrompt({
-        prompt: useContentMode
-          ? agent.buildExtractionPromptFromContent(content || filePath)
-          : agent.buildExtractionPrompt(filePath),
+        prompt: agent.buildExtractionPrompt(filePath),
         outputFormat: 'json',
         maxTurns: 10,
-        ...(useContentMode ? {} : { filePath })
+        filePath
       })
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
