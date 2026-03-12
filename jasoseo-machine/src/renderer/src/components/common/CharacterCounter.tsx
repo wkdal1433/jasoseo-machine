@@ -2,11 +2,19 @@ import { cn } from '@/lib/utils'
 
 interface CharacterCounterProps {
   current: number
-  limit: number
+  limit: number | null | undefined
   className?: string
 }
 
 export function CharacterCounter({ current, limit, className }: CharacterCounterProps) {
+  if (!limit) {
+    return (
+      <div className={cn('space-y-1', className)}>
+        <span className="text-sm text-muted-foreground">{current}자 (제한 없음)</span>
+      </div>
+    )
+  }
+
   const ratio = current / limit
   const color =
     ratio > 1 ? 'text-red-500' : ratio > 0.9 ? 'text-yellow-500' : 'text-green-500'

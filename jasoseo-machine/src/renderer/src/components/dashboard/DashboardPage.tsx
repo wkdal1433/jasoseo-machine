@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 
 interface DraftItem {
@@ -18,6 +19,7 @@ export function DashboardPage() {
   const { episodes, loadEpisodes } = useEpisodeStore()
   const { applications, loadApplications } = useHistoryStore()
   const wizardStore = useWizardStore()
+  const { projectDir, isLoaded } = useSettingsStore()
   const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
@@ -96,8 +98,39 @@ export function DashboardPage() {
     )
   }
 
+  const handleStartWizard = () => {
+    if (episodes.length === 0) {
+      navigate('/onboarding')
+    } else {
+      navigate('/wizard')
+    }
+  }
+
   return (
     <div className="p-8">
+      {/* Setup Required Banner — 프로젝트 디렉토리 미설정 시 */}
+      {isLoaded && !projectDir && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-950 animate-in slide-in-from-top duration-500">
+          <div className="flex items-start gap-4">
+            <span className="text-3xl">🚀</span>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-blue-800 dark:text-blue-200">처음 시작하는 분이시군요! 아래 순서로 진행해주세요.</h3>
+              <ol className="mt-3 space-y-1.5 text-sm text-blue-700 dark:text-blue-300">
+                <li><span className="font-bold">① 설정</span> → 프로젝트 디렉토리 선택 (에피소드가 저장될 폴더)</li>
+                <li><span className="font-bold">② 매직 온보딩</span> → 이력서/자소서 PDF 업로드 → AI가 에피소드 자동 추출</li>
+                <li><span className="font-bold">③ 새 지원서 작성</span> → 위저드로 자소서 생성 시작</li>
+              </ol>
+              <button
+                onClick={() => navigate('/settings')}
+                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors"
+              >
+                설정으로 이동 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Maintenance Alert */}
       {(oldTrashCount > 0 && !hideTrashAlert) && (
         <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
@@ -156,11 +189,14 @@ export function DashboardPage() {
           AI 기반 S급 자기소개서 생성 시스템
         </p>
         <button
-          onClick={() => navigate('/wizard')}
+          onClick={handleStartWizard}
           className="rounded-xl bg-primary px-10 py-4 text-lg font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-xl"
         >
-          새 지원서 작성
+          {episodes.length === 0 ? '에피소드 등록 후 시작하기 →' : '새 지원서 작성'}
         </button>
+        {episodes.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">에피소드가 없습니다. 온보딩으로 이동합니다.</p>
+        )}
       </div>
 
       {/* Drafts */}

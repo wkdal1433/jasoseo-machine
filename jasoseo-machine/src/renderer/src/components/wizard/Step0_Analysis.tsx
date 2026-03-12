@@ -202,7 +202,14 @@ export function Step0Analysis() {
       )}
 
       <section className="space-y-4">
-        <h4 className={cn("font-bold text-sm", !recruitmentContext?.isConfirmed && "opacity-50")}>2. AI 전략 도출</h4>
+        <div className="flex items-center gap-2">
+          <h4 className={cn("font-bold text-sm", !recruitmentContext?.isConfirmed && "opacity-50")}>2. AI 전략 도출</h4>
+          {!recruitmentContext?.isConfirmed && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+              ① 리서치를 먼저 완료해주세요
+            </span>
+          )}
+        </div>
         <div className={cn("rounded-2xl border border-border bg-muted/30 p-5", !recruitmentContext?.isConfirmed && "opacity-50")}>
           <p className="text-sm"><span className="font-semibold text-foreground">대상 기업:</span> {companyName}</p>
           <p className="text-sm"><span className="font-semibold text-foreground">지원 직무:</span> {jobTitle}</p>
