@@ -15,7 +15,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   claudePath: 'claude',
   geminiPath: 'gemini',
   projectDir: '',
-  model: 'opus',
+  model: 'gemini-3.1-pro-preview',
   theme: 'light',
   isLoaded: false,
 
@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const claudePath = (await window.api.settingsGet('claude_path')) || 'claude'
     const geminiPath = (await window.api.settingsGet('gemini_path')) || 'gemini'
     const projectDir = (await window.api.settingsGet('project_dir')) || ''
-    const model = (await window.api.settingsGet('model')) || 'opus'
+    const model = (await window.api.settingsGet('model')) || 'gemini-3.1-pro-preview'
     const theme = ((await window.api.settingsGet('theme')) as 'light' | 'dark' | 'system') || 'light'
     set({ claudePath, geminiPath, projectDir, model, theme, isLoaded: true })
   },

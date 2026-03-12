@@ -63,6 +63,9 @@ app.whenReady().then(async () => {
 
   if (mainWindow) {
     startFileWatcher(mainWindow)
+    mainWindow.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
+      console.log(`[Renderer] ${message} (${sourceId}:${line})`)
+    })
   }
 
   app.on('activate', () => {

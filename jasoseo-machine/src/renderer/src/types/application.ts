@@ -4,7 +4,7 @@ export type AppStatus = 'draft' | 'completed' | 'passed' | 'failed'
 export type CLStatus = 'pending' | 'in_progress' | 'completed'
 
 export interface HRIntentItem {
-  type: HRIntent
+  intent: HRIntent
   reason: string
 }
 
@@ -25,7 +25,7 @@ export interface Application {
 }
 
 export interface RecruitmentContext {
-  foundLinks: string[]
+  foundLinks: Array<{ url: string; title: string }>
   hiringValues: string[]
   preferredQualifications: string[]
   isConfirmed: boolean

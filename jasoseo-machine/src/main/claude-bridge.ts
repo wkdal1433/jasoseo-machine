@@ -103,8 +103,9 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   let finalFilePath = options.filePath
   let cleanupTempFile: string | null = null
 
-  // [Phase 1: Path Neutralization] Move problematic paths to a safe English temp path
-  if (finalFilePath && fs.existsSync(finalFilePath)) {
+  // [Phase 1: Path Neutralization] Gemini CLI만 해당 — 한글/특수문자 경로를 ASCII 임시 경로로 복사
+  // Claude Code CLI는 한글 경로를 직접 처리 가능하므로 불필요
+  if (provider === 'gemini' && finalFilePath && fs.existsSync(finalFilePath)) {
     try {
       const tempDir = os.tmpdir()
       const ext = path.extname(finalFilePath)
@@ -157,8 +158,7 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
       if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
 
       if (code === 0) {
-        try { fs.writeFileSync('C:/Users/scspr/WorkSpace/jasoseo/gemini_raw_debug.txt', `=== ARGS ===\n${args.join(' ')}\n\n=== STDOUT ===\n${output}`, 'utf8') } catch {}
-        resolve(unwrapGeminiResponse(output))
+        resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output)
       } else reject(new Error(classifyError(stderrOutput, code || 1).message))
     })
     child.on('error', (err) => { 

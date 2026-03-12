@@ -85,6 +85,23 @@ const api = {
     const handler = (_: unknown, data: any) => callback(data)
     ipcRenderer.on(IPC.ONBOARDING_PROGRESS, handler)
     return () => ipcRenderer.removeListener(IPC.ONBOARDING_PROGRESS, handler)
+  },
+
+  // Stream events
+  onStreamChunk: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
+    ipcRenderer.on(IPC.CLAUDE_STREAM_CHUNK, handler)
+    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_CHUNK, handler)
+  },
+  onStreamEnd: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
+    ipcRenderer.on(IPC.CLAUDE_STREAM_END, handler)
+    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_END, handler)
+  },
+  onStreamError: (callback: (data: unknown) => void) => {
+    const handler = (_: unknown, data: unknown) => callback(data)
+    ipcRenderer.on(IPC.CLAUDE_STREAM_ERROR, handler)
+    return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_ERROR, handler)
   }
 }
 

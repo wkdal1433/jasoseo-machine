@@ -79,7 +79,14 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
   },
 
   setStep0Result: (hrIntents, strategy) => {
-    set({ hrIntents, strategy, step0Completed: true })
+    set((state) => ({
+      hrIntents,
+      strategy,
+      step0Completed: true,
+      questions: state.questions.map((q) =>
+        q.currentStep === 0 ? { ...q, currentStep: 1 as WizardStep } : q
+      )
+    }))
   },
 
   setRecruitmentContext: (context) => {
