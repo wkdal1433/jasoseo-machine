@@ -5,6 +5,8 @@ import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import { getSetting } from './db'
 import path from 'path'
+import fs from 'fs'
+import os from 'os'
 
 const activeProcesses = new Set<ChildProcess>()
 
@@ -23,7 +25,7 @@ function sendRawLog(data: string): void {
 
 type AIProvider = 'claude' | 'gemini'
 
-function getModel(): string { return getSetting('model') || 'opus' }
+function getModel(): string { return getSetting('model') || 'gemini-2.0-flash' }
 function getProvider(): AIProvider {
   const model = getModel()
   return model.startsWith('gemini') ? 'gemini' : 'claude'
@@ -41,153 +43,177 @@ interface ClassifiedError {
 function classifyError(stderr: string, exitCode: number): ClassifiedError {
   const lower = stderr.toLowerCase()
   if (lower.includes('credit limit reached') || lower.includes('insufficient_quota') || lower.includes('billing_error') || lower.includes('out of credits')) {
-    return { type: 'quota_exhausted', message: '현재 계정의 토큰 또는 크레딧이 모두 소진되었습니다. 다른 AI 엔진으로 교체해 주세요.' }
+    return { type: 'quota_exhausted', message: '계정 한도 초과' }
   }
   if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')) {
-    return { type: 'rate_limit', message: '사용량 한도에 도달했습니다. 잠시 후 다시 시도하거나 다른 엔진으로 교체해 주세요.' }
+    return { type: 'rate_limit', message: '사용량 한도 도달' }
   }
-  if (lower.includes('unauthorized') || lower.includes('401') || lower.includes('auth') || lower.includes('not logged in')) {
-    return { type: 'auth', message: 'AI 인증이 필요합니다. 터미널에서 로그인해주세요.' }
-  }
-  if (lower.includes('enoent') || lower.includes('not found') || lower.includes('command not found')) {
-    return { type: 'not_found', message: 'AI CLI가 설치되어 있지 않거나 경로가 잘못되었습니다.' }
-  }
-  if (lower.includes('timeout') || lower.includes('etimedout') || lower.includes('network') || lower.includes('mcp connection error')) {
-    return { type: 'timeout', message: '네트워크 또는 MCP 연결 시간이 초과되었습니다.' }
-  }
-  return { type: 'unknown', message: `AI 오류 (코드 ${exitCode}): ${stderr.trim().slice(0, 100)}` }
+  return { type: 'unknown', message: `AI 오류 (${exitCode}): ${stderr.trim().slice(0, 100)}` }
 }
 
-function buildSpawnEnv(): NodeJS.ProcessEnv { return { ...process.env } }
+function buildSpawnEnv(provider?: string): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  if (provider === 'gemini') {
+    env.NO_COLOR = '1'
+    env.GEMINI_DISABLE_MCP = '1'
+    env.GEMINI_INCLUDE_THOUGHTS = '0'
+    env.PYTHONIOENCODING = 'utf-8'
+    env.LANG = 'ko_KR.UTF-8'
+  }
+  return env
+}
 
 export interface ClaudeExecuteOptions {
   prompt: string
-  outputFormat: 'json' | 'stream-json'
+  outputFormat: 'json' | 'stream-json' | 'text'
   jsonSchema?: string
   maxTurns?: number
   appendSystemPrompt?: string
-  filePath?: string // [v20.7] 분석 파일 경로 필드 추가
+  filePath?: string
+  conversational?: boolean
 }
 
 function sanitizePromptForGemini(prompt: string): string {
   return prompt.replace(/먼저 MASTER_INDEX\.md를 읽어서[^\n]*\n?\n?/g, '').replace(/먼저 다음 파일들을 읽어주세요:\n(?:- [^\n]+\n)*/g, '')
 }
 
-function buildGeminiPrompt(options: ClaudeExecuteOptions): string {
-  let prompt = sanitizePromptForGemini(options.prompt)
-  if (options.outputFormat === 'json' || options.outputFormat === 'stream-json') {
-    prompt = '아래 지시사항을 분석하고 요청된 JSON 형식으로 결과를 반환하세요. 마크다운 없이 JSON만 출력하세요.\n\n' + prompt
-  }
-  return prompt
-}
-
 function unwrapGeminiResponse(raw: string): string {
-  let result = raw.trim()
-  const jsonStart = result.indexOf('{')
-  if (jsonStart > 0) result = result.slice(jsonStart)
+  // Find the VERY LAST JSON object in the entire stream
+  const jsonRegex = /\{[\s\S]*\}/g
+  const matches = raw.match(jsonRegex)
+  if (!matches) return raw.trim()
+
+  const lastMatch = matches[matches.length - 1]
   try {
-    const wrapper = JSON.parse(result)
-    if (wrapper.response !== undefined) result = wrapper.response
-  } catch { /* ignore */ }
-  const codeBlockMatch = result.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
-  if (codeBlockMatch) result = codeBlockMatch[1].trim()
-  return result
+    const parsed = JSON.parse(lastMatch)
+    // Support both raw JSON and Gemini CLI envelope
+    if (parsed.response !== undefined) {
+      const innerMatch = String(parsed.response).match(/\{[\s\S]*\}/)
+      return innerMatch ? innerMatch[0] : String(parsed.response)
+    }
+    return lastMatch
+  } catch {
+    return lastMatch
+  }
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
   const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
   
-  // [v20.7] 동적 디렉토리 허용 목록 생성
-  const includeDirs: string[] = []
-  if (projectDir) includeDirs.push(projectDir)
-  if (options.filePath && path.isAbsolute(options.filePath)) {
-    includeDirs.push(path.dirname(options.filePath))
-  }
-  const includeFlags = includeDirs.flatMap(dir => ['--include-directories', dir])
+  let finalFilePath = options.filePath
+  let cleanupTempFile: string | null = null
 
-  let args: string[], prompt: string
+  // [Phase 1: Path Neutralization] Move problematic paths to a safe English temp path
+  if (finalFilePath && fs.existsSync(finalFilePath)) {
+    try {
+      const tempDir = os.tmpdir()
+      const ext = path.extname(finalFilePath)
+      const safeName = `analyze_${Date.now()}${ext}`
+      const safePath = path.join(tempDir, safeName)
+      fs.copyFileSync(finalFilePath, safePath)
+      finalFilePath = safePath
+      cleanupTempFile = safePath
+    } catch (e) { console.error('[Path Fix] Failed to copy to temp:', e) }
+  }
+
+  const includeDirs: string[] = [projectDir]
+  if (finalFilePath) includeDirs.push(path.dirname(finalFilePath))
+  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir])
+
+  let args: string[], prompt: string, tempPromptFile: string | null = null
   if (provider === 'gemini') {
-    prompt = buildGeminiPrompt(options)
-    args = ['--output-format', options.outputFormat, '-m', model, '--approval-mode', 'yolo', ...includeFlags]
+    prompt = sanitizePromptForGemini(options.prompt)
+    if (finalFilePath) {
+      // Use both Tool Call instruction AND Path explicit mention
+      prompt = `Using your tools, READ the file at "${finalFilePath.replace(/\\/g, '/')}".\n\n${prompt}`
+    }
+    if (options.outputFormat === 'json') {
+      prompt = 'IMPORTANT: Output ONLY a single JSON object. No other text.\n\n' + prompt
+    }
+    
+    tempPromptFile = path.join(os.tmpdir(), `g_p_${Date.now()}.txt`)
+    fs.writeFileSync(tempPromptFile, prompt, 'utf8')
+    
+    // [Phase 3: Robust Execution] Use --raw-output to avoid wrapper issues if needed, 
+    // but here we stick to -o json with heavy parsing
+    args = ['--output-format', 'json', '--allowedTools', 'Read', '-m', model, '--approval-mode', 'yolo', ...includeFlags, '-p', `@${tempPromptFile}`]
   } else {
     prompt = options.prompt
-    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags]
-    if (options.jsonSchema) args.push('--json-schema', options.jsonSchema)
-    if (options.appendSystemPrompt) args.push('--append-system-prompt', options.appendSystemPrompt)
-    args.push('-p', prompt)
+    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(), stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
     activeProcesses.add(child)
-    if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
+    if (provider === 'gemini') child.stdin?.end()
+    
     const decoder = new StringDecoder('utf8'); let output = '', stderrOutput = ''
     child.stdout?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); output += d; sendRawLog(d) })
     child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
+    
     child.on('close', (code) => {
       activeProcesses.delete(child)
-      if (code === 0) resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output.trim())
-      else reject(new Error(classifyError(stderrOutput, code || 1).message))
+      if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
+      if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
+
+      if (code === 0) {
+        try { fs.writeFileSync('C:/Users/scspr/WorkSpace/jasoseo/gemini_raw_debug.txt', `=== ARGS ===\n${args.join(' ')}\n\n=== STDOUT ===\n${output}`, 'utf8') } catch {}
+        resolve(unwrapGeminiResponse(output))
+      } else reject(new Error(classifyError(stderrOutput, code || 1).message))
     })
-    child.on('error', (err) => { activeProcesses.delete(child); reject(new Error(classifyError(err.message, -1).message)) })
+    child.on('error', (err) => { 
+      activeProcesses.delete(child)
+      if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
+      if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
+      reject(new Error(classifyError(err.message, -1).message)) 
+    })
   })
 }
 
 export function executeClaudeStream(options: ClaudeExecuteOptions, window: BrowserWindow): ChildProcess {
   const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
-  const outputFormat = 'stream-json' as const
-  
-  // [v20.7] 스트리밍에서도 동적 디렉토리 허용
-  const includeDirs: string[] = []
-  if (projectDir) includeDirs.push(projectDir)
-  if (options.filePath && path.isAbsolute(options.filePath)) {
-    includeDirs.push(path.dirname(options.filePath))
-  }
-  const includeFlags = includeDirs.flatMap(dir => ['--include-directories', dir])
+  const includeDirs: string[] = [projectDir]
+  if (options.filePath && path.isAbsolute(options.filePath)) includeDirs.push(path.dirname(options.filePath))
+  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir])
 
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    args = ['--output-format', outputFormat, '-m', model, '--approval-mode', 'yolo', ...includeFlags]
+    args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '-m', model, '--approval-mode', 'yolo', ...includeFlags]
   } else {
     prompt = options.prompt
-    args = ['--output-format', outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags]
-    if (options.jsonSchema) args.push('--json-schema', options.jsonSchema)
-    if (options.appendSystemPrompt) args.push('--append-system-prompt', options.appendSystemPrompt)
-    args.push('-p', prompt)
+    args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
   }
 
-  const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(), stdio: ['pipe', 'pipe', 'pipe'] })
+  const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
   activeProcesses.add(child)
   if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
-  const decoder = new StringDecoder('utf8'); let buffer = '', stderrOutput = '', geminiFullText = ''
+  const decoder = new StringDecoder('utf8'); let buffer = '', geminiFullText = ''
   let lastPacketTime = Date.now()
   const watchdog = setInterval(() => {
-    if (Date.now() - lastPacketTime > 15000) { 
-      child.kill('SIGKILL'); window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 응답이 15초간 없어 연결을 종료했습니다.' }); clearInterval(watchdog)
+    if (Date.now() - lastPacketTime > 60000) { 
+      child.kill('SIGKILL'); window.webContents.send(IPC.CL_STREAM_ERROR, { message: 'AI 타임아웃' }); clearInterval(watchdog)
     }
-  }, 2000)
+  }, 5000)
 
   child.stdout?.on('data', (chunk: Buffer) => {
-    lastPacketTime = Date.now(); const d = decoder.write(chunk); sendRawLog(d); buffer += d
+    lastPacketTime = Date.now(); buffer += decoder.write(chunk)
     const lines = buffer.split('\n'); buffer = lines.pop() || ''
     for (const line of lines) {
       const trimmed = line.trim(); if (!trimmed) continue
       try {
         const event = JSON.parse(trimmed)
         if (provider === 'gemini') {
-          if (event.type === 'message' && event.role === 'assistant' && event.delta) {
-            geminiFullText += event.content || ''; window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
+          if (event.type === 'message' && event.delta) {
+            geminiFullText += event.content || ''; window.webContents.send(IPC.CL_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
           } else if (event.type === 'result') {
-            window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
+            window.webContents.send(IPC.CL_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
           }
-        } else { window.webContents.send(IPC.CLAUDE_STREAM_CHUNK, event) }
-      } catch { /* ignore */ }
+        } else { window.webContents.send(IPC.CL_STREAM_CHUNK, event) }
+      } catch { }
     }
   })
-  child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
-  child.on('close', (code) => { clearInterval(watchdog); activeProcesses.delete(child); window.webContents.send(IPC.CLAUDE_STREAM_END, { code }) })
-  child.on('error', (err) => { clearInterval(watchdog); activeProcesses.delete(child); window.webContents.send(IPC.CLAUDE_STREAM_ERROR, { message: classifyError(err.message, -1).message }) })
+  child.on('close', () => { clearInterval(watchdog); activeProcesses.delete(child) })
   return child
 }
 

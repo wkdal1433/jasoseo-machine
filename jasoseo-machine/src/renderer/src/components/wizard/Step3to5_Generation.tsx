@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep3to5Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
+import { Sparkles } from 'lucide-react'
 
 export function Step3to5Generation() {
   const {
@@ -10,6 +12,8 @@ export function Step3to5Generation() {
     isGenerating, setIsGenerating,
     setGeneratedText, appendGeneratedText, setQuestionStep
   } = useWizardStore()
+
+  const { episodes } = useEpisodeStore()
 
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -125,14 +129,85 @@ export function Step3to5Generation() {
 
   const hasText = q.generatedText.trim().length > 0
 
+  const getEpisodeTitle = (id: string) => {
+    return episodes.find(e => e.id === id)?.title || id
+  }
+
+  // Pre-generation Summary View
+  if (!hasText && !isGenerating) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h4 className="mb-5 text-lg font-bold text-card-foreground">
+            문항 {activeQuestionIndex + 1} 분석 및 초안 생성
+          </h4>
+          
+          <div className="space-y-5 text-sm text-card-foreground">
+            {/* 분석결과 */}
+            <div>
+              <span className="font-bold text-primary mb-1 block">[분석결과]</span>
+              <p className="leading-relaxed text-muted-foreground">
+                {q.analysisResult.questionReframe}
+              </p>
+            </div>
+            
+            {/* 매칭된 에피소드 */}
+            <div>
+              <span className="font-bold text-primary mb-2 block">[매칭된 에피소드]</span>
+              <div className="flex flex-wrap gap-2">
+                {q.approvedEpisodes.map(epId => (
+                  <span 
+                    key={epId} 
+                    className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground border border-border"
+                  >
+                    {getEpisodeTitle(epId)}
+                  </span>
+                ))}
+                {q.approvedEpisodes.length === 0 && (
+                  <span className="text-muted-foreground text-xs">매칭된 에피소드가 없습니다.</span>
+                )}
+              </div>
+            </div>
+
+            {/* 초안 작성 방향 */}
+            <div>
+              <span className="font-bold text-primary mb-2 block">[초안 작성 방향]</span>
+              <ul className="list-inside list-disc space-y-1 text-muted-foreground ml-1">
+                {q.analysisResult.suggestedEpisodes
+                  .filter(ep => q.approvedEpisodes.includes(ep.episodeId))
+                  .map(ep => (
+                    <li key={ep.episodeId} className="leading-relaxed">
+                      {ep.angle}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        {/* 생성 시작 버튼 */}
+        <button
+          onClick={startGeneration}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99]"
+        >
+          <Sparkles className="h-5 w-5" />
+          초안 생성하기
+        </button>
+      </div>
+    )
+  }
+
+  // Generation / Post-generation View
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold">
-        Step 3~5: 자소서 생성
-        {isGenerating && (
-          <span className="ml-2 text-sm font-normal text-muted-foreground">생성 중...</span>
-        )}
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">
+          Step 3~5: 자소서 생성
+          {isGenerating && (
+            <span className="ml-2 text-sm font-normal text-muted-foreground animate-pulse">생성 중...</span>
+          )}
+        </h3>
+      </div>
 
       {/* Text Display / Editor */}
       {isEditing ? (
@@ -164,17 +239,13 @@ export function Step3to5Generation() {
           ref={textRef}
           className="max-h-[500px] min-h-[200px] overflow-y-auto rounded-lg border border-border bg-muted/20 p-4"
         >
-          {hasText ? (
+          {hasText && (
             <div className="whitespace-pre-wrap text-sm leading-relaxed">
               {q.generatedText}
               {isGenerating && (
                 <span className="inline-block h-4 w-0.5 animate-pulse bg-primary" />
               )}
             </div>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground">
-              {isGenerating ? 'AI가 자소서를 생성하고 있습니다...' : '아직 생성된 텍스트가 없습니다.'}
-            </p>
           )}
         </div>
       )}
@@ -191,37 +262,26 @@ export function Step3to5Generation() {
 
       {/* Action Buttons */}
       <div className="flex gap-2">
-        {!isGenerating && !isEditing && (
+        {!isGenerating && !isEditing && hasText && (
           <>
-            {!hasText ? (
-              <button
-                onClick={startGeneration}
-                className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
-              >
-                자소서 생성 시작
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={startEdit}
-                  className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-                >
-                  편집
-                </button>
-                <button
-                  onClick={startGeneration}
-                  className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-                >
-                  재생성
-                </button>
-                <button
-                  onClick={proceedToVerification}
-                  className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
-                >
-                  검증 시작
-                </button>
-              </>
-            )}
+            <button
+              onClick={startEdit}
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+            >
+              편집
+            </button>
+            <button
+              onClick={startGeneration}
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+            >
+              재생성
+            </button>
+            <button
+              onClick={proceedToVerification}
+              className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
+            >
+              검증 시작
+            </button>
           </>
         )}
         {isGenerating && (

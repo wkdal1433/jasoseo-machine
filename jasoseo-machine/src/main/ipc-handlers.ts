@@ -160,12 +160,11 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
         existingTitles = readdirSync(dir).filter(f => f.endsWith('.md'))
       }
 
-      const aiResponse = await executeClaudePrompt({ 
-        prompt: interviewer.buildIdeaSuggestionPrompt(profile, existingTitles), 
-        outputFormat: 'json', 
-        maxTurns: 5 
-      })
-...
+        const aiResponse = await executeClaudePrompt({ 
+          prompt: interviewer.buildIdeaSuggestionPrompt(profile, existingTitles), 
+          outputFormat: 'json', 
+          maxTurns: 5 
+        })
 
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (!jsonMatch) throw new Error('AI response invalid.')
