@@ -9,6 +9,7 @@ import { ProfilePage } from './components/profile/ProfilePage'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { GuidePage } from './components/guide/GuidePage'
 import { MagicOnboarding } from './components/dashboard/MagicOnboarding'
+import { FullReview } from './components/wizard/FullReview'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAutoSave } from './hooks/useAutoSave'
 
@@ -32,6 +33,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/wizard" element={<WizardPage />} />
           <Route path="/onboarding" element={<MagicOnboarding onClose={() => window.location.hash = '#/'} />} />
+          <Route path="/review" element={<FullReview />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/episodes" element={<EpisodeListPage />} />
           <Route path="/history" element={<HistoryPage />} />

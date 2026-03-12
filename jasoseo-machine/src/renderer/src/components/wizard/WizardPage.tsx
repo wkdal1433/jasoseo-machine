@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useProfileStore } from '@/stores/profileStore'
 import { Step0Analysis as Step0_Analysis } from './Step0_Analysis'
@@ -12,18 +13,21 @@ import { QuestionTab } from './QuestionTab'
 import { buildStep1to2Prompt } from '@/lib/prompt-builder'
 
 export function WizardPage() {
-  const { 
-    questions, 
-    activeQuestionIndex, 
-    step0Completed, 
-    companyName, 
-    jobTitle, 
-    jobPosting, 
-    hrIntents, 
+  const navigate = useNavigate()
+  const {
+    questions,
+    activeQuestionIndex,
+    step0Completed,
+    companyName,
+    jobTitle,
+    jobPosting,
+    hrIntents,
     strategy,
     setQuestionAnalysis
   } = useWizardStore()
   const { profile } = useProfileStore()
+
+  const allCompleted = questions.length > 0 && questions.every((q) => q.status === 'completed')
 
   // [v21.6] 추측성 선행 분석 (Speculative Pre-fetch)
   useEffect(() => {
@@ -73,6 +77,17 @@ export function WizardPage() {
             <div className="flex-1 p-6 overflow-y-auto">
               <WizardStepper currentStep={activeQuestion.currentStep} />
             </div>
+            {allCompleted && (
+              <div className="p-4 border-t bg-card animate-in slide-in-from-bottom duration-500">
+                <button
+                  onClick={() => navigate('/review')}
+                  className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  🎉 전체 검토 화면으로 →
+                </button>
+                <p className="mt-2 text-center text-[10px] text-muted-foreground">모든 문항 완료!</p>
+              </div>
+            )}
           </div>
 
           {/* Right Side: Step Content */}

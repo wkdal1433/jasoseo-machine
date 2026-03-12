@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
 
 export function Step2EpisodeApproval() {
@@ -6,6 +8,9 @@ export function Step2EpisodeApproval() {
     questions, activeQuestionIndex,
     approveEpisode, rejectEpisode, setQuestionStep
   } = useWizardStore()
+
+  const { episodes } = useEpisodeStore()
+  const [showManualPicker, setShowManualPicker] = useState(false)
 
   const q = questions[activeQuestionIndex]
   if (!q?.analysisResult) return null
@@ -36,6 +41,53 @@ export function Step2EpisodeApproval() {
       <p className="text-sm text-muted-foreground">
         AI가 추천한 Episode를 검토하고 승인해주세요. 승인 없이는 자소서가 작성되지 않습니다.
       </p>
+
+      {/* AI 추천 에피소드가 없을 때 수동 선택 탈출구 */}
+      {suggestedEpisodes.length === 0 && (
+        <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950">
+          <p className="mb-1 text-sm font-bold text-amber-800 dark:text-amber-200">⚠️ AI가 추천한 에피소드가 없습니다.</p>
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">에피소드 라이브러리에서 직접 선택하거나, Step 1로 돌아가 재분석할 수 있습니다.</p>
+          <button
+            onClick={() => setShowManualPicker((v) => !v)}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors"
+          >
+            {showManualPicker ? '닫기' : '📚 에피소드 라이브러리에서 직접 선택'}
+          </button>
+        </div>
+      )}
+
+      {/* 수동 에피소드 선택기 */}
+      {showManualPicker && (
+        <div className="space-y-2 rounded-xl border border-border bg-muted/10 p-4">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">전체 에피소드 라이브러리</p>
+          {episodes.map((ep) => {
+            const isApproved = q.approvedEpisodes.includes(ep.id)
+            return (
+              <div
+                key={ep.id}
+                className={cn(
+                  'flex items-center justify-between rounded-lg border p-3 transition-colors',
+                  isApproved ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950' : 'border-border bg-card'
+                )}
+              >
+                <div>
+                  <span className="text-xs font-bold text-primary mr-2">{ep.id.toUpperCase()}</span>
+                  <span className="text-sm">{ep.title}</span>
+                </div>
+                <button
+                  onClick={() => isApproved ? rejectEpisode(activeQuestionIndex, ep.id) : approveEpisode(activeQuestionIndex, ep.id)}
+                  className={cn(
+                    'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                    isApproved ? 'bg-green-600 text-white hover:bg-green-700' : 'border border-border hover:bg-accent'
+                  )}
+                >
+                  {isApproved ? '승인됨 ✓' : '선택'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div className="space-y-3">
         {suggestedEpisodes.map((ep) => {

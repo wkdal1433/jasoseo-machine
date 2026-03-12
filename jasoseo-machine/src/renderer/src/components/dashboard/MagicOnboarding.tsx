@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
@@ -10,7 +11,7 @@ interface Props {
   onClose: () => void
 }
 
-type Step = 'welcome' | 'parsing' | 'result'
+type Step = 'welcome' | 'parsing' | 'result' | 'done'
 
 export function MagicOnboarding({ onClose }: Props) {
   const [step, setStep] = useState<Step>('welcome')
@@ -25,10 +26,12 @@ export function MagicOnboarding({ onClose }: Props) {
   const [interviewInput, setInterviewInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
   
+  const navigate = useNavigate()
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile, setLock } = useProfileStore()
   const { model } = useSettingsStore()
+  const [savedEpisodeCount, setSavedEpisodeCount] = useState(0)
 
   useEffect(() => {
     setLock(true)
@@ -164,7 +167,8 @@ export function MagicOnboarding({ onClose }: Props) {
         await window.api.episodeSaveFile(`ep_magic_${Date.now()}_${i}.md`, ep.content)
       }
       await loadProfile(); await loadEpisodes();
-      alert('데이터 반영 완료!'); onClose();
+      setSavedEpisodeCount(result.episodes.length)
+      setStep('done')
     } catch { alert('저장 실패'); }
   }
 
@@ -265,6 +269,33 @@ export function MagicOnboarding({ onClose }: Props) {
                   <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold text-sm">🤝 기존 데이터와 병합</button>
                   <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-8 py-3 font-bold text-sm shadow-xl">🚀 새 데이터로 덮어쓰기</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="flex h-full flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 text-5xl">🎊</div>
+              <div className="space-y-3">
+                <h3 className="text-3xl font-bold text-foreground">온보딩 완료!</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  프로필과 <strong className="text-foreground">{savedEpisodeCount}개</strong>의 에피소드가 저장되었습니다.<br />
+                  이제 자소서를 작성할 수 있어요.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 w-full max-w-sm">
+                <button
+                  onClick={() => { navigate('/wizard'); onClose(); }}
+                  className="w-full rounded-xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all hover:scale-105"
+                >
+                  지금 바로 지원서 작성하기 →
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-full rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  대시보드로 돌아가기
+                </button>
               </div>
             </div>
           )}
