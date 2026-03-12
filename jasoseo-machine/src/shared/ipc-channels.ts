@@ -66,7 +66,12 @@ export const IPC = {
 
   // Bridge (v20.0)
   BRIDGE_GET_INFO: 'bridge:get-info',
-  BRIDGE_SET_SCRIPT: 'bridge:set-script'
+  BRIDGE_SET_SCRIPT: 'bridge:set-script',
+
+  // Dev / Testing
+  DEV_LOAD_FIXTURES: 'dev:load-fixtures',
+  FS_CHECK_TRASH: 'fs:check-trash',
+  FS_EMPTY_TRASH: 'fs:empty-trash'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

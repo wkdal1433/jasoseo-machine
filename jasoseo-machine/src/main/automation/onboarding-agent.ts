@@ -2,7 +2,26 @@ import { OnboardingResult } from '../../shared/types/automation';
 
 export class OnboardingAgent {
   /**
-   * AI에게 파일 경로를 전달하고 직접 읽어서 분석하도록 지시하는 프롬프트입니다. (v20.0 AI-Native 방식 복원)
+   * 파일 내용을 직접 받아서 분석하는 프롬프트 (Gemini/Claude 공용)
+   */
+  public buildExtractionPromptFromContent(fileContent: string): string {
+    return `
+# ROLE: High-Fidelity Recruitment Data Auditor
+
+# MISSION:
+Analyze the following resume/cover letter document and extract structured information.
+You must be robust enough to handle various career levels, education backgrounds, and document layouts.
+
+# DOCUMENT CONTENT:
+\`\`\`
+${fileContent.slice(0, 15000)}
+\`\`\`
+
+${this.getCommonInstructions()}`
+  }
+
+  /**
+   * AI에게 파일 경로를 전달하고 직접 읽어서 분석하도록 지시하는 프롬프트 (Claude Code 전용)
    */
   public buildExtractionPrompt(filePath: string): string {
     return `
@@ -15,13 +34,17 @@ Please use your tool to READ the PDF/MD file at the following path:
 Analyze the content and extract structured information to set up the user's automated system.
 You must be robust enough to handle various career levels, education backgrounds, and document layouts.
 
-# STRICT PROTOCOL: ANTI-HALLUCINATION
+${this.getCommonInstructions()}`;
+  }
+
+  private getCommonInstructions(): string {
+    return `# STRICT PROTOCOL: ANTI-HALLUCINATION
 - FOLLOW THE "ZERO-ASSUMPTION RULE" RIGIDLY.
 - " 명시적으로 서술되지 않은 모든 정보는 설령 논리적으로 타당하더라도 사용 불가 "
 - Maintain "Quote-Level Fidelity": Use the exact terminology from the source.
 
 # TASK 1: 12-Section Profile Extraction
-Extract personal info, education, career, skills, awards, etc. 
+Extract personal info, education, career, skills, awards, etc.
 - Only fill fields where clear evidence exists in the text you read.
 - List all missing sections in "missingFields".
 
@@ -54,7 +77,6 @@ Identify distinct stories from the file. Format each into the GOLD STANDARD S-P-
     { "title": "string", "content": "string", "status": "ready|needs_review|draft", "reason": "string" }
   ],
   "missingFields": ["string"]
-}
-`;
+}`;
   }
 }

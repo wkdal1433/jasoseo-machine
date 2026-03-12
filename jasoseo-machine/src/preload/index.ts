@@ -33,6 +33,9 @@ const api = {
   checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
   emptyTrash: () => ipcRenderer.invoke('maintenance:empty-trash'),
 
+  // Dev / Testing (개발 환경에서만 사용)
+  devLoadFixtures: () => ipcRenderer.invoke(IPC.DEV_LOAD_FIXTURES),
+
   // Applications
   appSave: (app: unknown) => ipcRenderer.invoke(IPC.APP_SAVE, app),
   appList: () => ipcRenderer.invoke(IPC.APP_LIST),

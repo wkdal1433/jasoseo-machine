@@ -72,6 +72,21 @@ export function SettingsPage() {
     }
   }
 
+  const [isLoadingFixtures, setIsLoadingFixtures] = useState(false)
+  const loadDevFixtures = async () => {
+    setIsLoadingFixtures(true)
+    try {
+      const result = await (window.api as any).devLoadFixtures()
+      if (result.success) {
+        alert(`✅ 테스트 데이터 로드 완료!\n프로필 1개 + 에피소드 ${result.episodeCount}개가 저장되었습니다.\n앱을 새로고침하면 반영됩니다.`)
+      } else {
+        alert('❌ 로드 실패: ' + result.error)
+      }
+    } finally {
+      setIsLoadingFixtures(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-xl p-8 pb-20">
       <h2 className="mb-6 text-xl font-bold">설정</h2>
@@ -231,6 +246,23 @@ export function SettingsPage() {
             </select>
           </div>
         </div>
+
+        {/* Dev Tools — 개발 환경에서만 표시 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 dark:bg-orange-950 p-4">
+            <h3 className="mb-1 text-sm font-bold text-orange-700 dark:text-orange-300">🛠️ 개발용 도구 (Dev Only)</h3>
+            <p className="mb-3 text-xs text-orange-600 dark:text-orange-400">
+              AI 호출 없이 테스트 프로필 + 에피소드 3개를 즉시 로드합니다.
+            </p>
+            <button
+              onClick={loadDevFixtures}
+              disabled={isLoadingFixtures}
+              className="w-full rounded-lg bg-orange-500 py-2.5 text-sm font-bold text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+              {isLoadingFixtures ? '로딩 중...' : '⚡ 테스트 데이터 즉시 로드'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
