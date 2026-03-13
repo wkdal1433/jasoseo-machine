@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useProfileStore } from '@/stores/profileStore'
-import { ApplicationSetup } from './ApplicationSetup'
+import { Navigate } from 'react-router-dom'
 import { Step0Analysis as Step0_Analysis } from './Step0_Analysis'
 import { Step1Reframe as Step1_Reframe } from './Step1_Reframe'
 import { Step2EpisodeApproval as Step2_EpisodeApproval } from './Step2_EpisodeApproval'
@@ -59,9 +59,9 @@ export function WizardPage() {
   const activeQuestion = questions[activeQuestionIndex]
   if (!activeQuestion && questions.length > 0) return null
 
-  // 아직 지원서 정보가 입력되지 않은 상태 → ApplicationSetup 먼저 표시
+  // 아직 지원서 정보가 입력되지 않은 상태 → 독립 라우트로 이동
   if (!companyName) {
-    return <ApplicationSetup />
+    return <Navigate to="/wizard/setup" replace />
   }
 
   return (

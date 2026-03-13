@@ -1,9 +1,14 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import type { Strategy, QuestionInput } from '@/types/application'
 
+type SetupMode = 'select' | 'manual' | 'smart'
+
 export function ApplicationSetup() {
   const { initWizard } = useWizardStore()
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<SetupMode>('select')
   const [companyName, setCompanyName] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   const [jobPosting, setJobPosting] = useState('')
@@ -36,11 +41,84 @@ export function ApplicationSetup() {
   const handleSubmit = () => {
     if (!canSubmit) return
     initWizard(companyName, jobTitle, jobPosting, questions, strategy)
+    navigate('/wizard')
+  }
+
+  if (mode === 'smart') {
+    return (
+      <div className="mx-auto max-w-2xl p-8">
+        <div className="mb-6 flex items-center gap-3">
+          <button onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">
+            ←
+          </button>
+          <h2 className="text-2xl font-bold">스마트 자동완성</h2>
+        </div>
+        <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-10 text-center">
+          <p className="text-2xl mb-3">🚀</p>
+          <p className="font-bold text-base mb-2">준비 중입니다</p>
+          <p className="text-sm text-muted-foreground mb-6">
+            URL 기반 자동 수집 기능은 곧 출시됩니다.<br />
+            지금은 직접 입력 모드를 사용해 주세요.
+          </p>
+          <button
+            onClick={() => setMode('manual')}
+            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground"
+          >
+            직접 입력으로 시작하기 →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (mode === 'select') {
+    return (
+      <div className="mx-auto max-w-2xl p-8">
+        <h2 className="mb-2 text-2xl font-bold">새 지원서 작성</h2>
+        <p className="mb-8 text-sm text-muted-foreground">어떤 방식으로 시작할까요?</p>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setMode('smart')}
+            className="group flex flex-col items-start rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 text-left transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg"
+          >
+            <span className="mb-3 text-3xl">🚀</span>
+            <span className="mb-1 text-base font-bold">스마트 자동완성</span>
+            <span className="mb-4 text-[11px] font-medium text-primary">추천</span>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              회사명 + 직무 + 지원사이트 URL만 입력하면
+              AI가 채용공고·자소서 문항·인재상을
+              자동으로 수집해드립니다.
+            </p>
+            <span className="mt-4 text-xs font-bold text-primary group-hover:underline">시작하기 →</span>
+          </button>
+
+          <button
+            onClick={() => setMode('manual')}
+            className="group flex flex-col items-start rounded-2xl border-2 border-border bg-card p-6 text-left transition-all hover:border-foreground/30 hover:shadow-md"
+          >
+            <span className="mb-3 text-3xl">✍️</span>
+            <span className="mb-1 text-base font-bold">직접 입력</span>
+            <span className="mb-4 text-[11px] font-medium text-muted-foreground">수동 모드</span>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              채용공고와 자소서 문항을 직접 붙여넣는 방식.
+              인터넷이 없거나 공고가 비공개인 경우,
+              또는 직접 컨트롤하고 싶을 때 사용하세요.
+            </p>
+            <span className="mt-4 text-xs font-bold text-muted-foreground group-hover:text-foreground group-hover:underline">시작하기 →</span>
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <h2 className="mb-6 text-2xl font-bold">새 지원서 작성</h2>
+      <div className="mb-6 flex items-center gap-3">
+        <button onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">
+          ←
+        </button>
+        <h2 className="text-2xl font-bold">새 지원서 작성</h2>
+      </div>
 
       <div className="space-y-5">
         {/* Company Info */}

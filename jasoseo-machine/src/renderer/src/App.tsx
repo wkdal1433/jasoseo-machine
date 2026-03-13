@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { Layout } from './components/layout/Layout'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { WizardPage } from './components/wizard/WizardPage'
+import { ApplicationSetup } from './components/wizard/ApplicationSetup'
 import { EpisodeListPage } from './components/episodes/EpisodeListPage'
 import { HistoryPage } from './components/history/HistoryPage'
 import { ProfilePage } from './components/profile/ProfilePage'
@@ -32,6 +33,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/wizard" element={<WizardPage />} />
+          <Route path="/wizard/setup" element={<ApplicationSetup />} />
           <Route path="/onboarding" element={<MagicOnboarding onClose={() => window.location.hash = '#/'} />} />
           <Route path="/review" element={<FullReview />} />
           <Route path="/profile" element={<ProfilePage />} />

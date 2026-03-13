@@ -4,7 +4,7 @@ import { useProfileStore } from '@/stores/profileStore'
 
 const navItems = [
   { path: '/', label: '대시보드', icon: '🏠' },
-  { path: '/wizard', label: '새 지원서', icon: '✍️' },
+  { path: '/wizard/setup', label: '새 지원서', icon: '✍️' },
   { path: '/onboarding', label: '매직 온보딩', icon: '🧙‍♂️' },
   { path: '/profile', label: '내 프로필', icon: '👤' },
   { path: '/episodes', label: '에피소드', icon: '📋' },
