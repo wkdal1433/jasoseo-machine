@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { EpisodeDiscoveryWizard } from './EpisodeDiscoveryWizard'
-import type { EpisodeStatus } from '@/types/episode'
+import { EpisodeDetailModal } from './EpisodeDetailModal'
+import type { Episode, EpisodeStatus } from '@/types/episode'
 
 const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }> = {
   ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
@@ -12,6 +13,7 @@ const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }>
 export function EpisodeListPage() {
   const { episodes, loadEpisodes, isLoading } = useEpisodeStore()
   const [isWizardOpen, setIsWizardOpen] = useState(false)
+  const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null)
 
   useEffect(() => {
     loadEpisodes()
@@ -23,7 +25,8 @@ export function EpisodeListPage() {
     return () => { if (unsubscribe) unsubscribe() }
   }, [])
 
-  const handleDelete = async (fileName: string) => {
+  const handleDelete = async (e: React.MouseEvent, fileName: string) => {
+    e.stopPropagation() // 카드 클릭과 분리
     if (confirm('정말 이 에피소드를 삭제하시겠습니까? 관련 파일이 영구 삭제됩니다.')) {
       const success = await window.api.episodeDelete(fileName)
       if (success) {
@@ -49,7 +52,7 @@ export function EpisodeListPage() {
           <h2 className="text-2xl font-bold">에피소드 관리</h2>
           <p className="text-sm text-muted-foreground mt-1">당신의 경험을 자산화하여 AI에게 학습시키세요.</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsWizardOpen(true)}
           className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95"
         >
@@ -59,9 +62,13 @@ export function EpisodeListPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {episodes.map((ep) => (
-          <div key={ep.id} className={`group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md ${ep.status === 'ready' ? 'border-green-200 hover:border-green-400' : ep.status === 'needs_review' ? 'border-yellow-200 hover:border-yellow-400' : 'border-border hover:border-primary/30'}`}>
+          <div
+            key={ep.id}
+            onClick={() => setSelectedEpisode(ep)}
+            className={`group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer ${ep.status === 'ready' ? 'border-green-200 hover:border-green-400' : ep.status === 'needs_review' ? 'border-yellow-200 hover:border-yellow-400' : 'border-border hover:border-primary/30'}`}
+          >
             <button
-              onClick={() => handleDelete(ep.fileName)}
+              onClick={(e) => handleDelete(e, ep.fileName)}
               className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
               title="삭제"
             >
@@ -88,14 +95,19 @@ export function EpisodeListPage() {
               ))}
             </div>
 
-            {ep.status !== 'ready' && (
-              <button
-                onClick={() => setIsWizardOpen(true)}
-                className="w-full rounded-lg border border-dashed border-yellow-400 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
-              >
-                ✏️ 인터뷰로 완성하기 →
-              </button>
-            )}
+            <div className="flex items-center justify-between">
+              {ep.status !== 'ready' ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsWizardOpen(true) }}
+                  className="rounded-lg border border-dashed border-yellow-400 px-3 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
+                >
+                  ✏️ 인터뷰로 완성하기 →
+                </button>
+              ) : (
+                <span />
+              )}
+              <span className="text-[10px] text-muted-foreground">클릭하여 상세 보기</span>
+            </div>
           </div>
         ))}
       </div>
@@ -109,7 +121,7 @@ export function EpisodeListPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             AI와 함께 당신의 숨겨진 보석 같은 경험을 찾아보세요.
           </p>
-          <button 
+          <button
             onClick={() => setIsWizardOpen(true)}
             className="mt-6 text-sm font-bold text-primary hover:underline"
           >
@@ -120,11 +132,23 @@ export function EpisodeListPage() {
 
       {/* 에피소드 발굴 마법사 모달 */}
       {isWizardOpen && (
-        <EpisodeDiscoveryWizard 
+        <EpisodeDiscoveryWizard
           onClose={() => {
             setIsWizardOpen(false)
-            loadEpisodes() // 새 에피소드 저장 후 목록 갱신
-          }} 
+            loadEpisodes()
+          }}
+        />
+      )}
+
+      {/* 에피소드 상세 보기 + AI 수정 모달 */}
+      {selectedEpisode && (
+        <EpisodeDetailModal
+          episode={selectedEpisode}
+          onClose={() => setSelectedEpisode(null)}
+          onUpdated={() => {
+            loadEpisodes()
+            setSelectedEpisode(null)
+          }}
         />
       )}
     </div>
