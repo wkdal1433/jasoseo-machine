@@ -78,29 +78,23 @@ function sanitizePromptForGemini(prompt: string): string {
 }
 
 function unwrapGeminiResponse(raw: string): string {
-  // 컨트롤 문자 제거 후 처리
+  // NDJSON 스트림 대응: 전체 출력에서 마지막 JSON 객체를 추출
   const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+  const matches = cleaned.match(/\{[\s\S]*\}/g)
+  if (!matches) return cleaned.trim()
 
-  // 가장 바깥쪽 JSON 객체를 직접 파싱 (첫 { ~ 마지막 })
-  const firstBrace = cleaned.indexOf('{')
-  const lastBrace = cleaned.lastIndexOf('}')
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    const candidate = cleaned.slice(firstBrace, lastBrace + 1)
-    try {
-      const parsed = JSON.parse(candidate)
-      // Gemini CLI 래퍼 봉투: {"response": "..."} 형태
-      if (typeof parsed.response === 'string') {
-        const inner = parsed.response
-        const ib = inner.indexOf('{'); const il = inner.lastIndexOf('}')
-        if (ib !== -1 && il > ib) return inner.slice(ib, il + 1)
-        return inner
-      }
-      return candidate
-    } catch {
-      return candidate
+  const lastMatch = matches[matches.length - 1]
+  try {
+    const parsed = JSON.parse(lastMatch)
+    // Gemini CLI 래퍼 봉투: {"response": "..."} 형태
+    if (parsed.response !== undefined) {
+      const innerMatch = String(parsed.response).match(/\{[\s\S]*\}/)
+      return innerMatch ? innerMatch[0] : String(parsed.response)
     }
+    return lastMatch
+  } catch {
+    return lastMatch
   }
-  return cleaned.trim()
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
@@ -123,32 +117,36 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     } catch (e) { console.error('[Path Fix] Failed to copy to temp:', e) }
   }
 
-  const includeDirs: string[] = [projectDir]
+  // [핵심 조치 2] os.tmpdir() 포함 보장: 임시 파일이 항상 워크스페이스에 포함되도록
+  const tempDir = os.tmpdir()
+  const includeDirs: string[] = [projectDir, tempDir]
   if (finalFilePath) includeDirs.push(path.dirname(finalFilePath))
-  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir])
+  // [핵심 조치 3] 역슬래시 → 슬래시 변환: Windows 경로 인식 오류 방지
+  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir.replace(/\\/g, '/')])
 
   let args: string[], prompt: string, tempPromptFile: string | null = null
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
     if (finalFilePath) {
-      // Use both Tool Call instruction AND Path explicit mention
-      prompt = `Using your tools, READ the file at "${finalFilePath.replace(/\\/g, '/')}".\n\n${prompt}`
+      // [핵심 조치 3] @filepath 단일턴 방식 (검증된 패턴)
+      // "도구를 써서 읽어라" 멀티턴 방식은 <ctrl46>} 빈 응답 유발 → @filepath로 사전 로딩
+      const forwardSlashPath = finalFilePath.replace(/\\/g, '/')
+      prompt = `@"${forwardSlashPath}"\n\n${prompt}`
     }
     if (options.outputFormat === 'json') {
       prompt = 'IMPORTANT: Output ONLY a single JSON object. No other text.\n\n' + prompt
     }
-    
-    tempPromptFile = path.join(os.tmpdir(), `g_p_${Date.now()}.txt`)
+
+    tempPromptFile = path.join(tempDir, `g_p_${Date.now()}.txt`)
     fs.writeFileSync(tempPromptFile, prompt, 'utf8')
-    
-    // [Phase 3: Robust Execution] Use --raw-output to avoid wrapper issues if needed, 
-    // but here we stick to -o json with heavy parsing
-    // --output-format json을 제거: Gemini가 NDJSON 이벤트 스트림을 출력해서 파싱 실패함.
-    // 프롬프트에 "JSON만 출력" 지시가 있으므로 plain text로 받아 직접 추출
-    args = ['--yolo', '-m', model, ...includeFlags, '-p', `@${tempPromptFile}`]
+
+    // --output-format json: MCP 오류를 stderr로 격리, 실제 응답은 JSON으로 수신
+    // --allowed-mcp-server-names __none__: 등록된 MCP 서버 10개 시작 차단
+    args = ['--output-format', 'json', '--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags, '-p', `@${tempPromptFile}`]
   } else {
+    // Claude CLI: --include-directories 없음, 파일 경로는 프롬프트에 포함
     prompt = options.prompt
-    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
+    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, '-p', prompt]
   }
 
   // 디버그: 실제 실행 커맨드 콘솔에 출력
@@ -198,7 +196,7 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    args = ['--output-format', 'stream-json', '--yolo', '-m', model, ...includeFlags]
+    args = ['--output-format', 'stream-json', '--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags]
   } else {
     prompt = options.prompt
     args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
