@@ -1,5 +1,17 @@
-import type { Episode } from '../types/episode'
+import type { Episode, EpisodeStatus } from '../types/episode'
 import type { HRIntent } from '../types/application'
+
+function inferStatus(content: string): EpisodeStatus {
+  // S-P-A-A-R-L 섹션 존재 여부로 완성도 판단
+  const hasSituation = /##\s*(상황|Situation|S\b)/i.test(content)
+  const hasProblem = /##\s*(문제|Problem|P\b)/i.test(content)
+  const hasAction = /##\s*(행동|Action|A\b)/i.test(content)
+  const hasResult = /##\s*(결과|Result|R\b)/i.test(content)
+  const filledSections = [hasSituation, hasProblem, hasAction, hasResult].filter(Boolean).length
+  if (filledSections >= 3) return 'ready'
+  if (filledSections >= 1) return 'needs_review'
+  return 'draft'
+}
 
 export function parseEpisodeMd(fileName: string, content: string): Episode {
   const id = fileName.replace(/\.md$/, '').replace(/^ep(\d+)_.*/, 'ep$1')
@@ -77,6 +89,7 @@ export function parseEpisodeMd(fileName: string, content: string): Episode {
     techStack,
     hrIntents,
     summary,
-    rawContent: content
+    rawContent: content,
+    status: inferStatus(content)
   }
 }
