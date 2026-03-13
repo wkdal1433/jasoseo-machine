@@ -24,7 +24,8 @@ export function WizardPage() {
     jobPosting,
     hrIntents,
     strategy,
-    setQuestionAnalysis
+    setQuestionAnalysis,
+    setActiveQuestion
   } = useWizardStore()
   const { profile } = useProfileStore()
 
@@ -64,10 +65,40 @@ export function WizardPage() {
     return <Navigate to="/wizard/setup" replace />
   }
 
+  const handleExit = () => {
+    // useAutoSave가 이미 주기적으로 저장 중 → 바로 나가도 됨
+    navigate('/')
+  }
+
   return (
     <div className="flex h-full flex-col">
+      {/* 상단 헤더: 회사명 + 임시저장 후 나가기 */}
+      <div className="flex items-center justify-between border-b bg-card px-6 py-3 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold">{companyName}</span>
+          {jobTitle && <span className="text-xs text-muted-foreground">· {jobTitle}</span>}
+          {step0Completed && (
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+              기업 분석 완료
+            </span>
+          )}
+        </div>
+        <button
+          onClick={handleExit}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title="임시저장 후 대시보드로 이동"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
+            <path d="M228,128a12,12,0,0,1-12,12H69l51.52,51.51a12,12,0,0,1-16.97,16.98l-72-72a12,12,0,0,1,0-16.98l72-72a12,12,0,0,1,16.97,16.98L69,116H216A12,12,0,0,1,228,128Z"/>
+          </svg>
+          임시저장 후 나가기
+        </button>
+      </div>
+
       {!step0Completed ? (
-        <Step0_Analysis />
+        <div className="flex-1 overflow-y-auto p-8">
+          <Step0_Analysis />
+        </div>
       ) : (
         <div className="flex h-full overflow-hidden">
           {/* Left Side: Question List & Global Stepper */}
@@ -75,9 +106,11 @@ export function WizardPage() {
             <div className="p-6 border-b bg-card">
               <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-widest mb-4">Questions</h3>
               <div className="space-y-2">
-                {questions.map((q, i) => (
-                  <QuestionTab key={q.id} index={i} active={i === activeQuestionIndex} />
-                ))}
+                <QuestionTab
+                  questions={questions}
+                  activeIndex={activeQuestionIndex}
+                  onTabClick={setActiveQuestion}
+                />
               </div>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">

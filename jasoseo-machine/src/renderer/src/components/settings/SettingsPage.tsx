@@ -73,14 +73,16 @@ export function SettingsPage() {
   }
 
   const [isLoadingFixtures, setIsLoadingFixtures] = useState(false)
+  const [fixtureMessage, setFixtureMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const loadDevFixtures = async () => {
     setIsLoadingFixtures(true)
+    setFixtureMessage(null)
     try {
       const result = await (window.api as any).devLoadFixtures()
       if (result.success) {
-        alert(`✅ 테스트 데이터 로드 완료!\n프로필 1개 + 에피소드 ${result.episodeCount}개가 저장되었습니다.\n앱을 새로고침하면 반영됩니다.`)
+        setFixtureMessage({ type: 'success', text: `✅ 로드 완료! 프로필 1개 + 에피소드 ${result.episodeCount}개 저장됨. 페이지를 새로고침(F5)하면 반영됩니다.` })
       } else {
-        alert('❌ 로드 실패: ' + result.error)
+        setFixtureMessage({ type: 'error', text: '❌ 로드 실패: ' + result.error })
       }
     } finally {
       setIsLoadingFixtures(false)
@@ -263,6 +265,11 @@ export function SettingsPage() {
             >
               {isLoadingFixtures ? '로딩 중...' : '⚡ 테스트 데이터 즉시 로드'}
             </button>
+            {fixtureMessage && (
+              <p className={`mt-2 text-xs rounded-md p-2 ${fixtureMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {fixtureMessage.text}
+              </p>
+            )}
           </div>
         )}
       </div>

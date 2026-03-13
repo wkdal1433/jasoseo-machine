@@ -73,8 +73,15 @@ export function Step0Analysis() {
         parsed = JSON.parse(raw)
       } catch {
         const match = raw.match(/\{[\s\S]*\}/)
-        if (!match) throw new Error('JSON 파싱 실패')
+        if (!match) throw new Error('JSON 파싱 실패: ' + raw.slice(0, 200))
         parsed = JSON.parse(match[0])
+      }
+
+      if (!Array.isArray(parsed.hrIntents) || parsed.hrIntents.length === 0) {
+        throw new Error('AI가 유효한 HR 의도를 반환하지 않았습니다. 다시 시도해주세요.')
+      }
+      if (!parsed.strategy) {
+        parsed.strategy = strategy || 'Balanced'
       }
 
       setStep0Result(parsed.hrIntents, parsed.strategy)

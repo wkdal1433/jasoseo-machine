@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/layout/Layout'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { WizardPage } from './components/wizard/WizardPage'
@@ -28,6 +29,7 @@ function App() {
   useAutoSave()
 
   return (
+    <ErrorBoundary>
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
@@ -44,6 +46,7 @@ function App() {
         </Route>
       </Routes>
     </HashRouter>
+    </ErrorBoundary>
   )
 }
 

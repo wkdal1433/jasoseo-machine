@@ -18,6 +18,7 @@ export function useAutoSave() {
         jobPosting: store.jobPosting,
         strategy: store.strategy,
         hrIntents: store.hrIntents,
+        recruitmentContext: store.recruitmentContext,
         questions: store.questions,
         activeQuestionIndex: store.activeQuestionIndex,
         step0Completed: store.step0Completed

@@ -55,16 +55,21 @@ export function DashboardPage() {
   const resumeDraft = async (draft: DraftItem) => {
     try {
       const state = JSON.parse(draft.wizardState)
-      wizardStore.initWizard(
-        state.companyName,
-        state.jobTitle,
-        state.jobPosting,
-        state.questions?.map((q: { question: string; charLimit: number }) => ({
-          question: q.question,
-          charLimit: q.charLimit
-        })) || [],
-        state.strategy
-      )
+      // initWizard 대신 restoreFromDraft 사용: step0Completed, hrIntents, recruitmentContext, questions 상태 완전 복원
+      wizardStore.restoreFromDraft({
+        applicationId: state.applicationId,
+        companyName: state.companyName,
+        jobTitle: state.jobTitle,
+        jobPosting: state.jobPosting,
+        strategy: state.strategy || null,
+        hrIntents: state.hrIntents || null,
+        recruitmentContext: state.recruitmentContext || null,
+        questions: state.questions || [],
+        activeQuestionIndex: state.activeQuestionIndex ?? 0,
+        step0Completed: state.step0Completed ?? false,
+        isGenerating: false,
+        isVerifying: false
+      })
       navigate('/wizard')
     } catch {
       // ignore
@@ -204,20 +209,36 @@ export function DashboardPage() {
         <div className="mb-8">
           <h3 className="mb-4 text-lg font-semibold">임시 저장된 작업</h3>
           <div className="space-y-2">
-            {drafts.map((draft) => (
+            {drafts.map((draft) => {
+              // 저장된 상태에서 진행 단계 파싱
+              let draftState: any = null
+              try { draftState = JSON.parse(draft.wizardState) } catch { /* ignore */ }
+              const getDraftProgress = () => {
+                if (!draftState) return null
+                if (!draftState.step0Completed) return { label: 'Step 0: 기업 분석 중', color: 'text-orange-600' }
+                const questions = draftState.questions || []
+                const completedCount = questions.filter((q: any) => q.status === 'completed').length
+                if (completedCount === questions.length && questions.length > 0) return { label: `전체 완료 (${questions.length}문항)`, color: 'text-green-600' }
+                const activeQ = questions.find((q: any) => q.status !== 'completed')
+                if (activeQ) return { label: `Step ${activeQ.currentStep}: ${questions.indexOf(activeQ) + 1}번 문항 작성 중`, color: 'text-blue-600' }
+                return null
+              }
+              const progress = getDraftProgress()
+              return (
               <div
                 key={draft.applicationId}
                 className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
               >
                 <div>
-                  <span className="font-medium">{draft.company_name || '(기업명 없음)'}</span>
-                  {draft.job_title && (
-                    <>
-                      <span className="mx-2 text-muted-foreground">·</span>
-                      <span className="text-sm text-muted-foreground">{draft.job_title}</span>
-                    </>
-                  )}
-                  <span className="mx-2 text-muted-foreground">·</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{draft.company_name || '(기업명 없음)'}</span>
+                    {draft.job_title && <span className="text-sm text-muted-foreground">· {draft.job_title}</span>}
+                    {progress && (
+                      <span className={`text-xs font-semibold ${progress.color}`}>
+                        [{progress.label}]
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground">
                     {new Date(draft.savedAt).toLocaleString('ko-KR')}
                   </span>
@@ -237,7 +258,8 @@ export function DashboardPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

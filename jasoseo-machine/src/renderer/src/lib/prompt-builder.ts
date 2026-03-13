@@ -66,6 +66,7 @@ ${questionList}
 }
 // [v21.5] 컨텍스트 트리머: 질문 연관도에 따라 프로필 섹션 필터링
 function trimContext(profile: any, question: string): string {
+  if (!profile) return '{}'
   const q = question.toLowerCase();
   const result: any = { personal: profile.personal }; // 기본 정보는 항상 포함
 

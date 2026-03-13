@@ -5,6 +5,7 @@ import type { Strategy, HRIntentItem, AnalysisResult, VerificationResult, Questi
 
 interface WizardActions {
   initWizard: (companyName: string, jobTitle: string, jobPosting: string, questions: QuestionInput[], strategy?: Strategy) => void
+  restoreFromDraft: (savedState: Partial<WizardState>) => void
   setStep0Result: (hrIntents: HRIntentItem[], strategy: Strategy) => void
   setRecruitmentContext: (context: RecruitmentContext) => void
   setQuestionAnalysis: (questionIndex: number, analysis: AnalysisResult) => void
@@ -188,6 +189,10 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
       questions[questionIndex] = { ...questions[questionIndex], status: 'completed' }
       return { questions }
     })
+  },
+
+  restoreFromDraft: (savedState) => {
+    set({ ...initialState, ...savedState })
   },
 
   resetWizard: () => set(initialState),
