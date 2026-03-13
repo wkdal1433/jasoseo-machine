@@ -78,23 +78,23 @@ function sanitizePromptForGemini(prompt: string): string {
 }
 
 function unwrapGeminiResponse(raw: string): string {
-  // NDJSON 스트림 대응: 전체 출력에서 마지막 JSON 객체를 추출
   const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
-  const matches = cleaned.match(/\{[\s\S]*\}/g)
-  if (!matches) return cleaned.trim()
-
-  const lastMatch = matches[matches.length - 1]
-  try {
-    const parsed = JSON.parse(lastMatch)
-    // Gemini CLI 래퍼 봉투: {"response": "..."} 형태
-    if (parsed.response !== undefined) {
-      const innerMatch = String(parsed.response).match(/\{[\s\S]*\}/)
-      return innerMatch ? innerMatch[0] : String(parsed.response)
-    }
-    return lastMatch
-  } catch {
-    return lastMatch
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1)
+    try {
+      const parsed = JSON.parse(candidate)
+      if (typeof parsed.response === 'string') {
+        const inner = parsed.response
+        const ib = inner.indexOf('{'); const il = inner.lastIndexOf('}')
+        if (ib !== -1 && il > ib) return inner.slice(ib, il + 1)
+        return inner
+      }
+      return candidate
+    } catch { return candidate }
   }
+  return cleaned.trim()
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
@@ -140,9 +140,8 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     tempPromptFile = path.join(tempDir, `g_p_${Date.now()}.txt`)
     fs.writeFileSync(tempPromptFile, prompt, 'utf8')
 
-    // --output-format json: MCP 오류를 stderr로 격리, 실제 응답은 JSON으로 수신
     // --allowed-mcp-server-names __none__: 등록된 MCP 서버 10개 시작 차단
-    args = ['--output-format', 'json', '--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags, '-p', `@${tempPromptFile}`]
+    args = ['--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags, '-p', `@${tempPromptFile}`]
   } else {
     // Claude CLI: --include-directories 없음, 파일 경로는 프롬프트에 포함
     prompt = options.prompt
