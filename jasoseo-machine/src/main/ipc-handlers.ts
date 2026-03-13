@@ -231,12 +231,12 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     } catch (error: any) { return { success: false, error: error.message } }
   })
 
-  ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, name, date) => {
+  ipcMain.handle(IPC.ANALYZE_COMPANY, async (_event, name, date, additionalContext?: string) => {
     const { CompanyAnalyst } = await import('./automation/company-analyst')
     const analyst = new CompanyAnalyst()
     try {
-      const query = analyst.buildSearchQuery(name, date)
-      const aiResponse = await executeClaudePrompt({ prompt: analyst.buildAnalysisPrompt(name, `[Search for ${query}]`, date), outputFormat: 'json', maxTurns: 5 })
+      const query = analyst.buildSearchQuery(name, date, additionalContext)
+      const aiResponse = await executeClaudePrompt({ prompt: analyst.buildAnalysisPrompt(name, `[Search for ${query}]`, date, additionalContext), outputFormat: 'json', maxTurns: 5 })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
       let result = JSON.parse(jsonMatch[0])

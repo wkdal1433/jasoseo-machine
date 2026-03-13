@@ -82,7 +82,7 @@ const api = {
 
   // Automation
   analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html),
-  analyzeCompany: (name: string, date: string) => ipcRenderer.invoke(IPC.ANALYZE_COMPANY, name, date),
+  analyzeCompany: (name: string, date: string, additionalContext?: string) => ipcRenderer.invoke(IPC.ANALYZE_COMPANY, name, date, additionalContext),
   onboardingParseFile: (rawText: string) => ipcRenderer.invoke(IPC.ONBOARDING_PARSE_FILE, rawText),
   onOnboardingProgress: (callback: (data: any) => void) => {
     const handler = (_: unknown, data: any) => callback(data)
