@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { EpisodeDiscoveryWizard } from './EpisodeDiscoveryWizard'
+import type { EpisodeStatus } from '@/types/episode'
+
+const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }> = {
+  ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
+  needs_review: { label: '초안', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  draft:        { label: '미완성', className: 'bg-gray-100 text-gray-500 border-gray-200' },
+}
 
 export function EpisodeListPage() {
   const { episodes, loadEpisodes, isLoading } = useEpisodeStore()
@@ -52,8 +59,8 @@ export function EpisodeListPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {episodes.map((ep) => (
-          <div key={ep.id} className="group relative rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-            <button 
+          <div key={ep.id} className={`group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md ${ep.status === 'ready' ? 'border-green-200 hover:border-green-400' : ep.status === 'needs_review' ? 'border-yellow-200 hover:border-yellow-400' : 'border-border hover:border-primary/30'}`}>
+            <button
               onClick={() => handleDelete(ep.fileName)}
               className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
               title="삭제"
@@ -61,29 +68,34 @@ export function EpisodeListPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"></path></svg>
             </button>
 
-            <div className="mb-2 text-[10px] font-bold tracking-wider text-primary uppercase">
-              {ep.id}
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10px] font-bold tracking-wider text-primary uppercase">{ep.id}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_CONFIG[ep.status].className}`}>
+                {STATUS_CONFIG[ep.status].label}
+              </span>
             </div>
             <h3 className="mb-2 text-base font-bold line-clamp-1">{ep.title}</h3>
             <div className="mb-4 space-y-1">
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                📅 {ep.period}
-              </p>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                👤 {ep.role}
-              </p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">📅 {ep.period || '기간 미입력'}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">👤 {ep.role || '역할 미입력'}</p>
             </div>
-            
-            <div className="flex flex-wrap gap-1.5">
+
+            <div className="flex flex-wrap gap-1.5 mb-4">
               {ep.hrIntents.map((intent) => (
-                <span
-                  key={intent}
-                  className="rounded-full bg-primary/5 border border-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
-                >
+                <span key={intent} className="rounded-full bg-primary/5 border border-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   {intent}
                 </span>
               ))}
             </div>
+
+            {ep.status !== 'ready' && (
+              <button
+                onClick={() => setIsWizardOpen(true)}
+                className="w-full rounded-lg border border-dashed border-yellow-400 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
+              >
+                ✏️ 인터뷰로 완성하기 →
+              </button>
+            )}
           </div>
         ))}
       </div>
