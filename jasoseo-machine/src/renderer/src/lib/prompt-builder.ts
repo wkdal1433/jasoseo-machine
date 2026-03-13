@@ -1,4 +1,5 @@
 import type { Strategy, HRIntentItem, QuestionInput } from '../types/application'
+import type { Episode } from '../types/episode'
 
 /**
  * v20.0 방탄 프롬프트 빌더
@@ -97,10 +98,17 @@ export function buildStep1to2Prompt(
   strategy: Strategy,
   question: string,
   charLimit: number,
-  fullProfile: any // 프로필 전체 전달
+  fullProfile: any, // 프로필 전체 전달
+  episodes: Episode[] = []
 ): string {
   const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
   const trimmedProfile = trimContext(fullProfile, question);
+
+  const episodeList = episodes.length > 0
+    ? episodes.map(ep =>
+        `- ID: ${ep.id} | 제목: ${ep.title} | 기간: ${ep.period} | 역할: ${ep.role}\n  HR의도: ${ep.hrIntents.join(', ')} | 요약: ${ep.summary}`
+      ).join('\n')
+    : '(에피소드 없음)';
 
   return `${strategyAnchor}
 
@@ -109,14 +117,16 @@ export function buildStep1to2Prompt(
 [최적화된 프로필 데이터]:
 ${trimmedProfile}
 
+[사용 가능한 에피소드] (아래 목록에서만 선택할 것):
+${episodeList}
+
 [자소서 문항]: """${question}"""
-...
 
 [글자수 제한]: ${charLimit}자
 
 수행 사항:
 1. 채용담당자의 실제 의도를 파악 (질문 재해석)
-2. 최적 Episode 2~3개 추천
+2. 위 [사용 가능한 에피소드] 목록에서 최적 Episode 2~3개 추천 (목록 외 ID 사용 금지)
 3. 각 Episode의 앵글(강조점/생략점/기술 디테일 깊이) 결정
 
 결과를 다음 JSON 형식으로 반환해주세요:
@@ -142,13 +152,23 @@ export function buildStep3to5Prompt(
   question: string,
   charLimit: number,
   approvedEpisodes: string[],
-  angles: Record<string, string>
+  angles: Record<string, string>,
+  episodeContents: Record<string, string> = {}
 ): string {
   const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
-  
+
   const episodeInfo = approvedEpisodes
     .map((ep) => `"""${ep}""" (앵글: """${angles[ep] || '기본'}""")`)
     .join(', ')
+
+  const embeddedEpisodes = approvedEpisodes.length > 0
+    ? approvedEpisodes.map(epId => {
+        const content = episodeContents[epId]
+        return content
+          ? `\n## Episode: ${epId}\n"""\n${content}\n"""`
+          : `\n## Episode: ${epId}\n(내용 없음)`
+      }).join('\n')
+    : '(승인된 에피소드 없음)'
 
   return `${strategyAnchor}
 
@@ -157,6 +177,9 @@ export function buildStep3to5Prompt(
 [질문 재해석]: """${questionReframe}"""
 [승인된 Episode]: ${episodeInfo}
 [글자수 제한]: ${charLimit}자
+
+[승인된 에피소드 원문] (아래 내용만 사용할 것, 없는 사실 추가 금지):
+${embeddedEpisodes}
 
 [자소서 문항]:
 """

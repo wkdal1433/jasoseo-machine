@@ -112,12 +112,18 @@ export function Step3to5Generation() {
       }
     })
 
+    const episodeContents: Record<string, string> = {}
+    q.approvedEpisodes.forEach((epId) => {
+      const ep = episodes.find((e) => e.id === epId)
+      if (ep?.rawContent) episodeContents[epId] = ep.rawContent
+    })
+
     const prompt = buildStep3to5Prompt(
       companyName, jobTitle, jobPosting,
       hrIntents, strategy,
       q.analysisResult!.questionReframe,
       q.question, q.charLimit,
-      q.approvedEpisodes, angles
+      q.approvedEpisodes, angles, episodeContents
     )
 
     window.api.claudeExecuteStream({

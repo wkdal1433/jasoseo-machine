@@ -25,13 +25,18 @@
 
 ---
 
-## 3. Experience Reference (3-Tier)
+## 3. Experience Reference
 
-| Tier | 파일 | 역할 |
+> **⚠️ 앱 모드 중요 지침 (jasoseo-machine)**
+> Episode 데이터는 파일시스템에서 직접 읽지 않는다.
+> **프롬프트에 `[사용 가능한 에피소드]` 또는 `[승인된 에피소드 원문]` 섹션으로 직접 제공된다.**
+> 파일시스템에서 `episodes/` 폴더를 탐색하거나 에피소드 파일을 직접 읽는 행위는 금지.
+> 프롬프트에 제공된 에피소드 데이터만 사용할 것.
+
+| Tier | 출처 | 역할 |
 |------|------|------|
-| **Tier 1** | `MASTER_INDEX.md` | Episode 선택 가이드 (문장 생성 금지) |
-| **Tier 2** | `episodes/ep0X_*.md` | 모든 자소서 문장의 유일한 원천 |
-| **Tier 3** | `raw_experience.md` | Episode 부족 시에만 참조 (직접 인용 금지) |
+| **Tier 1** | 프롬프트 내 `[사용 가능한 에피소드]` 섹션 | Episode 선택 (문장 생성 금지) |
+| **Tier 2** | 프롬프트 내 `[승인된 에피소드 원문]` 섹션 | 모든 자소서 문장의 유일한 원천 |
 
 ---
 
@@ -115,29 +120,11 @@
 
 ## Index Map
 
-### Core Files
+### Core Files (앱 공통 참조 파일)
 
 | 파일 | 역할 |
 |------|------|
 | `CLAUDE.md` | AI 헌법 + 네비게이터 (이 파일) |
-| `MASTER_INDEX.md` | Episode 선택 가이드 |
-| `raw_experience.md` | 원자적 경험 데이터 |
-| `docs/SESSION_CONTEXT.md` | **세션 복원용** 최신 상태 요약 |
-| `docs/WORK_LOG.md` | 상세 작업 이력 및 시행착오 기록 |
-
-### Episodes
-
-```
-episodes/
-├── ep01_gaussian_splatting.md  → 3D AI 서비스 구축
-├── ep02_dayscript.md           → AI 기반 1인 개발
-├── ep03_data_quality.md        → 데이터 품질 관리
-├── ep04_mediapolytech.md       → 백엔드 아키텍처
-├── ep05_umc_leadership.md      → 협업 & 리더십
-├── ep06_nuzzle.md              → 팀 프로젝트 실행력
-├── ep07_media_interactive.md   → YTN 인터랙티브 UI 외주
-└── ep08_ai_club.md             → AI 모델 이론 학습
-```
 
 ### Protocols (작성 규칙)
 
@@ -173,14 +160,14 @@ episodes/
 
 ---
 
-## Session Restore (세션 복원)
+## Session Restore (세션 복원 — CLI 직접 사용 시만 해당)
 
-> **새 세션을 시작할 때 반드시 `docs/SESSION_CONTEXT.md`를 먼저 읽을 것.**
-> 이 파일에 현재 프로젝트 상태, 완성된 기능, 핵심 기술 결정 사항이 정리되어 있음.
-> 상세 작업 내역(시행착오, 에러 해결 과정)이 필요하면 `docs/WORK_LOG.md` 참조.
+> CLI 직접 사용 시: `docs/SESSION_CONTEXT.md` 먼저 읽을 것.
+> **앱(jasoseo-machine) 사용 시**: 세션은 앱이 자동 관리. 에피소드는 프롬프트로 전달됨.
 
 ---
 
-**Version**: 4.2
-**Last Updated**: 2026-03-06 (by Gemini CLI)
+**Version**: 4.3
+**Last Updated**: 2026-03-14
 **Structure**: Constitution + Index (상세 내용은 개별 파일로 분리)
+**Note**: v4.3 — 에피소드 파일 직접 참조 제거, 앱 프롬프트 임베드 방식으로 전환

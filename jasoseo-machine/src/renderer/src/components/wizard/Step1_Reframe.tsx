@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useProfileStore } from '@/stores/profileStore'
+import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep1to2Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { AnalysisResult } from '@/types/application'
 
@@ -10,6 +11,7 @@ export function Step1Reframe() {
     questions, activeQuestionIndex, setQuestionAnalysis
   } = useWizardStore()
   const { profile } = useProfileStore()
+  const { episodes } = useEpisodeStore()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,7 +25,7 @@ export function Step1Reframe() {
       const prompt = buildStep1to2Prompt(
         companyName, jobTitle, jobPosting,
         hrIntents, strategy,
-        q.question, q.charLimit, profile
+        q.question, q.charLimit, profile, episodes
       )
       const raw = await window.api.claudeExecute({
         prompt,
