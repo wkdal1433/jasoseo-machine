@@ -235,8 +235,9 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   child.on('close', (code) => {
     clearInterval(watchdog)
     activeProcesses.delete(child)
-    if (code !== 0) {
-      safeSend(IPC.CLAUDE_STREAM_ERROR, { message: `AI 프로세스 종료 (code ${code})` })
+    // code=0: 정상 종료 / code=null: 시그널 종료 (Claude CLI 정상 완료 시 흔함) → 둘 다 성공으로 처리
+    if (code !== null && code !== 0) {
+      safeSend(IPC.CLAUDE_STREAM_ERROR, { message: `AI 프로세스 오류 (code ${code})` })
     } else {
       safeSend(IPC.CLAUDE_STREAM_END, {})
     }
