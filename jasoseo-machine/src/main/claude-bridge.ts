@@ -137,7 +137,7 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     
     // [Phase 3: Robust Execution] Use --raw-output to avoid wrapper issues if needed, 
     // but here we stick to -o json with heavy parsing
-    args = ['--output-format', 'json', '--allowedTools', 'Read', '-m', model, '--approval-mode', 'yolo', ...includeFlags, '-p', `@${tempPromptFile}`]
+    args = ['--output-format', 'json', '--yolo', '-m', model, ...includeFlags, '-p', `@${tempPromptFile}`]
   } else {
     prompt = options.prompt
     args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
@@ -166,7 +166,7 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
         resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output)
       } else {
         const err = classifyError(stderrOutput, code || 1)
-        sendRawLog(`[ERROR] exit=${code} | ${stderrOutput.slice(0, 300)}`)
+        sendRawLog(`[ERROR] exit=${code} | ${stderrOutput}`)
         reject(new Error(err.message))
       }
     })
@@ -190,7 +190,7 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   let args: string[], prompt: string
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '-m', model, '--approval-mode', 'yolo', ...includeFlags]
+    args = ['--output-format', 'stream-json', '--yolo', '-m', model, ...includeFlags]
   } else {
     prompt = options.prompt
     args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
