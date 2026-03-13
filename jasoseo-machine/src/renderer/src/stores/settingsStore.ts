@@ -23,8 +23,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const claudePath = (await window.api.settingsGet('claude_path')) || 'claude'
     const geminiPath = (await window.api.settingsGet('gemini_path')) || 'gemini'
     const projectDir = (await window.api.settingsGet('project_dir')) || ''
-    const model = (await window.api.settingsGet('model')) || 'gemini-3.1-pro-preview'
+    const rawModel = await window.api.settingsGet('model')
+    const model = rawModel || 'gemini-3.1-pro-preview'
     const theme = ((await window.api.settingsGet('theme')) as 'light' | 'dark' | 'system') || 'light'
+    // DB에 model이 없으면 기본값을 저장해서 bridge와 UI가 항상 동기화되도록 함
+    if (!rawModel) await window.api.settingsSet('model', model)
     set({ claudePath, geminiPath, projectDir, model, theme, isLoaded: true })
   },
 

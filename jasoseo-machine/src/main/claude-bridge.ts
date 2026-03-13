@@ -25,7 +25,7 @@ function sendRawLog(data: string): void {
 
 type AIProvider = 'claude' | 'gemini'
 
-function getModel(): string { return getSetting('model') || 'gemini-2.0-flash' }
+function getModel(): string { return getSetting('model') || 'gemini-3.1-pro-preview' }
 function getProvider(): AIProvider {
   const model = getModel()
   return model.startsWith('gemini') ? 'gemini' : 'claude'
