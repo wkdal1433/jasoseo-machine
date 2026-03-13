@@ -336,9 +336,11 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
       const { FIXTURE_PROFILE, FIXTURE_EPISODES } = await import('./dev-fixtures')
       // 프로필 저장
       saveUserProfile({ ...FIXTURE_PROFILE, id: FIXTURE_PROFILE.id })
-      // 에피소드 파일 저장
+      // 에피소드 파일을 episodes/{profileId}/ 경로에 저장 (episodesLoad와 동일 경로)
+      const episodeDir = join(projectDir, 'episodes', FIXTURE_PROFILE.id || 'default')
+      if (!existsSync(episodeDir)) mkdirSync(episodeDir, { recursive: true })
       for (const ep of FIXTURE_EPISODES) {
-        writeFileSync(join(projectDir, ep.fileName), ep.content, 'utf-8')
+        writeFileSync(join(episodeDir, ep.fileName), ep.content, 'utf-8')
       }
       return { success: true, episodeCount: FIXTURE_EPISODES.length }
     } catch (err: any) {
