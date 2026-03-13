@@ -179,31 +179,33 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Claude CLI */}
+        {/* CLI 경로 + 연결 테스트 (선택된 모델 기준) */}
         <div className="rounded-lg border border-border p-4">
-          <h3 className="mb-3 text-sm font-semibold">Claude Code CLI</h3>
+          <h3 className="mb-3 text-sm font-semibold">
+            {isGeminiModel ? 'Gemini CLI' : 'Claude Code CLI'} 설정
+          </h3>
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs text-muted-foreground">CLI 경로</label>
               <input
                 type="text"
-                value={claudePath}
-                onChange={(e) => setSetting('claude_path', e.target.value)}
-                placeholder="claude"
+                value={isGeminiModel ? geminiPath : claudePath}
+                onChange={(e) => setSetting(isGeminiModel ? 'gemini_path' : 'claude_path', e.target.value)}
+                placeholder={isGeminiModel ? 'gemini' : 'claude'}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={testClaudeConnection}
-                disabled={isClaudeTesting}
+                onClick={isGeminiModel ? testGeminiConnection : testClaudeConnection}
+                disabled={isGeminiModel ? isGeminiTesting : isClaudeTesting}
                 className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
               >
-                {isClaudeTesting ? '테스트 중...' : '연결 테스트'}
+                {(isGeminiModel ? isGeminiTesting : isClaudeTesting) ? '테스트 중...' : '연결 테스트'}
               </button>
-              {claudeTestResult && (
-                <p className={`text-sm ${claudeTestResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {claudeTestResult.success ? '연결 성공' : `연결 실패: ${claudeTestResult.message}`}
+              {(isGeminiModel ? geminiTestResult : claudeTestResult) && (
+                <p className={`text-sm ${(isGeminiModel ? geminiTestResult : claudeTestResult)?.success ? 'text-green-600' : 'text-red-600'}`}>
+                  {(isGeminiModel ? geminiTestResult : claudeTestResult)?.success ? '연결 성공' : `연결 실패: ${(isGeminiModel ? geminiTestResult : claudeTestResult)?.message}`}
                 </p>
               )}
             </div>

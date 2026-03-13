@@ -25,7 +25,7 @@ function sendRawLog(data: string): void {
 
 type AIProvider = 'claude' | 'gemini'
 
-function getModel(): string { return getSetting('model') || 'gemini-3.1-pro-preview' }
+function getModel(): string { return getSetting('model') || 'gemini-3.0-pro' }
 function getProvider(): AIProvider {
   const model = getModel()
   return model.startsWith('gemini') ? 'gemini' : 'claude'
@@ -155,7 +155,7 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   return new Promise((resolve, reject) => {
     const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
     activeProcesses.add(child)
-    if (provider === 'gemini') child.stdin?.end()
+    child.stdin?.end()
     
     const decoder = new StringDecoder('utf8'); let output = '', stderrOutput = ''
     child.stdout?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); output += d; sendRawLog(d) })
@@ -234,9 +234,29 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
 }
 
 export function cancelActiveProcess(): boolean { stopAllProcesses(); return true }
+
+function quickCliCheck(cli: string): Promise<{ success: boolean; message: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(cli, ['--version'], { stdio: ['pipe', 'pipe', 'pipe'] })
+    child.stdin?.end()
+    let out = ''
+    child.stdout?.on('data', (d: Buffer) => { out += d.toString() })
+    child.stderr?.on('data', (d: Buffer) => { out += d.toString() })
+    child.on('close', (code) => {
+      const msg = out.trim().slice(0, 80)
+      sendRawLog(`[CLI Check] ${cli} --version → exit=${code} | ${msg}`)
+      resolve(code === 0 ? { success: true, message: msg || '연결 성공' } : { success: false, message: msg || `exit ${code}` })
+    })
+    child.on('error', (err) => {
+      sendRawLog(`[CLI Check Error] ${cli}: ${err.message}`)
+      resolve({ success: false, message: err.message })
+    })
+  })
+}
+
 export async function testClaudeConnection(): Promise<{ success: boolean; message: string }> {
-  try { return { success: true, message: await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 }) } } catch (err) { return { success: false, message: (err as Error).message } }
+  return quickCliCheck(getSetting('claude_path') || 'claude')
 }
 export async function testGeminiConnection(): Promise<{ success: boolean; message: string }> {
-  try { return { success: true, message: await executeClaudePrompt({ prompt: 'Say "connected"', outputFormat: 'json', maxTurns: 1 }) } } catch (err) { return { success: false, message: (err as Error).message } }
+  return quickCliCheck(getSetting('gemini_path') || 'gemini')
 }
