@@ -78,23 +78,29 @@ function sanitizePromptForGemini(prompt: string): string {
 }
 
 function unwrapGeminiResponse(raw: string): string {
-  // Find the VERY LAST JSON object in the entire stream
-  const jsonRegex = /\{[\s\S]*\}/g
-  const matches = raw.match(jsonRegex)
-  if (!matches) return raw.trim()
+  // 컨트롤 문자 제거 후 처리
+  const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
 
-  const lastMatch = matches[matches.length - 1]
-  try {
-    const parsed = JSON.parse(lastMatch)
-    // Support both raw JSON and Gemini CLI envelope
-    if (parsed.response !== undefined) {
-      const innerMatch = String(parsed.response).match(/\{[\s\S]*\}/)
-      return innerMatch ? innerMatch[0] : String(parsed.response)
+  // 가장 바깥쪽 JSON 객체를 직접 파싱 (첫 { ~ 마지막 })
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1)
+    try {
+      const parsed = JSON.parse(candidate)
+      // Gemini CLI 래퍼 봉투: {"response": "..."} 형태
+      if (typeof parsed.response === 'string') {
+        const inner = parsed.response
+        const ib = inner.indexOf('{'); const il = inner.lastIndexOf('}')
+        if (ib !== -1 && il > ib) return inner.slice(ib, il + 1)
+        return inner
+      }
+      return candidate
+    } catch {
+      return candidate
     }
-    return lastMatch
-  } catch {
-    return lastMatch
   }
+  return cleaned.trim()
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
@@ -137,7 +143,9 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
     
     // [Phase 3: Robust Execution] Use --raw-output to avoid wrapper issues if needed, 
     // but here we stick to -o json with heavy parsing
-    args = ['--output-format', 'json', '--yolo', '-m', model, ...includeFlags, '-p', `@${tempPromptFile}`]
+    // --output-format json을 제거: Gemini가 NDJSON 이벤트 스트림을 출력해서 파싱 실패함.
+    // 프롬프트에 "JSON만 출력" 지시가 있으므로 plain text로 받아 직접 추출
+    args = ['--yolo', '-m', model, ...includeFlags, '-p', `@${tempPromptFile}`]
   } else {
     prompt = options.prompt
     args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
