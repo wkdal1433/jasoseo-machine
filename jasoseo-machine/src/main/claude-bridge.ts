@@ -206,9 +206,12 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
   const decoder = new StringDecoder('utf8'); let buffer = '', geminiFullText = ''
   let lastPacketTime = Date.now()
+  const safeSend = (channel: string, data: unknown) => {
+    if (!window.isDestroyed()) window.webContents.send(channel, data)
+  }
   const watchdog = setInterval(() => {
-    if (Date.now() - lastPacketTime > 60000) { 
-      child.kill('SIGKILL'); window.webContents.send(IPC.CL_STREAM_ERROR, { message: 'AI 타임아웃' }); clearInterval(watchdog)
+    if (Date.now() - lastPacketTime > 60000) {
+      child.kill('SIGKILL'); safeSend(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 타임아웃' }); clearInterval(watchdog)
     }
   }, 5000)
 
@@ -221,15 +224,23 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
         const event = JSON.parse(trimmed)
         if (provider === 'gemini') {
           if (event.type === 'message' && event.delta) {
-            geminiFullText += event.content || ''; window.webContents.send(IPC.CL_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
+            geminiFullText += event.content || ''; safeSend(IPC.CLAUDE_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
           } else if (event.type === 'result') {
-            window.webContents.send(IPC.CL_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
+            safeSend(IPC.CLAUDE_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
           }
-        } else { window.webContents.send(IPC.CL_STREAM_CHUNK, event) }
+        } else { safeSend(IPC.CLAUDE_STREAM_CHUNK, event) }
       } catch { }
     }
   })
-  child.on('close', () => { clearInterval(watchdog); activeProcesses.delete(child) })
+  child.on('close', (code) => {
+    clearInterval(watchdog)
+    activeProcesses.delete(child)
+    if (code !== 0) {
+      safeSend(IPC.CLAUDE_STREAM_ERROR, { message: `AI 프로세스 종료 (code ${code})` })
+    } else {
+      safeSend(IPC.CLAUDE_STREAM_END, {})
+    }
+  })
   return child
 }
 
