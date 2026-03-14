@@ -4,6 +4,7 @@ import type { WizardStep } from '@/types/wizard'
 interface WizardStepperProps {
   currentStep: WizardStep
   step0Completed: boolean
+  maxUnlockedStep?: number
   onStepClick?: (step: WizardStep) => void
 }
 
@@ -19,14 +20,18 @@ const stepLabels: Record<number, string> = {
   8: '이중코딩'
 }
 
-export function WizardStepper({ currentStep, step0Completed, onStepClick }: WizardStepperProps) {
+export function WizardStepper({ currentStep, step0Completed, maxUnlockedStep, onStepClick }: WizardStepperProps) {
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 9 }, (_, i) => {
         const step = i as WizardStep
-        const isCompleted = step === 0 ? step0Completed : step < currentStep
+        const isCompleted = maxUnlockedStep !== undefined
+          ? step === 0 ? step0Completed : step <= maxUnlockedStep && step !== currentStep
+          : step === 0 ? step0Completed : step < currentStep
         const isCurrent = step === currentStep
-        const isClickable = isCompleted || isCurrent
+        const isClickable = maxUnlockedStep !== undefined
+          ? step === 0 ? step0Completed : step <= maxUnlockedStep
+          : isCompleted || isCurrent
 
         return (
           <button

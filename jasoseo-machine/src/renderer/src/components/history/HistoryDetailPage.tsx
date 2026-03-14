@@ -5,6 +5,7 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { cn } from '@/lib/utils'
+import type { WizardStep } from '@/types/wizard'
 
 interface CoverLetter {
   id: string
@@ -13,6 +14,9 @@ interface CoverLetter {
   question: string
   charLimit: number | null
   finalText: string
+  analysisResult: string | null
+  episodesUsed: string | null
+  verificationResult: string | null
   status: string
 }
 
@@ -43,7 +47,7 @@ export function HistoryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { updateStatus, deleteApplication } = useHistoryStore()
-  const { initWizard } = useWizardStore()
+  const { initWizard, restoreFromDraft } = useWizardStore()
 
   const [app, setApp] = useState<AppDetail | null>(null)
   const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([])
@@ -137,6 +141,50 @@ export function HistoryDetailPage() {
     navigate('/wizard')
   }
 
+  const handleRestoreToWizard = () => {
+    if (!app || coverLetters.length === 0) return
+    const hrIntents = app.hrIntents ? JSON.parse(app.hrIntents) : null
+    const wizardQuestions = coverLetters.map((cl) => {
+      const analysisResult = cl.analysisResult ? JSON.parse(cl.analysisResult) : null
+      const approvedEpisodes = cl.episodesUsed ? JSON.parse(cl.episodesUsed) : []
+      const verificationResult = cl.verificationResult ? JSON.parse(cl.verificationResult) : null
+      let currentStep: WizardStep = 1
+      if (verificationResult) currentStep = 8
+      else if (cl.finalText) currentStep = 6
+      else if (approvedEpisodes?.length > 0) currentStep = 3
+      else if (analysisResult) currentStep = 2
+      return {
+        id: cl.id,
+        questionNumber: cl.questionNumber,
+        question: cl.question,
+        charLimit: cl.charLimit,
+        currentStep,
+        analysisResult,
+        approvedEpisodes: approvedEpisodes || [],
+        generatedText: cl.finalText || '',
+        generatedSections: { opening: '', body: '', closing: '' },
+        verificationResult,
+        status: 'completed' as const
+      }
+    })
+    restoreFromDraft({
+      applicationId: app.id,
+      boundProfileId: '',
+      companyName: app.companyName,
+      jobTitle: app.jobTitle,
+      jobPosting: app.jobPosting || '',
+      strategy: (app.strategy as any) || 'Balanced',
+      hrIntents,
+      recruitmentContext: null,
+      questions: wizardQuestions,
+      activeQuestionIndex: 0,
+      step0Completed: !!hrIntents,
+      isGenerating: false,
+      isVerifying: false
+    })
+    navigate('/wizard')
+  }
+
   if (isLoading) return (
     <div className="flex h-full items-center justify-center text-muted-foreground">로딩 중...</div>
   )
@@ -166,6 +214,12 @@ export function HistoryDetailPage() {
           {app.status !== 'failed' && (
             <button onClick={() => handleStatusChange('failed')} className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-950">불합격</button>
           )}
+          <button
+            onClick={handleRestoreToWizard}
+            className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-bold text-amber-600 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950 transition-colors"
+          >
+            🔧 위저드에서 이어 수정
+          </button>
           <button
             onClick={handleReuseAsNew}
             className="rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-colors"

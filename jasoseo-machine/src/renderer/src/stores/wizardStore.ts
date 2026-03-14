@@ -20,6 +20,7 @@ interface WizardActions {
   setIsGenerating: (val: boolean) => void
   setIsVerifying: (val: boolean) => void
   completeQuestion: (questionIndex: number) => void
+  reopenQuestion: (questionIndex: number) => void
   resetWizard: () => void
   getState: () => WizardState
 }
@@ -187,6 +188,14 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
     set((state) => {
       const questions = [...state.questions]
       questions[questionIndex] = { ...questions[questionIndex], status: 'completed' }
+      return { questions }
+    })
+  },
+
+  reopenQuestion: (questionIndex) => {
+    set((state) => {
+      const questions = [...state.questions]
+      questions[questionIndex] = { ...questions[questionIndex], status: 'in_progress' }
       return { questions }
     })
   },

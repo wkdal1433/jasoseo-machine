@@ -26,7 +26,8 @@ export function WizardPage() {
     strategy,
     setQuestionAnalysis,
     setActiveQuestion,
-    setQuestionStep
+    setQuestionStep,
+    reopenQuestion
   } = useWizardStore()
   const { profile } = useProfileStore()
 
@@ -60,6 +61,16 @@ export function WizardPage() {
 
   const activeQuestion = questions[activeQuestionIndex]
   if (!activeQuestion && questions.length > 0) return null
+
+  // 수정 모드: 이미 진행된 스텝까지 자유롭게 왕래 가능하도록 최대 해제 스텝 계산
+  const getMaxUnlockedStep = (): number | undefined => {
+    if (!activeQuestion) return undefined
+    if (activeQuestion.verificationResult || activeQuestion.generatedText) return 8
+    if ((activeQuestion.approvedEpisodes?.length ?? 0) > 0) return 5
+    if (activeQuestion.analysisResult) return 2
+    return undefined
+  }
+  const maxUnlockedStep = getMaxUnlockedStep()
 
   // 아직 지원서 정보가 입력되지 않은 상태 → 독립 라우트로 이동
   if (!companyName) {
@@ -116,10 +127,17 @@ export function WizardPage() {
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
               <WizardStepper
-              currentStep={activeQuestion.currentStep}
-              step0Completed={step0Completed}
-              onStepClick={(step) => setQuestionStep(activeQuestionIndex, step)}
-            />
+                currentStep={activeQuestion.currentStep}
+                step0Completed={step0Completed}
+                maxUnlockedStep={maxUnlockedStep}
+                onStepClick={(step) => {
+                  setQuestionStep(activeQuestionIndex, step)
+                  // completed 상태인 문항을 step으로 돌아가면 수정 모드로 전환
+                  if (activeQuestion.status === 'completed') {
+                    reopenQuestion(activeQuestionIndex)
+                  }
+                }}
+              />
             </div>
             {allCompleted && (
               <div className="p-4 border-t bg-card animate-in slide-in-from-bottom duration-500">
@@ -136,11 +154,16 @@ export function WizardPage() {
 
           {/* Right Side: Step Content */}
           <div className="flex-1 overflow-y-auto bg-background p-10">
-            {activeQuestion.currentStep === 1 && <Step1_Reframe />}
-            {activeQuestion.currentStep === 2 && <Step2_EpisodeApproval />}
-            {(activeQuestion.currentStep >= 3 && activeQuestion.currentStep <= 5) && <Step3to5_Generation />}
-            {(activeQuestion.currentStep >= 6 && activeQuestion.currentStep <= 8) && <Step6to8_Verification />}
-            {activeQuestion.status === 'completed' && <FinalResult />}
+            {activeQuestion.status === 'completed' ? (
+              <FinalResult />
+            ) : (
+              <>
+                {activeQuestion.currentStep === 1 && <Step1_Reframe />}
+                {activeQuestion.currentStep === 2 && <Step2_EpisodeApproval />}
+                {(activeQuestion.currentStep >= 3 && activeQuestion.currentStep <= 5) && <Step3to5_Generation />}
+                {(activeQuestion.currentStep >= 6 && activeQuestion.currentStep <= 8) && <Step6to8_Verification />}
+              </>
+            )}
           </div>
         </div>
       )}
