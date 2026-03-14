@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useHistoryStore } from '@/stores/historyStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { buildSurgicalEditPrompt } from '@/lib/prompt-builder'
@@ -8,9 +9,12 @@ import { cn } from '@/lib/utils'
 
 export function FullReview() {
   const navigate = useNavigate()
-  const { questions, companyName, jobTitle, strategy } = useWizardStore()
+  const { questions, companyName, jobTitle, jobPosting, strategy, hrIntents } = useWizardStore()
+  const { loadApplications } = useHistoryStore()
   const [localTexts, setLocalTexts] = useState<string[]>([])
   const [isSending, setIsSending] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
   const [isSurgicalEditing, setIsSurgicalEditing] = useState(false)
   const [surgicalInput, setSurgicalInput] = useState('')
   const [selectedRange, setSelectedRange] = useState<{ qIdx: number; start: number; end: number } | null>(null)
@@ -49,6 +53,48 @@ export function FullReview() {
     }
   }
 
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const appId = `app_${Date.now()}`
+      const now = new Date().toISOString()
+      await window.api.appSave({
+        id: appId,
+        createdAt: now,
+        updatedAt: now,
+        companyName,
+        jobTitle,
+        jobPosting: jobPosting || '',
+        strategy: strategy || null,
+        hrIntents: hrIntents ? JSON.stringify(hrIntents) : null,
+        status: 'completed',
+        feedbackNote: null
+      })
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i]
+        await window.api.clSave({
+          id: `cl_${appId}_${i}`,
+          applicationId: appId,
+          questionNumber: i + 1,
+          question: q.question,
+          charLimit: q.charLimit || null,
+          episodesUsed: q.approvedEpisodes.length > 0 ? JSON.stringify(q.approvedEpisodes) : null,
+          analysisResult: q.analysisResult ? JSON.stringify(q.analysisResult) : null,
+          finalText: localTexts[i] || q.generatedText,
+          verificationResult: q.verificationResult ? JSON.stringify(q.verificationResult) : null,
+          status: 'completed'
+        })
+      }
+      await loadApplications()
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    } catch (err) {
+      alert('저장 중 오류가 발생했습니다.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleSendToExtension = async () => {
     setIsSending(true)
     try {
@@ -76,6 +122,18 @@ export function FullReview() {
         </div>
         <div className="flex gap-3">
           <button onClick={() => navigate('/wizard')} className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all">뒤로가기</button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || saveStatus === 'saved'}
+            className={cn(
+              'rounded-xl px-6 py-2.5 text-sm font-bold transition-all flex items-center gap-2',
+              saveStatus === 'saved'
+                ? 'bg-green-500 text-white'
+                : 'border border-border hover:bg-muted'
+            )}
+          >
+            {isSaving ? '저장 중...' : saveStatus === 'saved' ? '✓ 저장 완료' : '💾 이력 저장'}
+          </button>
           <button onClick={handleSendToExtension} disabled={isSending} className="rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
             🧩 확장 프로그램으로 전송
           </button>
@@ -91,7 +149,7 @@ export function FullReview() {
               <div className="mb-4 flex items-center justify-between">
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold text-primary uppercase tracking-tighter">문항 {i + 1}</span>
                 <div className="flex items-center gap-4">
-                  <CharacterCounter text={localTexts[i]} limit={q.charLimit} />
+                  <CharacterCounter current={localTexts[i]?.length ?? 0} limit={q.charLimit} />
                   <CopyButton text={localTexts[i]} />
                 </div>
               </div>

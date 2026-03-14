@@ -23,13 +23,22 @@ export function DashboardPage() {
   const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
+  const [hasPendingOnboarding, setHasPendingOnboarding] = useState(false)
 
   useEffect(() => {
     loadEpisodes()
     loadApplications()
     loadDrafts()
     checkMaintenance()
+    checkPendingOnboarding()
   }, [])
+
+  const checkPendingOnboarding = async () => {
+    try {
+      const draft = await window.api.draftGet('__onboarding_pending__')
+      setHasPendingOnboarding(!!draft)
+    } catch { /* ignore */ }
+  }
 
   const checkMaintenance = async () => {
     const count = await (window.api as any).checkTrash()
@@ -130,6 +139,35 @@ export function DashboardPage() {
                 className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors"
               >
                 설정으로 이동 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 미완성 온보딩 복원 배너 */}
+      {hasPendingOnboarding && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950 animate-in slide-in-from-top duration-500">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⏸️</span>
+              <div>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">저장되지 않은 온보딩 결과가 있습니다</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">AI가 분석한 프로필과 에피소드를 이어서 검토하고 저장하세요.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => { setHasPendingOnboarding(false); window.api.draftDelete('__onboarding_pending__') }}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+              >
+                무시
+              </button>
+              <button
+                onClick={() => navigate('/onboarding', { state: { restoreOnboarding: true } })}
+                className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition-colors"
+              >
+                이어서 검토하기 →
               </button>
             </div>
           </div>

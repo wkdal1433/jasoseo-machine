@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import type { OnboardingResult } from '../../../../shared/types/automation'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useProfileStore } from '@/stores/profileStore'
@@ -27,6 +27,7 @@ export function MagicOnboarding({ onClose }: Props) {
   const [isAiTyping, setIsAiAiTyping] = useState(false)
   
   const navigate = useNavigate()
+  const location = useLocation()
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const { loadEpisodes } = useEpisodeStore()
   const { loadProfile, setLock } = useProfileStore()
@@ -56,6 +57,21 @@ export function MagicOnboarding({ onClose }: Props) {
     }
   }, [rawLogs, showTerminal])
 
+  // 대시보드 복원 배너에서 진입 시 임시저장 결과 불러오기
+  useEffect(() => {
+    if ((location.state as any)?.restoreOnboarding) {
+      window.api.draftGet('__onboarding_pending__').then((draft: any) => {
+        if (draft?.wizardState) {
+          try {
+            const saved = JSON.parse(draft.wizardState) as OnboardingResult
+            setResult(saved)
+            setStep('result')
+          } catch { /* ignore */ }
+        }
+      }).catch(() => { /* ignore */ })
+    }
+  }, [])
+
   // AI 분석 통합 요청 (v20.7: 경로 누락 방지 강화)
   const requestAiAnalysis = async (input: string) => {
     if (!input || input === 'undefined') {
@@ -72,6 +88,10 @@ export function MagicOnboarding({ onClose }: Props) {
       const response = await window.api.onboardingParseFile(input)
       if (response.success) {
         setResult(response.data)
+        // AI 처리 결과 즉시 임시저장 (앱 재시작 대비)
+        try {
+          await window.api.draftSave('__onboarding_pending__', response.data)
+        } catch { /* 임시저장 실패는 무시 */ }
         setStep('result')
       } else {
         if (response.error.includes('한도') || response.error.includes('소진')) {
@@ -166,6 +186,8 @@ export function MagicOnboarding({ onClose }: Props) {
         const ep = result.episodes[i]
         await window.api.episodeSaveFile(`ep_magic_${Date.now()}_${i}.md`, ep.content)
       }
+      // 저장 완료 → 임시저장 삭제
+      try { await window.api.draftDelete('__onboarding_pending__') } catch { /* ignore */ }
       await loadProfile(); await loadEpisodes();
       setSavedEpisodeCount(result.episodes.length)
       setStep('done')

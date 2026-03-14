@@ -237,6 +237,28 @@ ${generatedText}
 }`
 }
 
+// [v21.8] 글자수 축약 프롬프트 (비율 기반, JS가 실제 글자수 측정)
+export function buildShortenPrompt(text: string, currentLen: number, targetLen: number): string {
+  const reductionPct = Math.round((1 - targetLen / currentLen) * 100)
+  const lower = Math.round(targetLen * 0.92)
+  const upper = targetLen
+  return `다음 자소서를 내용의 핵심(에피소드 수치·고유명사·행동 근거)을 유지하면서 약 ${reductionPct}% 분량을 줄여주세요.
+
+목표 범위: ${lower}자 ~ ${upper}자 (현재 ${currentLen}자)
+
+줄이는 방법:
+1. 중복 표현·부연 설명 제거
+2. 도입/마무리 문장 압축 (에피소드 본문 우선 보존)
+3. 수치·기간·고유명사는 절대 삭제 금지
+
+[자소서 원문]:
+"""
+${text}
+"""
+
+수정된 자소서 전문만 출력하세요. 설명·주석 없이 텍스트만.`
+}
+
 // [v21.4] 부분 수술(Surgical Edit) 프롬프트
 export function buildSurgicalEditPrompt(
   fullText: string,

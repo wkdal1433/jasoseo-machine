@@ -6,6 +6,7 @@ import type { VerificationResult } from '@/types/application'
 
 export function Step6to8Verification() {
   const {
+    companyName, jobTitle, hrIntents, strategy,
     questions, activeQuestionIndex,
     isVerifying, setIsVerifying,
     setVerificationResult, setQuestionStep, completeQuestion
@@ -14,13 +15,13 @@ export function Step6to8Verification() {
   const [error, setError] = useState<string | null>(null)
 
   const q = questions[activeQuestionIndex]
-  if (!q) return null
+  if (!q || !hrIntents || !strategy) return null
 
   const runVerification = async () => {
     setIsVerifying(true)
     setError(null)
     try {
-      const prompt = buildStep6to8Prompt(q.generatedText, q.approvedEpisodes)
+      const prompt = buildStep6to8Prompt(q.generatedText, q.approvedEpisodes, companyName, jobTitle, hrIntents, strategy)
       const raw = await window.api.claudeExecute({
         prompt,
         outputFormat: 'json',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
-import { buildStep3to5Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
+import { buildStep3to5Prompt, buildShortenPrompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { Sparkles } from 'lucide-react'
 
@@ -45,6 +45,8 @@ export function Step3to5Generation() {
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
+  const [isShortening, setIsShortening] = useState(false)
+  const [shortenMsg, setShortenMsg] = useState<string | null>(null)
   const textRef = useRef<HTMLDivElement>(null)
 
   // Loading UX state
@@ -215,6 +217,44 @@ export function Step3to5Generation() {
     await window.api.claudeCancel()
     addLog('사용자가 생성을 중단했습니다.')
     setIsGenerating(false)
+  }
+
+  const runShorten = async () => {
+    if (!q.charLimit || isShortening) return
+    setIsShortening(true)
+    setShortenMsg(null)
+    let currentText = q.generatedText
+    const MAX_TRIES = 3
+
+    for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+      const currentLen = currentText.length
+      if (currentLen <= q.charLimit) break
+
+      setShortenMsg(`축약 중... (${attempt}/${MAX_TRIES}회, 현재 ${currentLen}자)`)
+      try {
+        const prompt = buildShortenPrompt(currentText, currentLen, q.charLimit)
+        const result = await window.api.claudeExecute({ prompt, outputFormat: 'text', maxTurns: 1 })
+        const trimmed = result.trim()
+        if (!trimmed || trimmed.length < 50) break // 비정상 응답 방어
+        currentText = trimmed
+        setGeneratedText(activeQuestionIndex, currentText)
+
+        if (currentText.length <= q.charLimit) break
+        if (currentText.length > currentLen * 0.98) break // 거의 줄지 않으면 중단
+      } catch {
+        break
+      }
+    }
+
+    const finalLen = currentText.length
+    const withinLimit = finalLen <= q.charLimit
+    setShortenMsg(
+      withinLimit
+        ? `✓ ${finalLen}자로 축약 완료`
+        : `최대한 줄였습니다 (${finalLen}자 / 목표 ${q.charLimit}자)`
+    )
+    setIsShortening(false)
+    setTimeout(() => setShortenMsg(null), 5000)
   }
 
   const startEdit = () => {
@@ -486,6 +526,15 @@ export function Step3to5Generation() {
             >
               재생성
             </button>
+            {q.charLimit > 0 && q.generatedText.length > q.charLimit && (
+              <button
+                onClick={runShorten}
+                disabled={isShortening}
+                className="rounded-md border border-orange-300 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+              >
+                {isShortening ? '축약 중...' : `✂️ 글자수 줄이기`}
+              </button>
+            )}
             <button
               onClick={proceedToVerification}
               className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
@@ -493,6 +542,15 @@ export function Step3to5Generation() {
               검증 시작
             </button>
           </>
+        )}
+        {!isGenerating && !isEditing && hasText && shortenMsg && (
+          <div className={`w-full rounded-lg px-3 py-2 text-xs font-medium ${
+            shortenMsg.startsWith('✓')
+              ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
+              : 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+          }`}>
+            {shortenMsg}
+          </div>
         )}
         {isGenerating && (
           <button
