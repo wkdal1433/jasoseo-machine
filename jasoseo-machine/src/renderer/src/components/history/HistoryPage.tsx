@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useHistoryStore } from '@/stores/historyStore'
 import { cn } from '@/lib/utils'
 
 export function HistoryPage() {
+  const navigate = useNavigate()
   const { applications, loadApplications, updateStatus, deleteApplication } = useHistoryStore()
 
   useEffect(() => {
@@ -24,18 +26,20 @@ export function HistoryPage() {
 
   return (
     <div className="p-8">
-      <h2 className="mb-6 text-xl font-bold">작성 이력</h2>
+      <h2 className="mb-2 text-xl font-bold">작성 이력</h2>
+      <p className="mb-6 text-sm text-muted-foreground">클릭하면 작성 내용을 확인하고 수정할 수 있습니다.</p>
 
       {applications.length > 0 ? (
         <div className="space-y-3">
           {applications.map((app) => (
             <div
               key={app.id}
-              className="rounded-lg border border-border bg-card p-4"
+              onClick={() => navigate(`/history/${app.id}`)}
+              className="group rounded-xl border border-border bg-card p-4 cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-base font-semibold">{app.companyName}</span>
+                  <span className="text-base font-semibold group-hover:text-primary transition-colors">{app.companyName}</span>
                   <span className="mx-2 text-muted-foreground">·</span>
                   <span className="text-sm text-muted-foreground">{app.jobTitle}</span>
                   <span className="mx-2 text-muted-foreground">·</span>
@@ -53,10 +57,11 @@ export function HistoryPage() {
                   >
                     {statusLabels[app.status] || app.status}
                   </span>
+                  <span className="text-xs text-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity">내용 보기 →</span>
                 </div>
               </div>
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
                 {app.status === 'completed' && (
                   <>
                     <button

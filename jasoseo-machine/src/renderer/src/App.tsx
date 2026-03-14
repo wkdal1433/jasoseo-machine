@@ -7,6 +7,7 @@ import { WizardPage } from './components/wizard/WizardPage'
 import { ApplicationSetup } from './components/wizard/ApplicationSetup'
 import { EpisodeListPage } from './components/episodes/EpisodeListPage'
 import { HistoryPage } from './components/history/HistoryPage'
+import { HistoryDetailPage } from './components/history/HistoryDetailPage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { SettingsPage } from './components/settings/SettingsPage'
 import { GuidePage } from './components/guide/GuidePage'
@@ -41,6 +42,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/episodes" element={<EpisodeListPage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/history/:id" element={<HistoryDetailPage />} />
           <Route path="/guide" element={<GuidePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

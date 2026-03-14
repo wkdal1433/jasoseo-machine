@@ -25,7 +25,8 @@ export function WizardPage() {
     hrIntents,
     strategy,
     setQuestionAnalysis,
-    setActiveQuestion
+    setActiveQuestion,
+    setQuestionStep
   } = useWizardStore()
   const { profile } = useProfileStore()
 
@@ -114,7 +115,11 @@ export function WizardPage() {
               </div>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
-              <WizardStepper currentStep={activeQuestion.currentStep} />
+              <WizardStepper
+              currentStep={activeQuestion.currentStep}
+              step0Completed={step0Completed}
+              onStepClick={(step) => setQuestionStep(activeQuestionIndex, step)}
+            />
             </div>
             {allCompleted && (
               <div className="p-4 border-t bg-card animate-in slide-in-from-bottom duration-500">

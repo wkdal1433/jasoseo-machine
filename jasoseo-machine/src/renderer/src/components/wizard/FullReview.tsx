@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 export function FullReview() {
   const navigate = useNavigate()
-  const { questions, companyName, jobTitle, jobPosting, strategy, hrIntents } = useWizardStore()
+  const { questions, companyName, jobTitle, jobPosting, strategy, hrIntents, applicationId } = useWizardStore()
   const { loadApplications } = useHistoryStore()
   const [localTexts, setLocalTexts] = useState<string[]>([])
   const [isSending, setIsSending] = useState(false)
@@ -56,11 +56,14 @@ export function FullReview() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const appId = `app_${Date.now()}`
+      const appId = applicationId || `app_${Date.now()}`
       const now = new Date().toISOString()
+      // 이미 저장된 이력이면 createdAt을 보존
+      const existing = await window.api.appGet(appId) as { application?: { createdAt: string } }
+      const createdAt = existing?.application?.createdAt || now
       await window.api.appSave({
         id: appId,
-        createdAt: now,
+        createdAt,
         updatedAt: now,
         companyName,
         jobTitle,
@@ -73,7 +76,7 @@ export function FullReview() {
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i]
         await window.api.clSave({
-          id: `cl_${appId}_${i}`,
+          id: `cl_${appId}_q${i}`,
           applicationId: appId,
           questionNumber: i + 1,
           question: q.question,
@@ -147,7 +150,7 @@ export function FullReview() {
                 : 'border border-border hover:bg-muted'
             )}
           >
-            {isSaving ? '저장 중...' : saveStatus === 'saved' ? '✓ 저장 완료' : '💾 이력 저장'}
+            {isSaving ? '저장 중...' : saveStatus === 'saved' ? '✓ 저장 완료' : '💾 이력 저장 (덮어쓰기)'}
           </button>
           <button onClick={handleSendToExtension} disabled={isSending} className="rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
             🧩 확장 프로그램으로 전송
