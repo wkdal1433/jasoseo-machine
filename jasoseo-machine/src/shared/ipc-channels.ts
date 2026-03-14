@@ -67,6 +67,10 @@ export const IPC = {
   // Bridge (v20.0)
   BRIDGE_GET_INFO: 'bridge:get-info',
   BRIDGE_SET_SCRIPT: 'bridge:set-script',
+  BRIDGE_GET_EMPTY_FIELDS: 'bridge:get-empty-fields',
+
+  // Web Fetch (URL 자동 수집)
+  WEB_FETCH_URL: 'web:fetch-url',
 
   // Dev / Testing
   DEV_LOAD_FIXTURES: 'dev:load-fixtures',

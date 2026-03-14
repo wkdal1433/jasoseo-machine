@@ -9,6 +9,9 @@ export function ApplicationSetup() {
   const { initWizard } = useWizardStore()
   const navigate = useNavigate()
   const [mode, setMode] = useState<SetupMode>('select')
+  const [smartUrl, setSmartUrl] = useState('')
+  const [isFetching, setIsFetching] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   const [jobPosting, setJobPosting] = useState('')
@@ -44,26 +47,61 @@ export function ApplicationSetup() {
     navigate('/wizard')
   }
 
+  const handleSmartFetch = async () => {
+    if (!smartUrl.trim() || isFetching) return
+    setFetchError(null)
+    setIsFetching(true)
+    try {
+      const res = await window.api.webFetchUrl(smartUrl.trim()) as { success: boolean; data?: { companyName: string; jobTitle: string; jobPosting: string; questions: QuestionInput[] }; error?: string }
+      if (!res.success || !res.data) throw new Error(res.error || '분석 실패')
+      const d = res.data
+      setCompanyName(d.companyName || '')
+      setJobTitle(d.jobTitle || '')
+      setJobPosting(d.jobPosting || '')
+      if (d.questions && d.questions.length > 0) {
+        setQuestions(d.questions.map((q) => ({ question: q.question, charLimit: q.charLimit || 800 })))
+      }
+      setMode('manual')
+    } catch (err: any) {
+      setFetchError(err.message || '오류가 발생했습니다')
+    } finally {
+      setIsFetching(false)
+    }
+  }
+
   if (mode === 'smart') {
     return (
       <div className="mx-auto max-w-2xl p-8">
         <div className="mb-6 flex items-center gap-3">
-          <button onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">
-            ←
-          </button>
+          <button onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">←</button>
           <h2 className="text-2xl font-bold">스마트 자동완성</h2>
         </div>
-        <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-10 text-center">
-          <p className="text-2xl mb-3">🚀</p>
-          <p className="font-bold text-base mb-2">준비 중입니다</p>
-          <p className="text-sm text-muted-foreground mb-6">
-            URL 기반 자동 수집 기능은 곧 출시됩니다.<br />
-            지금은 직접 입력 모드를 사용해 주세요.
-          </p>
-          <button
-            onClick={() => setMode('manual')}
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground"
-          >
+        <div className="space-y-4">
+          <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6">
+            <p className="text-sm font-bold mb-1">채용공고 URL 입력</p>
+            <p className="text-xs text-muted-foreground mb-4">AI가 채용공고·자소서 문항을 자동으로 추출합니다.</p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={smartUrl}
+                onChange={(e) => setSmartUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSmartFetch()}
+                placeholder="https://..."
+                className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                onClick={handleSmartFetch}
+                disabled={!smartUrl.trim() || isFetching}
+                className="rounded-lg bg-primary px-5 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50 flex items-center gap-2"
+              >
+                {isFetching ? (
+                  <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />분석 중...</>
+                ) : '자동 추출'}
+              </button>
+            </div>
+            {fetchError && <p className="mt-2 text-xs text-red-500">{fetchError}</p>}
+          </div>
+          <button onClick={() => setMode('manual')} className="w-full text-center text-xs text-muted-foreground hover:text-foreground">
             직접 입력으로 시작하기 →
           </button>
         </div>

@@ -57,14 +57,33 @@ export function MagicOnboarding({ onClose }: Props) {
     }
   }, [rawLogs, showTerminal])
 
+  // 인터뷰 상태 포함 임시저장 갱신 (result, 인터뷰 메시지, 활성 에피소드 인덱스)
+  useEffect(() => {
+    if (result && step === 'result') {
+      try {
+        window.api.draftSave('__onboarding_pending__', {
+          result,
+          interviewMessages,
+          activeInterviewIndex
+        })
+      } catch { /* ignore */ }
+    }
+  }, [result, step, interviewMessages, activeInterviewIndex])
+
   // 대시보드 복원 배너에서 진입 시 임시저장 결과 불러오기
   useEffect(() => {
     if ((location.state as any)?.restoreOnboarding) {
       window.api.draftGet('__onboarding_pending__').then((draft: any) => {
         if (draft?.wizardState) {
           try {
-            const saved = JSON.parse(draft.wizardState) as OnboardingResult
-            setResult(saved)
+            const saved = JSON.parse(draft.wizardState)
+            // 새 포맷 { result, interviewMessages, activeInterviewIndex } 또는 구 포맷 OnboardingResult
+            const savedResult: OnboardingResult = saved.result ?? saved
+            setResult(savedResult)
+            if (saved.interviewMessages?.length) setMessages(saved.interviewMessages)
+            if (saved.activeInterviewIndex !== null && saved.activeInterviewIndex !== undefined) {
+              setActiveInterviewIndex(saved.activeInterviewIndex)
+            }
             setStep('result')
           } catch { /* ignore */ }
         }
@@ -90,7 +109,7 @@ export function MagicOnboarding({ onClose }: Props) {
         setResult(response.data)
         // AI 처리 결과 즉시 임시저장 (앱 재시작 대비)
         try {
-          await window.api.draftSave('__onboarding_pending__', response.data)
+          await window.api.draftSave('__onboarding_pending__', { result: response.data, interviewMessages: [], activeInterviewIndex: null })
         } catch { /* 임시저장 실패는 무시 */ }
         setStep('result')
       } else {

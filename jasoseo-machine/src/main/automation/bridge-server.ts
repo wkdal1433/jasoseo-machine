@@ -16,6 +16,7 @@ export class BridgeServer {
   private currentPort: number = 12345;
   private isAuthorized: boolean = false;
   private currentScript: string | null = null; // 현재 생성된 주입 스크립트 메모리 보관
+  private emptyFieldsReport: { fields: string[]; url: string; reportedAt: string } | null = null;
 
   constructor() {
     this.app = express();
@@ -81,6 +82,15 @@ export class BridgeServer {
       res.json({ success: true, profile: getUserProfile() });
     });
 
+    // 확장 프로그램이 미완성 필드를 보고하는 엔드포인트
+    this.app.post('/report-empty-fields', verifySignature, (req, res) => {
+      const { fields, url } = req.body || {};
+      if (fields && fields.length > 0) {
+        this.emptyFieldsReport = { fields, url: url || '', reportedAt: new Date().toISOString() };
+      }
+      res.json({ success: true });
+    });
+
     // 확장 프로그램이 주입 스크립트를 가져가는 엔드포인트
     this.app.post('/get-fill-script', verifySignature, (req, res) => {
       if (!this.isAuthorized) return res.status(403).json({ error: 'Not authorized' });
@@ -116,6 +126,7 @@ export class BridgeServer {
   }
 
   public getSecret(): string { return this.secretKey; }
+  public getEmptyFieldsReport() { const r = this.emptyFieldsReport; this.emptyFieldsReport = null; return r; }
 }
 
 export const bridgeServer = new BridgeServer();

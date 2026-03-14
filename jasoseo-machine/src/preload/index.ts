@@ -28,6 +28,7 @@ const api = {
   // Bridge (v20.0)
   bridgeGetInfo: () => ipcRenderer.invoke(IPC.BRIDGE_GET_INFO),
   bridgeSetScript: (script: string) => ipcRenderer.invoke(IPC.BRIDGE_SET_SCRIPT, script),
+  bridgeGetEmptyFields: () => ipcRenderer.invoke(IPC.BRIDGE_GET_EMPTY_FIELDS),
 
   // Maintenance
   checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
@@ -79,6 +80,9 @@ const api = {
   userProfileSwitch: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_SWITCH, id),
   userProfileCreate: (name: string) => ipcRenderer.invoke(IPC.USER_PROFILE_CREATE, name),
   userProfileDelete: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_DELETE, id),
+
+  // Web Fetch (URL 자동 수집)
+  webFetchUrl: (url: string) => ipcRenderer.invoke(IPC.WEB_FETCH_URL, url),
 
   // Automation
   analyzeFormStructure: (html: string) => ipcRenderer.invoke(IPC.ANALYZE_FORM_STRUCTURE, html),

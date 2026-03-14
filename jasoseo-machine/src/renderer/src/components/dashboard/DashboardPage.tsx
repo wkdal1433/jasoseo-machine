@@ -24,6 +24,7 @@ export function DashboardPage() {
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
   const [hasPendingOnboarding, setHasPendingOnboarding] = useState(false)
+  const [emptyFieldsReport, setEmptyFieldsReport] = useState<{ fields: string[]; url: string } | null>(null)
 
   useEffect(() => {
     loadEpisodes()
@@ -31,6 +32,14 @@ export function DashboardPage() {
     loadDrafts()
     checkMaintenance()
     checkPendingOnboarding()
+    // 확장 프로그램이 보고한 미완성 필드 주기적 확인 (5초 간격)
+    const pollTimer = setInterval(async () => {
+      try {
+        const report = await window.api.bridgeGetEmptyFields()
+        if (report) setEmptyFieldsReport(report)
+      } catch { /* ignore */ }
+    }, 5000)
+    return () => clearInterval(pollTimer)
   }, [])
 
   const checkPendingOnboarding = async () => {
@@ -195,6 +204,30 @@ export function DashboardPage() {
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 확장 프로그램: 미완성 프로필 필드 알림 */}
+      {emptyFieldsReport && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-800 dark:bg-violet-950 animate-in slide-in-from-top duration-500">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🧩</span>
+              <div>
+                <p className="text-sm font-bold text-violet-800 dark:text-violet-200">확장 프로그램이 미완성 필드를 발견했습니다</p>
+                <p className="text-xs text-violet-700 dark:text-violet-300 mt-0.5">
+                  채용 사이트에서 자동 입력되지 않은 항목: <strong>{emptyFieldsReport.fields.join(', ')}</strong>
+                </p>
+                <p className="text-xs text-violet-500 mt-1 truncate max-w-xs">{emptyFieldsReport.url}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => { navigate('/settings'); setEmptyFieldsReport(null) }} className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700">
+                프로필 보완하기
+              </button>
+              <button onClick={() => setEmptyFieldsReport(null)} className="text-violet-400 hover:text-violet-600 text-lg leading-none px-1">×</button>
+            </div>
           </div>
         </div>
       )}

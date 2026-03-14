@@ -1,7 +1,63 @@
 (async function() {
   console.log('%c🧙‍♂️ Jasoseo Machine: Hands of God Active', 'color: #4f46e5; font-weight: bold;');
 
-  // 1. 화면에 "자동 입력" 플로팅 버튼 생성
+  // HMAC 서명 생성 헬퍼
+  async function makeSignature(secret, body = {}) {
+    const timestamp = Date.now().toString();
+    const nonce = Math.random().toString(36).substring(7);
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const msgData = encoder.encode(`${timestamp}:${nonce}:${JSON.stringify(body)}`);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+    const signature = Array.from(new Uint8Array(signatureBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    return { timestamp, nonce, signature };
+  }
+
+  async function bridgePost(port, secret, path, body = {}) {
+    const { timestamp, nonce, signature } = await makeSignature(secret, body);
+    const response = await fetch(`http://localhost:${port}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jasoseo-signature': signature,
+        'x-jasoseo-timestamp': timestamp,
+        'x-jasoseo-nonce': nonce
+      },
+      body: JSON.stringify(body)
+    });
+    return response.json();
+  }
+
+  // 프로필 필드 자동 매칭 (label 텍스트 → input 값)
+  function fillProfileFields(profile) {
+    if (!profile) return [];
+    const fieldMap = {
+      '이름': profile.name, '성명': profile.name, 'name': profile.name,
+      '전화': profile.phone, '연락처': profile.phone, '휴대폰': profile.phone, 'phone': profile.phone,
+      '이메일': profile.email, 'email': profile.email, 'e-mail': profile.email,
+      '학교': profile.school, '대학교': profile.school, '학력': profile.school,
+      '전공': profile.major, '학과': profile.major,
+    };
+    const unfilled = [];
+    document.querySelectorAll('label').forEach(label => {
+      const text = label.textContent.trim().toLowerCase();
+      const matchKey = Object.keys(fieldMap).find(k => text.includes(k.toLowerCase()));
+      if (!matchKey) return;
+      const value = fieldMap[matchKey];
+      if (!value) { unfilled.push(label.textContent.trim()); return; }
+      const forAttr = label.getAttribute('for');
+      const input = forAttr ? document.getElementById(forAttr) : label.querySelector('input, textarea');
+      if (!input || input.value) return;
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+      if (setter) setter.set.call(input, value);
+      else input.value = value;
+      ['input', 'change'].forEach(evt => input.dispatchEvent(new Event(evt, { bubbles: true })));
+    });
+    return unfilled;
+  }
+
+  // 1. 플로팅 버튼 생성
   const btn = document.createElement('button');
   btn.innerText = '✨ 자동 입력';
   Object.assign(btn.style, {
@@ -17,7 +73,7 @@
   // 2. 버튼 클릭 시 주입 로직 실행
   btn.onclick = async () => {
     btn.disabled = true;
-    btn.innerText = '⏳ 분석 중...';
+    btn.innerText = '⏳ 처리 중...';
 
     try {
       const config = await chrome.storage.local.get(['bridgePort', 'bridgeSecret']);
@@ -26,37 +82,41 @@
         return;
       }
 
-      const timestamp = Date.now().toString();
-      const nonce = Math.random().toString(36).substring(7);
-      
-      // HMAC SHA-256 서명 생성 (SubtleCrypto 사용)
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(config.bridgeSecret);
-      const msgData = encoder.encode(`${timestamp}:${nonce}:{}`); // 빈 바디 기준
-      const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-      const signature = Array.from(new Uint8Array(signatureBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const port = config.bridgePort;
+      const secret = config.bridgeSecret;
 
-      // 3. 브릿지 서버에 스크립트 요청
-      const response = await fetch(`http://localhost:${config.bridgePort}/get-fill-script`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-jasoseo-signature': signature,
-          'x-jasoseo-timestamp': timestamp,
-          'x-jasoseo-nonce': nonce
-        },
-        body: JSON.stringify({})
-      });
+      // 3. 자소서 스크립트 요청 + 프로필 요청 병렬 실행
+      const [scriptResult, profileResult] = await Promise.allSettled([
+        bridgePost(port, secret, '/get-fill-script'),
+        bridgePost(port, secret, '/get-profile')
+      ]);
 
-      const result = await response.json();
-      if (result.success && result.script) {
-        // 4. 스크립트 주입 (eval 대신 Function 생성자 사용)
+      let filledCount = 0;
+
+      // 4. 자소서 스크립트 실행
+      if (scriptResult.status === 'fulfilled' && scriptResult.value.success && scriptResult.value.script) {
         console.log('🚀 Script Received! Injecting...');
-        new Function(result.script)();
-        btn.innerText = '✅ 완료!';
-      } else {
-        throw new Error(result.error || '대기 중인 스크립트가 없습니다. 앱에서 [전송]을 먼저 눌러주세요.');
+        new Function(scriptResult.value.script)();
+        filledCount++;
+      }
+
+      // 5. 프로필 기본 정보 자동 입력
+      const unfilledFields = [];
+      if (profileResult.status === 'fulfilled' && profileResult.value.success && profileResult.value.profile) {
+        const unfilled = fillProfileFields(profileResult.value.profile);
+        unfilledFields.push(...unfilled);
+      }
+
+      // 6. 채워지지 않은 필드 보고
+      if (unfilledFields.length > 0) {
+        try {
+          await bridgePost(port, secret, '/report-empty-fields', { fields: unfilledFields, url: location.href });
+        } catch { /* 선택적 기능, 실패해도 무관 */ }
+      }
+
+      btn.innerText = '✅ 완료!';
+      if (filledCount === 0 && scriptResult.status === 'fulfilled' && !scriptResult.value.success) {
+        throw new Error(scriptResult.value.error || '대기 중인 스크립트가 없습니다. 앱에서 [전송]을 먼저 눌러주세요.');
       }
     } catch (err) {
       alert('주입 실패: ' + err.message);

@@ -99,7 +99,7 @@ export function registerIpcHandlers(): void {
           } catch { /* error */ }
         } else if (existsSync(newDir)) success = true
         if (success) {
-          const fullProfile = (listProfiles() as any).find(prof => prof.id === p.id)
+          const fullProfile = (listProfiles() as any[]).find((prof: any) => prof.id === p.id)
           if (fullProfile) { fullProfile.isMigrated = true; changed = true; }
         }
       }
@@ -304,6 +304,7 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
   ipcMain.handle(IPC.BRIDGE_SET_SCRIPT, (_event, script) => {
     bridgeServer.setPendingScript(script); return true
   })
+  ipcMain.handle(IPC.BRIDGE_GET_EMPTY_FIELDS, () => bridgeServer.getEmptyFieldsReport())
 
   ipcMain.handle(IPC.FS_READ_MD, (_event, path) => { try { return readFileSync(path, 'utf-8') } catch { return null } })
 
@@ -326,6 +327,47 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     if (!window) return null
     const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title: '폴더 선택' })
     return (result.canceled || result.filePaths.length === 0) ? null : result.filePaths[0]
+  })
+
+  // URL 자동 수집 (스마트 자동완성)
+  ipcMain.handle(IPC.WEB_FETCH_URL, async (_event, url: string) => {
+    try {
+      const { net } = await import('electron')
+      const response = await net.fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const html = await response.text()
+      // 태그 제거 + 공백 정리 (최대 8000자 AI에 전달)
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/\s{2,}/g, ' ').trim()
+        .slice(0, 8000)
+      const prompt = `다음은 채용공고 페이지의 텍스트입니다. 아래 JSON 형식으로 정보를 추출해주세요.
+
+[페이지 텍스트]
+${text}
+
+반드시 다음 JSON 형식으로만 응답하세요:
+{
+  "companyName": "기업명",
+  "jobTitle": "직무명",
+  "jobPosting": "채용공고 전문 요약 (핵심 내용, 인재상, 우대사항 포함)",
+  "questions": [
+    { "question": "자소서 문항1", "charLimit": 800 }
+  ]
+}
+자소서 문항이 없으면 questions를 빈 배열로 두세요.`
+      const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3 })
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('AI 분석 실패')
+      return { success: true, data: JSON.parse(jsonMatch[0]) }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
   })
 
   // 개발용 테스트 픽스처 로드
