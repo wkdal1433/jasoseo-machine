@@ -386,31 +386,56 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
         .replace(/\s{3,}/g, '\n')
         .trim()
         .slice(0, 10000)
-      const prompt = `다음은 채용공고 페이지의 텍스트입니다. 아래 JSON 형식으로 정보를 추출해주세요.
+      const prompt = `다음은 채용공고 페이지의 텍스트입니다. JSON 형식으로 정보를 추출해주세요.
 
 [페이지 텍스트]
 ${text}
 
-반드시 다음 JSON 형식으로만 응답하세요:
-{
-  "companyName": "기업명",
-  "jobs": [
-    {
-      "jobTitle": "직무명",
-      "jobPosting": "해당 직무의 채용공고 요약 (핵심 내용, 자격요건, 인재상, 우대사항 포함)",
-      "questions": [
-        { "question": "자소서 문항1", "charLimit": 800 }
-      ]
-    }
-  ]
-}
-- 페이지에 직무가 여러 개 있으면 jobs 배열에 각각 담아주세요.
-- 직무가 하나면 jobs 배열에 하나만 담으세요.
-- 자소서 문항이 없으면 questions를 빈 배열로 두세요.`
+## 출력 규칙 (반드시 준수)
+1. 순수 JSON만 출력 (설명, 마크다운 코드블록 금지)
+2. jobs 배열에 각 직무를 별개 객체로 분리 (여러 직무를 하나로 합치지 말 것)
+3. 직무가 5개면 jobs 배열 원소도 5개
+
+## 출력 형식 예시 (직무 3개인 경우)
+{"companyName":"현대자동차","jobs":[{"jobTitle":"SW개발","jobPosting":"...요약...","questions":[]},{"jobTitle":"HW개발","jobPosting":"...요약...","questions":[]},{"jobTitle":"AI연구","jobPosting":"...요약...","questions":[{"question":"지원동기를 서술하시오","charLimit":800}]}]}
+
+## 필드 설명
+- companyName: 기업명
+- jobs[].jobTitle: 직무명 (하나의 직무만, 다른 직무와 합치지 말 것)
+- jobs[].jobPosting: 해당 직무의 채용공고 요약 (자격요건, 우대사항, 인재상 포함)
+- jobs[].questions: 자소서 문항 배열 (없으면 빈 배열 [])`
       const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3 })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
-      return { success: true, data: JSON.parse(jsonMatch[0]) }
+      const parsed = JSON.parse(jsonMatch[0])
+
+      // 정규화: 모델마다 다른 응답 형식 통일
+      // 케이스1: jobs 배열이 없고 구형식(jobTitle/jobPosting)으로 온 경우
+      if (!parsed.jobs && (parsed.jobTitle || parsed.jobPosting)) {
+        parsed.jobs = [{
+          jobTitle: parsed.jobTitle || '',
+          jobPosting: parsed.jobPosting || '',
+          questions: parsed.questions || []
+        }]
+      }
+      // 케이스2: jobs가 배열이 아닌 경우
+      if (parsed.jobs && !Array.isArray(parsed.jobs)) {
+        parsed.jobs = [parsed.jobs]
+      }
+      // 케이스3: jobs[0].jobTitle이 여러 직무를 줄바꿈/슬래시로 합친 경우 분리
+      if (Array.isArray(parsed.jobs) && parsed.jobs.length === 1) {
+        const title = parsed.jobs[0].jobTitle || ''
+        const splitTitles = title.split(/\n|\/|,|·/).map((t: string) => t.trim()).filter((t: string) => t.length > 1 && t.length < 60)
+        if (splitTitles.length > 1) {
+          parsed.jobs = splitTitles.map((t: string) => ({
+            jobTitle: t,
+            jobPosting: parsed.jobs[0].jobPosting || '',
+            questions: parsed.jobs[0].questions || []
+          }))
+        }
+      }
+
+      return { success: true, data: parsed }
     } catch (err: any) {
       return { success: false, error: err.message }
     } finally {
