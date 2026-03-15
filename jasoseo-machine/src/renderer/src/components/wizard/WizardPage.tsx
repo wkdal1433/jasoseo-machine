@@ -24,6 +24,8 @@ export function WizardPage() {
     jobPosting,
     hrIntents,
     strategy,
+    applicationId,
+    recruitmentContext,
     setQuestionAnalysis,
     setActiveQuestion,
     setQuestionStep,
@@ -78,7 +80,21 @@ export function WizardPage() {
   }
 
   const handleExit = () => {
-    // useAutoSave가 이미 주기적으로 저장 중 → 바로 나가도 됨
+    // 나가기 전 즉시 저장 (30초 주기 외 명시적 트리거)
+    if (applicationId) {
+      window.api.draftSave(applicationId, {
+        applicationId,
+        companyName,
+        jobTitle,
+        jobPosting,
+        strategy,
+        hrIntents,
+        recruitmentContext,
+        questions,
+        activeQuestionIndex,
+        step0Completed
+      })
+    }
     navigate('/')
   }
 

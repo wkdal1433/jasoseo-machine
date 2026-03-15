@@ -11,16 +11,29 @@ interface HistoryItem {
   feedbackNote: string | null
 }
 
+export interface DraftItem {
+  applicationId: string
+  savedAt: string
+  companyName: string
+  jobTitle: string
+  questionCount: number
+  step0Completed: boolean
+}
+
 interface HistoryState {
   applications: HistoryItem[]
+  drafts: DraftItem[]
   isLoading: boolean
   loadApplications: () => Promise<void>
+  loadDrafts: () => Promise<void>
+  deleteDraft: (applicationId: string) => Promise<void>
   deleteApplication: (id: string) => Promise<void>
   updateStatus: (id: string, status: string, note?: string) => Promise<void>
 }
 
 export const useHistoryStore = create<HistoryState>((set) => ({
   applications: [],
+  drafts: [],
   isLoading: false,
 
   loadApplications: async () => {
@@ -31,6 +44,22 @@ export const useHistoryStore = create<HistoryState>((set) => ({
     } catch {
       set({ applications: [], isLoading: false })
     }
+  },
+
+  loadDrafts: async () => {
+    try {
+      const drafts = await window.api.draftList()
+      set({ drafts: drafts as DraftItem[] })
+    } catch {
+      set({ drafts: [] })
+    }
+  },
+
+  deleteDraft: async (applicationId) => {
+    await window.api.draftDelete(applicationId)
+    set((state) => ({
+      drafts: state.drafts.filter((d) => d.applicationId !== applicationId)
+    }))
   },
 
   deleteApplication: async (id) => {

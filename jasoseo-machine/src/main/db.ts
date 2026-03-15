@@ -268,13 +268,28 @@ export function deleteDraft(applicationId: string): void {
 }
 
 export function listDrafts() {
+  const savedAppIds = new Set(data.applications.map((a) => a.id))
   return data.drafts
+    .filter((d) => !savedAppIds.has(d.applicationId)) // applications 테이블에 없는 순수 임시저장만
     .map((d) => {
-      const app = data.applications.find((a) => a.id === d.applicationId)
+      let companyName = ''
+      let jobTitle = ''
+      let questionCount = 0
+      let step0Completed = false
+      try {
+        const state = JSON.parse(d.wizardState)
+        companyName = state.companyName || ''
+        jobTitle = state.jobTitle || ''
+        questionCount = Array.isArray(state.questions) ? state.questions.length : 0
+        step0Completed = !!state.step0Completed
+      } catch { /* ignore */ }
       return {
-        ...d,
-        company_name: app?.companyName || '',
-        job_title: app?.jobTitle || ''
+        applicationId: d.applicationId,
+        savedAt: d.savedAt,
+        companyName,
+        jobTitle,
+        questionCount,
+        step0Completed
       }
     })
     .sort((a, b) => b.savedAt.localeCompare(a.savedAt))
