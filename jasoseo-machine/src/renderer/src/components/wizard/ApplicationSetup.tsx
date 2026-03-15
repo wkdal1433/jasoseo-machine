@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import type { Strategy, QuestionInput } from '@/types/application'
 
-type SetupMode = 'select' | 'manual' | 'smart'
+type SetupMode = 'select' | 'manual' | 'smart' | 'job-select'
+
+interface JobOption {
+  jobTitle: string
+  jobPosting: string
+  questions: QuestionInput[]
+}
 
 export function ApplicationSetup() {
   const { initWizard } = useWizardStore()
@@ -19,6 +25,8 @@ export function ApplicationSetup() {
   const [questions, setQuestions] = useState<QuestionInput[]>([
     { question: '', charLimit: 800 }
   ])
+  const [jobOptions, setJobOptions] = useState<JobOption[]>([])
+  const [pendingCompanyName, setPendingCompanyName] = useState('')
 
   const addQuestion = () => {
     setQuestions([...questions, { question: '', charLimit: 800 }])
@@ -47,26 +55,90 @@ export function ApplicationSetup() {
     navigate('/wizard')
   }
 
+  const applyJobOption = (company: string, job: JobOption) => {
+    setCompanyName(company)
+    setJobTitle(job.jobTitle)
+    setJobPosting(job.jobPosting)
+    if (job.questions && job.questions.length > 0) {
+      setQuestions(job.questions.map((q) => ({ question: q.question, charLimit: q.charLimit || 800 })))
+    }
+    setMode('manual')
+  }
+
   const handleSmartFetch = async () => {
     if (!smartUrl.trim() || isFetching) return
     setFetchError(null)
     setIsFetching(true)
     try {
-      const res = await window.api.webFetchUrl(smartUrl.trim()) as { success: boolean; data?: { companyName: string; jobTitle: string; jobPosting: string; questions: QuestionInput[] }; error?: string }
+      const res = await window.api.webFetchUrl(smartUrl.trim()) as {
+        success: boolean
+        data?: { companyName: string; jobs?: JobOption[]; jobTitle?: string; jobPosting?: string; questions?: QuestionInput[] }
+        error?: string
+      }
       if (!res.success || !res.data) throw new Error(res.error || '분석 실패')
       const d = res.data
-      setCompanyName(d.companyName || '')
-      setJobTitle(d.jobTitle || '')
-      setJobPosting(d.jobPosting || '')
-      if (d.questions && d.questions.length > 0) {
-        setQuestions(d.questions.map((q) => ({ question: q.question, charLimit: q.charLimit || 800 })))
+      const company = d.companyName || ''
+
+      // 새 형식: jobs 배열
+      if (d.jobs && d.jobs.length > 1) {
+        setPendingCompanyName(company)
+        setJobOptions(d.jobs)
+        setMode('job-select')
+      } else if (d.jobs && d.jobs.length === 1) {
+        applyJobOption(company, d.jobs[0])
+      } else {
+        // 구 형식 fallback
+        applyJobOption(company, {
+          jobTitle: d.jobTitle || '',
+          jobPosting: d.jobPosting || '',
+          questions: d.questions || []
+        })
       }
-      setMode('manual')
     } catch (err: any) {
       setFetchError(err.message || '오류가 발생했습니다')
     } finally {
       setIsFetching(false)
     }
+  }
+
+  if (mode === 'job-select') {
+    return (
+      <div className="mx-auto max-w-2xl p-8">
+        <div className="mb-6 flex items-center gap-3">
+          <button onClick={() => setMode('smart')} className="text-muted-foreground hover:text-foreground">←</button>
+          <div>
+            <h2 className="text-2xl font-bold">직무 선택</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{pendingCompanyName} · 지원할 직무를 선택해주세요</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {jobOptions.map((job, i) => (
+            <button
+              key={i}
+              onClick={() => applyJobOption(pendingCompanyName, job)}
+              className="w-full rounded-2xl border-2 border-border bg-card p-5 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-md group"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">{job.jobTitle}</p>
+                  {job.jobPosting && (
+                    <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {job.jobPosting.slice(0, 120)}...
+                    </p>
+                  )}
+                  {job.questions.length > 0 && (
+                    <span className="mt-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      자소서 {job.questions.length}문항
+                    </span>
+                  )}
+                </div>
+                <span className="shrink-0 text-muted-foreground group-hover:text-primary transition-colors text-lg">→</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (mode === 'smart') {

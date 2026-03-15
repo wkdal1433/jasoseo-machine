@@ -331,21 +331,61 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
 
   // URL 자동 수집 (스마트 자동완성)
   ipcMain.handle(IPC.WEB_FETCH_URL, async (_event, url: string) => {
+    let win: any = null
     try {
-      const { net } = await import('electron')
-      const response = await net.fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }
+      const { BrowserWindow } = await import('electron')
+
+      // 숨겨진 BrowserWindow로 JS 렌더링 후 텍스트 추출 (SPA 대응)
+      win = new BrowserWindow({
+        show: false,
+        width: 1280,
+        height: 900,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          javascript: true
+        }
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const html = await response.text()
-      // 태그 제거 + 공백 정리 (최대 8000자 AI에 전달)
-      const text = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-        .replace(/\s{2,}/g, ' ').trim()
-        .slice(0, 8000)
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => resolve(), 15000) // 최대 15초 대기
+        win.webContents.on('did-finish-load', () => { clearTimeout(timeout); resolve() })
+        win.webContents.on('did-fail-load', (_: any, code: number, desc: string, _url: string, isMainFrame: boolean) => {
+          if (!isMainFrame) return // 서브프레임 오류 무시
+          if (code === -3) return  // ERR_ABORTED (리다이렉트) 무시 — did-finish-load 계속 대기
+          clearTimeout(timeout)
+          reject(new Error(`페이지 로드 실패: ${desc}`))
+        })
+        win.loadURL(url, {
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+      })
+
+      // SPA 렌더링 완료까지 폴링 (최대 10초, 500ms 간격)
+      let rawText = ''
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        const content: string = await win.webContents.executeJavaScript(`
+          (function() {
+            var clone = document.body ? document.body.cloneNode(true) : null
+            if (!clone) return ''
+            clone.querySelectorAll('script,style').forEach(function(el) { el.remove() })
+            return clone.innerText || ''
+          })()
+        `)
+        if (content.replace(/\s/g, '').length > 300) {
+          rawText = content
+          break
+        }
+      }
+
+      if (!rawText) throw new Error('페이지 콘텐츠를 불러오지 못했습니다. 직접 입력 모드를 이용해 주세요.')
+
+      // 공백 정리 + 최대 10000자
+      const text = rawText
+        .replace(/\s{3,}/g, '\n')
+        .trim()
+        .slice(0, 10000)
       const prompt = `다음은 채용공고 페이지의 텍스트입니다. 아래 JSON 형식으로 정보를 추출해주세요.
 
 [페이지 텍스트]
@@ -354,19 +394,27 @@ ${text}
 반드시 다음 JSON 형식으로만 응답하세요:
 {
   "companyName": "기업명",
-  "jobTitle": "직무명",
-  "jobPosting": "채용공고 전문 요약 (핵심 내용, 인재상, 우대사항 포함)",
-  "questions": [
-    { "question": "자소서 문항1", "charLimit": 800 }
+  "jobs": [
+    {
+      "jobTitle": "직무명",
+      "jobPosting": "해당 직무의 채용공고 요약 (핵심 내용, 자격요건, 인재상, 우대사항 포함)",
+      "questions": [
+        { "question": "자소서 문항1", "charLimit": 800 }
+      ]
+    }
   ]
 }
-자소서 문항이 없으면 questions를 빈 배열로 두세요.`
+- 페이지에 직무가 여러 개 있으면 jobs 배열에 각각 담아주세요.
+- 직무가 하나면 jobs 배열에 하나만 담으세요.
+- 자소서 문항이 없으면 questions를 빈 배열로 두세요.`
       const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3 })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
       return { success: true, data: JSON.parse(jsonMatch[0]) }
     } catch (err: any) {
       return { success: false, error: err.message }
+    } finally {
+      if (win && !win.isDestroyed()) win.destroy()
     }
   })
 

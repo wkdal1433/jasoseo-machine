@@ -19,9 +19,12 @@ export function FullReview() {
   const [surgicalInput, setSurgicalInput] = useState('')
   const [selectedRange, setSelectedRange] = useState<{ qIdx: number; start: number; end: number } | null>(null)
 
+  // 최초 진입 시에만 초기화 (이후 사용자 수정 내용 보존)
   useEffect(() => {
-    setLocalTexts(questions.map((q) => q.generatedText))
-  }, [questions])
+    if (localTexts.length === 0) {
+      setLocalTexts(questions.map((q) => q.generatedText))
+    }
+  }, [])
 
   const handleUpdateText = (index: number, text: string) => {
     const next = [...localTexts]
@@ -180,7 +183,11 @@ export function FullReview() {
                     const start = e.currentTarget.selectionStart
                     const end = e.currentTarget.selectionEnd
                     if (start !== end) setSelectedRange({ qIdx: i, start, end })
-                    else setSelectedRange(null)
+                    else if (selectedRange?.qIdx === i) setSelectedRange(null)
+                  }}
+                  onBlur={() => {
+                    // 다른 문항으로 이동 시 선택 초기화
+                    setTimeout(() => setSelectedRange(null), 200)
                   }}
                   className="w-full rounded-2xl border-2 border-border bg-card p-6 text-sm leading-relaxed outline-none focus:border-primary/30 transition-all min-h-[300px] shadow-sm resize-none"
                 />

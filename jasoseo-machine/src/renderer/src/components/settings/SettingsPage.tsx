@@ -24,6 +24,14 @@ export function SettingsPage() {
   
   const [bridgeInfo, setBridgeInfo] = useState<{ port: string; secret: string } | null>(null)
   const [showSecret, setShowSecret] = useState(false)
+  const [secretCopied, setSecretCopied] = useState(false)
+
+  const handleCopySecret = () => {
+    if (!bridgeInfo?.secret) return
+    navigator.clipboard.writeText(bridgeInfo.secret)
+    setSecretCopied(true)
+    setTimeout(() => setSecretCopied(false), 2000)
+  }
 
   useEffect(() => {
     loadSettings()
@@ -122,12 +130,29 @@ export function SettingsPage() {
                   )}>
                     {bridgeInfo.secret}
                   </code>
-                  <button 
-                    onClick={() => setShowSecret(!showSecret)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors rounded-lg text-[10px] font-bold opacity-0 hover:opacity-100"
-                  >
-                    {showSecret ? '숨기기' : '키 보기'}
-                  </button>
+                  {!showSecret ? (
+                    <button
+                      onClick={() => setShowSecret(true)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors rounded-lg text-[10px] font-bold opacity-0 hover:opacity-100"
+                    >
+                      키 보기
+                    </button>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setShowSecret(false)}
+                        className="rounded px-2 py-0.5 bg-black/10 hover:bg-black/20 text-[10px] font-bold transition-colors"
+                      >
+                        숨기기
+                      </button>
+                      <button
+                        onClick={handleCopySecret}
+                        className="rounded px-2 py-0.5 bg-primary text-primary-foreground text-[10px] font-bold hover:opacity-90 transition-opacity"
+                      >
+                        {secretCopied ? '✓ 복사됨' : '복사'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="pt-2">

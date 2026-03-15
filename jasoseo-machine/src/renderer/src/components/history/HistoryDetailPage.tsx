@@ -60,13 +60,19 @@ export function HistoryDetailPage() {
   useEffect(() => {
     if (!id) return
     const load = async () => {
-      const detail = await window.api.appGet(id) as { application: AppDetail; coverLetters: CoverLetter[] }
-      if (detail?.application) {
-        setApp(detail.application)
-        setCoverLetters(detail.coverLetters)
-        setLocalTexts(detail.coverLetters.map((cl) => cl.finalText))
+      try {
+        const detail = await window.api.appGet(id) as { application: AppDetail; coverLetters: CoverLetter[] }
+        if (detail?.application) {
+          setApp(detail.application)
+          const cls = detail.coverLetters ?? []
+          setCoverLetters(cls)
+          setLocalTexts(cls.map((cl) => cl.finalText ?? ''))
+        }
+      } catch {
+        // 로드 실패 시 app=null로 남아 "이력을 찾을 수 없습니다" 표시
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
     load()
   }, [id])
@@ -143,11 +149,15 @@ export function HistoryDetailPage() {
 
   const handleRestoreToWizard = () => {
     if (!app || coverLetters.length === 0) return
-    const hrIntents = app.hrIntents ? JSON.parse(app.hrIntents) : null
+    const safeParseJSON = (str: string | null) => {
+      if (!str) return null
+      try { return JSON.parse(str) } catch { return null }
+    }
+    const hrIntents = safeParseJSON(app.hrIntents)
     const wizardQuestions = coverLetters.map((cl) => {
-      const analysisResult = cl.analysisResult ? JSON.parse(cl.analysisResult) : null
-      const approvedEpisodes = cl.episodesUsed ? JSON.parse(cl.episodesUsed) : []
-      const verificationResult = cl.verificationResult ? JSON.parse(cl.verificationResult) : null
+      const analysisResult = safeParseJSON(cl.analysisResult)
+      const approvedEpisodes = safeParseJSON(cl.episodesUsed) ?? []
+      const verificationResult = safeParseJSON(cl.verificationResult)
       let currentStep: WizardStep = 1
       if (verificationResult) currentStep = 8
       else if (cl.finalText) currentStep = 6
@@ -239,6 +249,11 @@ export function HistoryDetailPage() {
 
       {/* Cover Letter List */}
       <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+        {coverLetters.length === 0 && (
+          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            저장된 자기소개서 문항이 없습니다.
+          </div>
+        )}
         {coverLetters.map((cl, i) => (
           <div key={cl.id} className="rounded-2xl border border-border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
