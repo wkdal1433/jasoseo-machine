@@ -66,10 +66,14 @@ function getDbPath(): string {
 function save(): void {
   const path = getDbPath()
   const tempPath = path + '.tmp'
+  const backupPath = path + '.bak'
   try {
     const content = JSON.stringify(data, null, 2)
     writeFileSync(tempPath, content, 'utf-8')
-    // 임시 파일 쓰기 성공 후 원본 파일 교체 (Atomic Rename)
+    // 원본 파일을 백업으로 먼저 복사
+    if (existsSync(path)) {
+      try { writeFileSync(backupPath, readFileSync(path, 'utf-8'), 'utf-8') } catch { /* ignore */ }
+    }
     renameSync(tempPath, path)
   } catch (err) {
     console.error('[DB] Atomic save failed:', err)
@@ -79,6 +83,7 @@ function save(): void {
 
 export function initDatabase(): void {
   const path = getDbPath()
+  const backupPath = path + '.bak'
   if (existsSync(path)) {
     try {
       const raw = JSON.parse(readFileSync(path, 'utf-8'))
@@ -95,9 +100,31 @@ export function initDatabase(): void {
         data = { ...data, ...raw }
       }
     } catch {
-      save()
+      // 파싱 실패 시 백업 파일로 복구 시도 (빈 데이터로 덮어쓰기 방지)
+      console.error('[DB] Main file parse failed, trying backup...')
+      try {
+        if (existsSync(backupPath)) {
+          const raw = JSON.parse(readFileSync(backupPath, 'utf-8'))
+          data = { ...data, ...raw }
+          console.log('[DB] Recovered from backup')
+          save()
+        }
+      } catch {
+        console.error('[DB] Backup recovery failed, starting fresh')
+        save()
+      }
     }
   } else {
+    // 백업이 있으면 먼저 복구 시도
+    if (existsSync(backupPath)) {
+      try {
+        const raw = JSON.parse(readFileSync(backupPath, 'utf-8'))
+        data = { ...data, ...raw }
+        console.log('[DB] Restored from backup (main file missing)')
+        save()
+        return
+      } catch { /* ignore, fall through to fresh start */ }
+    }
     save()
   }
 }

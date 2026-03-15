@@ -88,7 +88,7 @@ export function HistoryPage() {
               </div>
               <div className="mt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => deleteDraft(draft.applicationId)}
+                  onClick={() => confirm('임시저장을 삭제할까요? 이 작업은 되돌릴 수 없습니다.') && deleteDraft(draft.applicationId)}
                   className="rounded border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 >
                   삭제
