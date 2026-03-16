@@ -6,21 +6,14 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 
-interface DraftItem {
-  applicationId: string
-  wizardState: string
-  savedAt: string
-  company_name: string
-  job_title: string
-}
+import type { DraftItem } from '@/stores/historyStore'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const { episodes, loadEpisodes } = useEpisodeStore()
-  const { applications, loadApplications } = useHistoryStore()
+  const { applications, loadApplications, drafts, loadDrafts, deleteDraft: deleteDraftFromStore } = useHistoryStore()
   const wizardStore = useWizardStore()
   const { projectDir, isLoaded } = useSettingsStore()
-  const [drafts, setDrafts] = useState<DraftItem[]>([])
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
   const [hasPendingOnboarding, setHasPendingOnboarding] = useState(false)
@@ -32,6 +25,7 @@ export function DashboardPage() {
     loadDrafts()
     checkMaintenance()
     checkPendingOnboarding()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     // 확장 프로그램이 보고한 미완성 필드 주기적 확인 (5초 간격)
     const pollTimer = setInterval(async () => {
       try {
@@ -61,19 +55,12 @@ export function DashboardPage() {
     }
   }
 
-  const loadDrafts = async () => {
-    try {
-      const result = await window.api.draftList()
-      setDrafts((result || []) as DraftItem[])
-    } catch {
-      // ignore
-    }
-  }
-
   const resumeDraft = async (draft: DraftItem) => {
     try {
-      const state = JSON.parse(draft.wizardState)
-      // initWizard 대신 restoreFromDraft 사용: step0Completed, hrIntents, recruitmentContext, questions 상태 완전 복원
+      // draftGet으로 전체 wizardState 가져오기 (listDrafts 형식 변환 이슈 방지)
+      const raw = await window.api.draftGet(draft.applicationId) as { wizardState: string } | undefined
+      if (!raw?.wizardState) return
+      const state = JSON.parse(raw.wizardState)
       wizardStore.restoreFromDraft({
         applicationId: state.applicationId,
         companyName: state.companyName,
@@ -89,14 +76,12 @@ export function DashboardPage() {
         isVerifying: false
       })
       navigate('/wizard')
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   const deleteDraft = async (appId: string) => {
-    await window.api.draftDelete(appId)
-    loadDrafts()
+    if (!confirm('임시저장을 삭제할까요? 이 작업은 되돌릴 수 없습니다.')) return
+    await deleteDraftFromStore(appId)
   }
 
   const recentApps = applications.slice(0, 5)
@@ -125,7 +110,7 @@ export function DashboardPage() {
     if (episodes.length === 0) {
       navigate('/onboarding')
     } else {
-      navigate('/wizard')
+      navigate('/wizard/setup')  // 항상 새 지원서 설정 화면으로 (이전 상태 무관)
     }
   }
 
@@ -281,18 +266,10 @@ export function DashboardPage() {
           <h3 className="mb-4 text-lg font-semibold">임시 저장된 작업</h3>
           <div className="space-y-2">
             {drafts.map((draft) => {
-              // 저장된 상태에서 진행 단계 파싱
-              let draftState: any = null
-              try { draftState = JSON.parse(draft.wizardState) } catch { /* ignore */ }
               const getDraftProgress = () => {
-                if (!draftState) return null
-                if (!draftState.step0Completed) return { label: 'Step 0: 기업 분석 중', color: 'text-orange-600' }
-                const questions = draftState.questions || []
-                const completedCount = questions.filter((q: any) => q.status === 'completed').length
-                if (completedCount === questions.length && questions.length > 0) return { label: `전체 완료 (${questions.length}문항)`, color: 'text-green-600' }
-                const activeQ = questions.find((q: any) => q.status !== 'completed')
-                if (activeQ) return { label: `Step ${activeQ.currentStep}: ${questions.indexOf(activeQ) + 1}번 문항 작성 중`, color: 'text-blue-600' }
-                return null
+                if (!draft.step0Completed) return { label: 'Step 0: 기업 분석 전', color: 'text-orange-600' }
+                if (draft.questionCount === 0) return null
+                return { label: `${draft.questionCount}문항`, color: 'text-blue-600' }
               }
               const progress = getDraftProgress()
               return (
@@ -302,8 +279,8 @@ export function DashboardPage() {
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{draft.company_name || '(기업명 없음)'}</span>
-                    {draft.job_title && <span className="text-sm text-muted-foreground">· {draft.job_title}</span>}
+                    <span className="font-medium">{draft.companyName || '(기업명 없음)'}</span>
+                    {draft.jobTitle && <span className="text-sm text-muted-foreground">· {draft.jobTitle}</span>}
                     {progress && (
                       <span className={`text-xs font-semibold ${progress.color}`}>
                         [{progress.label}]
