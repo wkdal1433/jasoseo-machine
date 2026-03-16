@@ -57,6 +57,59 @@
     return unfilled;
   }
 
+  // 자소서 문항 추출: textarea + label 쌍을 스캔해서 question + charLimit 반환
+  function extractCoverLetterQuestions() {
+    const questions = [];
+    const visited = new Set();
+
+    function findLabelText(el) {
+      // 1) id 기반 <label for="...">
+      if (el.id) {
+        const lbl = document.querySelector(`label[for="${el.id}"]`);
+        if (lbl) return lbl.textContent.trim();
+      }
+      // 2) 부모 중 <label>
+      let parent = el.parentElement;
+      while (parent) {
+        if (parent.tagName === 'LABEL') return parent.textContent.replace(el.value || '', '').trim();
+        parent = parent.parentElement;
+      }
+      // 3) 직전 형제 요소 텍스트 (div/p/span)
+      let prev = el.previousElementSibling;
+      while (prev) {
+        const t = prev.textContent.trim();
+        if (t.length > 5 && t.length < 200) return t;
+        prev = prev.previousElementSibling;
+      }
+      // 4) placeholder 폴백
+      return el.placeholder || '';
+    }
+
+    document.querySelectorAll('textarea').forEach(ta => {
+      if (ta.offsetHeight < 60) return; // 너무 작은 것 제외
+      const style = window.getComputedStyle(ta);
+      if (style.display === 'none' || style.visibility === 'hidden') return;
+      if (visited.has(ta)) return;
+      visited.add(ta);
+
+      const labelText = findLabelText(ta);
+      if (!labelText) return;
+
+      // 글자수 제한 추출: "지원동기 (800자 이내)" → 800
+      const charLimitMatch = labelText.match(/(\d{2,4})\s*자/);
+      const charLimit = charLimitMatch ? parseInt(charLimitMatch[1]) : null;
+
+      // 순수 문항 텍스트 (글자수 부분 제거)
+      const question = labelText.replace(/[\(\（]\s*\d+\s*자[^\)\）]*[\)\）]/g, '').trim();
+
+      if (question.length > 5) {
+        questions.push({ question, charLimit });
+      }
+    });
+
+    return questions;
+  }
+
   // 1. 플로팅 버튼 생성
   const btn = document.createElement('button');
   btn.innerText = '✨ 자동 입력';
@@ -69,6 +122,66 @@
   btn.onmouseover = () => btn.style.transform = 'scale(1.1)';
   btn.onmouseout = () => btn.style.transform = 'scale(1)';
   document.body.appendChild(btn);
+
+  // 1-b. "📋 문항 추출 + 프로필 자동입력" 버튼 (지원서 작성 페이지용)
+  const extractBtn = document.createElement('button');
+  extractBtn.innerText = '📋 문항 추출';
+  Object.assign(extractBtn.style, {
+    position: 'fixed', bottom: '70px', right: '20px', zIndex: '999999',
+    padding: '10px 18px', background: '#0891b2', color: 'white',
+    border: 'none', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.2)', transition: 'all 0.3s', fontSize: '13px'
+  });
+  extractBtn.onmouseover = () => extractBtn.style.transform = 'scale(1.1)';
+  extractBtn.onmouseout = () => extractBtn.style.transform = 'scale(1)';
+  document.body.appendChild(extractBtn);
+
+  // 1-b 클릭: 문항 추출 + 프로필 입력 → bridge /submit-extracted-questions
+  extractBtn.onclick = async () => {
+    extractBtn.disabled = true;
+    extractBtn.innerText = '⏳ 추출 중...';
+
+    try {
+      const config = await chrome.storage.local.get(['bridgePort', 'bridgeSecret']);
+      if (!config.bridgePort || !config.bridgeSecret) {
+        alert('확장 프로그램 설정에서 포트와 보안 키를 먼저 등록해 주세요!');
+        return;
+      }
+      const port = config.bridgePort;
+      const secret = config.bridgeSecret;
+
+      // 문항 추출
+      const questions = extractCoverLetterQuestions();
+
+      // 프로필 가져와서 자동 입력
+      const profileResult = await bridgePost(port, secret, '/get-profile').catch(() => null);
+      if (profileResult?.success && profileResult?.profile) {
+        fillProfileFields(profileResult.profile);
+      }
+
+      if (questions.length === 0) {
+        alert('자소서 입력창을 찾지 못했습니다.\n지원서 작성 페이지에서 눌러주세요.');
+        return;
+      }
+
+      // 추출된 문항을 앱으로 전송
+      const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions });
+      if (result?.success) {
+        extractBtn.innerText = `✅ ${questions.length}개 전송!`;
+        console.log('📋 추출된 문항:', questions);
+      } else {
+        throw new Error(result?.error || '전송 실패');
+      }
+    } catch (err) {
+      alert('문항 추출 실패: ' + err.message);
+      extractBtn.innerText = '❌ 실패';
+    } finally {
+      setTimeout(() => {
+        extractBtn.disabled = false;
+        extractBtn.innerText = '📋 문항 추출';
+      }, 4000);
+    }
+  };
 
   // 2. 버튼 클릭 시 주입 로직 실행
   btn.onclick = async () => {

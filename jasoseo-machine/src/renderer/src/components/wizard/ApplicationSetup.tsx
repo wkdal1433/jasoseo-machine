@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import type { Strategy, QuestionInput } from '@/types/application'
@@ -27,6 +27,28 @@ export function ApplicationSetup() {
   ])
   const [jobOptions, setJobOptions] = useState<JobOption[]>([])
   const [pendingCompanyName, setPendingCompanyName] = useState('')
+  const [isWaitingExtraction, setIsWaitingExtraction] = useState(false)
+  const extractionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 확장 프로그램 문항 추출 대기 (IPC push)
+  useEffect(() => {
+    if (!isWaitingExtraction) return
+    const unsub = window.api.onQuestionsExtracted((extracted) => {
+      if (extracted && extracted.length > 0) {
+        setQuestions(extracted.map((q) => ({ question: q.question, charLimit: q.charLimit ?? 800 })))
+        setIsWaitingExtraction(false)
+        if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
+      }
+    })
+    // 60초 타임아웃
+    extractionTimerRef.current = setTimeout(() => {
+      setIsWaitingExtraction(false)
+    }, 60000)
+    return () => {
+      unsub()
+      if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
+    }
+  }, [isWaitingExtraction])
 
   const addQuestion = () => {
     setQuestions([...questions, { question: '', charLimit: 800 }])
@@ -269,7 +291,40 @@ export function ApplicationSetup() {
 
         {/* Questions */}
         <div>
-          <label className="mb-3 block text-sm font-medium">자소서 문항</label>
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-sm font-medium">자소서 문항</label>
+            <button
+              type="button"
+              onClick={() => setIsWaitingExtraction(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 hover:bg-cyan-100 transition-colors dark:border-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
+            >
+              🧩 확장 프로그램으로 가져오기
+            </button>
+          </div>
+
+          {/* 확장 프로그램 대기 안내 배너 */}
+          {isWaitingExtraction && (
+            <div className="mb-3 rounded-xl border-2 border-cyan-300 bg-cyan-50 p-4 dark:border-cyan-700 dark:bg-cyan-950/30">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-cyan-700 dark:text-cyan-300">확장 프로그램 연결 대기 중...</p>
+                  <ol className="mt-1.5 space-y-0.5 text-xs text-cyan-600 dark:text-cyan-400">
+                    <li>1. 브라우저에서 지원서 작성 페이지를 열어주세요</li>
+                    <li>2. 화면 우측 하단의 <strong>📋 문항 추출</strong> 버튼을 클릭하세요</li>
+                    <li>3. 문항이 자동으로 채워지고 프로필도 함께 입력됩니다</li>
+                  </ol>
+                  <button
+                    onClick={() => setIsWaitingExtraction(false)}
+                    className="mt-2 text-[10px] text-muted-foreground hover:underline"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {questions.map((q, i) => (
               <div key={i} className="rounded-lg border border-border p-3">

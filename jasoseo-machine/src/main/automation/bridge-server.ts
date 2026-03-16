@@ -17,6 +17,8 @@ export class BridgeServer {
   private isAuthorized: boolean = false;
   private currentScript: string | null = null; // 현재 생성된 주입 스크립트 메모리 보관
   private emptyFieldsReport: { fields: string[]; url: string; reportedAt: string } | null = null;
+  private extractedQuestions: { question: string; charLimit: number | null }[] | null = null;
+  private mainWindow: BrowserWindow | null = null;
 
   constructor() {
     this.app = express();
@@ -40,6 +42,16 @@ export class BridgeServer {
    */
   public setPendingScript(script: string) {
     this.currentScript = script;
+  }
+
+  public setMainWindow(win: BrowserWindow) {
+    this.mainWindow = win;
+  }
+
+  public getExtractedQuestions() {
+    const q = this.extractedQuestions;
+    this.extractedQuestions = null;
+    return q;
   }
 
   private setupRoutes() {
@@ -89,6 +101,19 @@ export class BridgeServer {
         this.emptyFieldsReport = { fields, url: url || '', reportedAt: new Date().toISOString() };
       }
       res.json({ success: true });
+    });
+
+    // 확장 프로그램이 추출한 자소서 문항을 앱으로 전송
+    this.app.post('/submit-extracted-questions', verifySignature, (req, res) => {
+      if (!this.isAuthorized) return res.status(403).json({ error: 'Not authorized' });
+      const { questions } = req.body || {};
+      if (Array.isArray(questions) && questions.length > 0) {
+        this.extractedQuestions = questions;
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send('questions-extracted', questions);
+        }
+      }
+      res.json({ success: true, received: questions?.length ?? 0 });
     });
 
     // 확장 프로그램이 주입 스크립트를 가져가는 엔드포인트

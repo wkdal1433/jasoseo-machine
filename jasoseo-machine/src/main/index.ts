@@ -62,6 +62,7 @@ app.whenReady().then(async () => {
   createWindow()
 
   if (mainWindow) {
+    bridgeServer.setMainWindow(mainWindow)
     startFileWatcher(mainWindow)
     mainWindow.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
       console.log(`[Renderer] ${message} (${sourceId}:${line})`)

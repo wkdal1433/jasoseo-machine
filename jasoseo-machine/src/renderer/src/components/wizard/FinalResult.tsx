@@ -4,7 +4,7 @@ import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 
 export function FinalResult() {
-  const { questions, activeQuestionIndex, setQuestionStep, setGeneratedText, reopenQuestion } = useWizardStore()
+  const { questions, activeQuestionIndex, setQuestionStep, setGeneratedText, reopenQuestion, setActiveQuestion } = useWizardStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
 
@@ -96,7 +96,7 @@ export function FinalResult() {
       )}
 
       {!isEditing && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <CopyButton text={q.generatedText} />
           <button
             onClick={() => handleGoToStep(3)}
@@ -110,6 +110,14 @@ export function FinalResult() {
           >
             재검증
           </button>
+          {activeQuestionIndex < questions.length - 1 && (
+            <button
+              onClick={() => setActiveQuestion(activeQuestionIndex + 1)}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90 ml-auto"
+            >
+              다음 문항 →
+            </button>
+          )}
         </div>
       )}
     </div>

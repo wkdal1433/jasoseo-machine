@@ -93,7 +93,6 @@ export function FullReview() {
       }
       await loadApplications()
       setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 3000)
     } catch (err) {
       alert('저장 중 오류가 발생했습니다.')
     } finally {
@@ -120,7 +119,7 @@ export function FullReview() {
       var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
       if (setter) setter.set.call(el, text);
       else el.value = text;
-    } else { el.textContent = text; }
+    } else { el.innerText = text; }
     ['input','change','keyup'].forEach(function(evt) { el.dispatchEvent(new Event(evt, { bubbles: true })); });
     filled++;
   });
@@ -143,18 +142,22 @@ export function FullReview() {
         </div>
         <div className="flex gap-3">
           <button onClick={() => navigate('/wizard')} className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all">뒤로가기</button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || saveStatus === 'saved'}
-            className={cn(
-              'rounded-xl px-6 py-2.5 text-sm font-bold transition-all flex items-center gap-2',
-              saveStatus === 'saved'
-                ? 'bg-green-500 text-white'
-                : 'border border-border hover:bg-muted'
-            )}
-          >
-            {isSaving ? '저장 중...' : saveStatus === 'saved' ? '✓ 저장 완료' : '💾 이력 저장 (덮어쓰기)'}
-          </button>
+          {saveStatus === 'saved' ? (
+            <button
+              onClick={() => navigate('/')}
+              className="rounded-xl bg-green-500 px-6 py-2.5 text-sm font-bold text-white transition-all flex items-center gap-2 animate-in zoom-in-95 duration-200"
+            >
+              ✓ 저장 완료 — 대시보드로 →
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSaving ? '저장 중...' : '💾 이력 저장'}
+            </button>
+          )}
           <button onClick={handleSendToExtension} disabled={isSending} className="rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
             🧩 확장 프로그램으로 전송
           </button>

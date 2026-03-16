@@ -94,6 +94,13 @@ const api = {
     return () => ipcRenderer.removeListener(IPC.ONBOARDING_PROGRESS, handler)
   },
 
+  // Bridge - 문항 추출 이벤트 (확장 프로그램 → bridge server → IPC push)
+  onQuestionsExtracted: (callback: (questions: { question: string; charLimit: number | null }[]) => void) => {
+    const handler = (_: unknown, data: { question: string; charLimit: number | null }[]) => callback(data)
+    ipcRenderer.on('questions-extracted', handler)
+    return () => ipcRenderer.removeListener('questions-extracted', handler)
+  },
+
   // Stream events
   onStreamChunk: (callback: (data: unknown) => void) => {
     const handler = (_: unknown, data: unknown) => callback(data)
