@@ -297,28 +297,12 @@ export function deleteDraft(applicationId: string): void {
 export function listDrafts() {
   const savedAppIds = new Set(data.applications.map((a) => a.id))
   return data.drafts
-    .filter((d) => !savedAppIds.has(d.applicationId)) // applications 테이블에 없는 순수 임시저장만
-    .map((d) => {
-      let companyName = ''
-      let jobTitle = ''
-      let questionCount = 0
-      let step0Completed = false
-      try {
-        const state = JSON.parse(d.wizardState)
-        companyName = state.companyName || ''
-        jobTitle = state.jobTitle || ''
-        questionCount = Array.isArray(state.questions) ? state.questions.length : 0
-        step0Completed = !!state.step0Completed
-      } catch { /* ignore */ }
-      return {
-        applicationId: d.applicationId,
-        savedAt: d.savedAt,
-        companyName,
-        jobTitle,
-        questionCount,
-        step0Completed
-      }
-    })
+    .filter((d) => !savedAppIds.has(d.applicationId))
+    .map((d) => ({
+      applicationId: d.applicationId,
+      savedAt: d.savedAt,
+      wizardState: d.wizardState  // 렌더러에서 직접 파싱 (인코딩 이슈 방지)
+    }))
     .sort((a, b) => b.savedAt.localeCompare(a.savedAt))
 }
 

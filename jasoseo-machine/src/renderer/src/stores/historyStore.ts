@@ -48,8 +48,22 @@ export const useHistoryStore = create<HistoryState>((set) => ({
 
   loadDrafts: async () => {
     try {
-      const drafts = await window.api.draftList()
-      set({ drafts: drafts as DraftItem[] })
+      const raw = await window.api.draftList() as { applicationId: string; savedAt: string; wizardState: string }[]
+      const drafts: DraftItem[] = raw.map((d) => {
+        let companyName = ''
+        let jobTitle = ''
+        let questionCount = 0
+        let step0Completed = false
+        try {
+          const state = JSON.parse(d.wizardState)
+          companyName = state.companyName || ''
+          jobTitle = state.jobTitle || ''
+          questionCount = Array.isArray(state.questions) ? state.questions.length : 0
+          step0Completed = !!state.step0Completed
+        } catch { /* ignore */ }
+        return { applicationId: d.applicationId, savedAt: d.savedAt, companyName, jobTitle, questionCount, step0Completed }
+      })
+      set({ drafts })
     } catch {
       set({ drafts: [] })
     }
