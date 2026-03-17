@@ -7,10 +7,18 @@ const MODEL_OPTIONS = [
     { value: 'opus', label: 'Opus', desc: '최고 품질, 느린 속도' },
     { value: 'sonnet', label: 'Sonnet', desc: '빠른 속도, 양호한 품질' }
   ]},
-  { group: 'Gemini', models: [
-    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', desc: '최신 최고 품질 (Preview)' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: '고품질, 안정적' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: '빠른 속도, 일상 작업에 적합' }
+  { group: 'Gemini 3 (Preview)', models: [
+    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview', desc: '최상위 추론/코딩 성능 (최신)' },
+    { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview', desc: '최신 실험적 기능, 대용량 컨텍스트' },
+    { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview', desc: '빠른 속도 + 높은 지능 균형' },
+  ]},
+  { group: 'Gemini 2.5 (Stable)', models: [
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: '검증된 고성능 안정화 모델' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: '대량 작업 처리에 최적화된 고속 모델' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', desc: '가장 가볍고 경제적' },
+  ]},
+  { group: 'Gemini Auto', models: [
+    { value: 'auto', label: 'Auto', desc: '상황에 따라 Pro/Flash 자동 전환 (CLI 기본값)' },
   ]}
 ]
 
