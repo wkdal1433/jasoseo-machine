@@ -111,7 +111,7 @@ export function FullReview() {
         }))
         .filter((a) => a.answer)
       await window.api.bridgeSetAnswers(answers)
-      alert(`확장 프로그램으로 ${answers.length}개 문항 데이터가 전송되었습니다.\n브라우저에서 [✨ 자동 입력] 버튼을 눌러주세요!`)
+      alert(`${answers.length}개 문항이 브라우저로 전송되었습니다.\n채용 사이트에서 [✨ 자동 입력] 버튼을 눌러주세요!`)
     } finally {
       setIsSending(false)
     }
@@ -144,7 +144,7 @@ export function FullReview() {
             </button>
           )}
           <button onClick={handleSendToExtension} disabled={isSending} className="rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
-            🧩 확장 프로그램으로 전송
+            {isSending ? '전송 중...' : '🌐 웹사이트에 넣기'}
           </button>
         </div>
       </div>

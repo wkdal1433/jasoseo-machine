@@ -379,7 +379,18 @@
   extractBtn.onmouseover = () => extractBtn.style.transform = 'scale(1.05)';
   extractBtn.onmouseout = () => extractBtn.style.transform = 'scale(1)';
 
-  // 1-c. 숨기기 버튼 (작은 ×)
+  // 1-c. "🧑 프로필 채우기" 버튼 (문항 추출 없이 프로필 필드만 채움)
+  const profileFillBtn = document.createElement('button');
+  profileFillBtn.innerText = '🧑 프로필 채우기';
+  Object.assign(profileFillBtn.style, {
+    padding: '10px 18px', background: '#059669', color: 'white',
+    border: 'none', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.2)', transition: 'all 0.3s', fontSize: '13px'
+  });
+  profileFillBtn.onmouseover = () => profileFillBtn.style.transform = 'scale(1.05)';
+  profileFillBtn.onmouseout = () => profileFillBtn.style.transform = 'scale(1)';
+
+  // 1-d. 숨기기 버튼 (작은 ×)
   const hideBtn = document.createElement('button');
   hideBtn.innerText = '× 숨기기';
   Object.assign(hideBtn.style, {
@@ -392,9 +403,10 @@
 
   btnContainer.appendChild(hideBtn);
   btnContainer.appendChild(extractBtn);
+  btnContainer.appendChild(profileFillBtn);
   btnContainer.appendChild(btn);
 
-  // 1-d. 복원 미니 버튼 (숨겨진 상태에서 우하단에 작게 표시)
+  // 1-e. 복원 미니 버튼 (숨겨진 상태에서 우하단에 작게 표시)
   const showBtn = document.createElement('button');
   showBtn.innerText = '자소서M';
   Object.assign(showBtn.style, {
@@ -759,6 +771,178 @@
         extractBtn.disabled = false;
         extractBtn.innerText = '📋 문항 추출';
       }, 5000);
+    }
+  };
+
+  // "🧑 프로필 채우기" 클릭: 문항 추출 없이 프로필 필드만 AI + 키워드 매칭으로 채움
+  profileFillBtn.onclick = async () => {
+    profileFillBtn.disabled = true;
+    profileFillBtn.innerText = '⏳ 분석 중...';
+
+    try {
+      const config = await chrome.storage.local.get(['bridgePort', 'bridgeSecret']);
+      if (!config.bridgePort || !config.bridgeSecret) {
+        alert('확장 프로그램 설정에서 포트와 보안 키를 먼저 등록해 주세요!');
+        return;
+      }
+      const port = config.bridgePort;
+      const secret = config.bridgeSecret;
+
+      // 라벨 텍스트 추출 헬퍼
+      function collectLabelText(el) {
+        let labelText = '';
+        if (el.id) {
+          try {
+            const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+            if (lbl) labelText = lbl.textContent.trim();
+          } catch {}
+        }
+        if (!labelText) labelText = el.getAttribute('aria-label') || '';
+        if (!labelText) labelText = el.placeholder || '';
+        if (!labelText) {
+          let node = el.parentElement;
+          while (node && node !== document.body) {
+            if (node.tagName === 'LABEL') { labelText = node.textContent.replace(el.value || '', '').trim(); break; }
+            node = node.parentElement;
+          }
+        }
+        if (!labelText) {
+          let node = el.parentElement;
+          outer: for (let i = 0; i < 4 && node && node !== document.body; i++) {
+            for (const child of node.children) {
+              if (child.contains(el)) continue;
+              const t = child.textContent.trim();
+              if (t.length > 0 && t.length < 30 && !t.includes('\n')) { labelText = t; break outer; }
+            }
+            node = node.parentElement;
+          }
+        }
+        return labelText.replace(/[*\s]+/g, ' ').trim();
+      }
+
+      // 폼 필드 메타데이터 수집
+      const formInputs = [];
+
+      const textSelectors = 'input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])';
+      document.querySelectorAll(textSelectors).forEach((input) => {
+        if (input.disabled || input.readOnly) return;
+        const style = window.getComputedStyle(input);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (input.offsetWidth === 0 || input.value) return;
+        const idx = formInputs.length;
+        input.setAttribute('data-pfill-idx', idx);
+        formInputs.push({ idx, type: 'text', id: input.id || null, name: input.getAttribute('name') || null,
+          labelText: collectLabelText(input), placeholder: input.placeholder || null, ariaLabel: input.getAttribute('aria-label') || null });
+      });
+
+      document.querySelectorAll('input[type="date"]').forEach((input) => {
+        if (input.disabled || input.readOnly || input.value) return;
+        const style = window.getComputedStyle(input);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        const idx = formInputs.length;
+        input.setAttribute('data-pfill-idx', idx);
+        formInputs.push({ idx, type: 'date', id: input.id || null, name: input.getAttribute('name') || null, labelText: collectLabelText(input) });
+      });
+
+      document.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        if (checkbox.checked) return;
+        const style = window.getComputedStyle(checkbox);
+        if (style.display === 'none' || style.visibility === 'hidden' || checkbox.offsetWidth === 0) return;
+        const idx = formInputs.length;
+        checkbox.setAttribute('data-pfill-idx', idx);
+        formInputs.push({ idx, type: 'checkbox', id: checkbox.id || null, name: checkbox.getAttribute('name') || null,
+          labelText: collectLabelText(checkbox), disabled: checkbox.disabled });
+      });
+
+      document.querySelectorAll('select').forEach((select) => {
+        if (select.disabled) return;
+        const style = window.getComputedStyle(select);
+        if (style.display === 'none' || style.visibility === 'hidden' || select.offsetWidth === 0) return;
+        const curVal = select.value;
+        if (curVal && curVal !== '0' && curVal !== '-1') return;
+        const options = Array.from(select.options)
+          .filter(o => o.value !== '' && o.value !== '0' && o.value !== '-1')
+          .map(o => `${o.text.trim()}(value=${o.value})`);
+        if (options.length === 0) return;
+        const idx = formInputs.length;
+        select.setAttribute('data-pfill-idx', idx);
+        formInputs.push({ idx, type: 'select', id: select.id || null, name: select.getAttribute('name') || null,
+          labelText: collectLabelText(select), options });
+      });
+
+      // 프로필 + AI 매핑 병렬 요청
+      const [profileRes, profileFillResult] = await Promise.allSettled([
+        bridgePost(port, secret, '/get-profile'),
+        formInputs.length > 0
+          ? bridgePost(port, secret, '/analyze-profile-fill', { inputs: formInputs })
+          : Promise.resolve({ success: false })
+      ]);
+
+      const profile = (profileRes.status === 'fulfilled' && profileRes.value?.success) ? profileRes.value.profile : null;
+      const aiFills = (profileFillResult.status === 'fulfilled' && profileFillResult.value?.success) ? profileFillResult.value.fills || [] : [];
+
+      // AI 매핑 적용
+      aiFills.forEach(({ idx, value }) => {
+        const el = document.querySelector(`[data-pfill-idx="${idx}"]`);
+        if (!el || !value) return;
+        if (el.tagName === 'SELECT') {
+          const opts = Array.from(el.options);
+          const target = String(value).toLowerCase();
+          const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target ||
+            o.text.trim().toLowerCase().includes(target) || (target.includes(o.text.trim().toLowerCase()) && o.text.trim().length > 0));
+          if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+        } else if (el.type === 'checkbox') {
+          const shouldCheck = value === 'true' || value === true || value === '1' || value === 1;
+          if (shouldCheck && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); }
+        } else if (el.type === 'date') {
+          el.value = String(value).slice(0, 10);
+          ['input', 'change'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+        } else {
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+          if (setter && setter.set) setter.set.call(el, value); else el.value = value;
+          ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+        }
+      });
+      console.log(`[프로필 채우기] AI ${aiFills.length}개 채움`);
+
+      // 키워드 매칭으로 나머지 보완
+      if (profile) fillProfileFields(profile);
+
+      // 600ms 재시도 — disabled→enabled 연동 필드 대응
+      if (profile) {
+        setTimeout(() => {
+          aiFills.forEach(({ idx, value }) => {
+            const el = document.querySelector(`[data-pfill-idx="${idx}"]`);
+            if (!el || !value || el.disabled) return;
+            if (el.tagName === 'SELECT' && el.value && el.value !== '0' && el.value !== '-1') return;
+            if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.value) return;
+            if (el.tagName === 'SELECT') {
+              const opts = Array.from(el.options);
+              const target = String(value).toLowerCase();
+              const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target);
+              if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+            } else if (el.type === 'checkbox') {
+              if ((value === 'true' || value === '1') && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); }
+            } else {
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+              if (setter && setter.set) setter.set.call(el, value);
+              ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+            }
+          });
+          fillProfileFields(profile);
+        }, 600);
+      }
+
+      const totalFilled = aiFills.length;
+      profileFillBtn.innerText = totalFilled > 0 ? `✅ ${totalFilled}개 채움!` : '✅ 완료 (매칭 없음)';
+    } catch (err) {
+      alert('프로필 채우기 실패: ' + err.message);
+      profileFillBtn.innerText = '❌ 실패';
+    } finally {
+      setTimeout(() => {
+        profileFillBtn.disabled = false;
+        profileFillBtn.innerText = '🧑 프로필 채우기';
+      }, 3000);
     }
   };
 
