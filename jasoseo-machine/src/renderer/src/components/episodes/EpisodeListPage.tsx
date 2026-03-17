@@ -13,6 +13,7 @@ const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }>
 export function EpisodeListPage() {
   const { episodes, loadEpisodes, isLoading } = useEpisodeStore()
   const [isWizardOpen, setIsWizardOpen] = useState(false)
+  const [refineEpisode, setRefineEpisode] = useState<Episode | null>(null) // 보강 모드
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null)
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function EpisodeListPage() {
           onClick={() => setIsWizardOpen(true)}
           className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95"
         >
-          ✨ AI와 함께 새 에피소드 발굴
+          ✨ 새 에피소드 발굴하기
         </button>
       </div>
 
@@ -98,7 +99,7 @@ export function EpisodeListPage() {
             <div className="flex items-center justify-between">
               {ep.status !== 'ready' ? (
                 <button
-                  onClick={(e) => { e.stopPropagation(); setIsWizardOpen(true) }}
+                  onClick={(e) => { e.stopPropagation(); setRefineEpisode(ep) }}
                   className="rounded-lg border border-dashed border-yellow-400 px-3 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
                 >
                   ✏️ 인터뷰로 완성하기 →
@@ -130,13 +131,18 @@ export function EpisodeListPage() {
         </div>
       )}
 
-      {/* 에피소드 발굴 마법사 모달 */}
+      {/* 새 에피소드 발굴 마법사 */}
       {isWizardOpen && (
         <EpisodeDiscoveryWizard
-          onClose={() => {
-            setIsWizardOpen(false)
-            loadEpisodes()
-          }}
+          onClose={() => { setIsWizardOpen(false); loadEpisodes() }}
+        />
+      )}
+
+      {/* 기존 에피소드 보강 인터뷰 */}
+      {refineEpisode && (
+        <EpisodeDiscoveryWizard
+          initialEpisode={refineEpisode}
+          onClose={() => { setRefineEpisode(null); loadEpisodes() }}
         />
       )}
 

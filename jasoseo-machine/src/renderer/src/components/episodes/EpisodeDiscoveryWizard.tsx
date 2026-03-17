@@ -3,14 +3,16 @@ import { EpisodeIdea } from '../../../../main/automation/episode-interviewer'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
 import { ModelPicker } from '../common/ModelPicker'
+import type { Episode } from '@/types/episode'
 
 interface Props {
   onClose: () => void
+  initialEpisode?: Episode // 제공 시 suggest 스킵 → 해당 에피소드 직접 인터뷰
 }
 
 type Step = 'loading' | 'suggest' | 'interview'
 
-export function EpisodeDiscoveryWizard({ onClose }: Props) {
+export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
   const [step, setStep] = useState<Step>('loading')
   const [ideas, setIdeas] = useState<EpisodeIdea[]>([])
   const [currentIndex, setCurrentIndex] = useState(0) // 캐로절 인덱스
@@ -39,6 +41,12 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
     })
 
     const initWizard = async () => {
+      // [보강 모드] 기존 에피소드가 주어진 경우 → suggest 스킵, 바로 인터뷰 시작
+      if (initialEpisode) {
+        await startRefineInterview(initialEpisode)
+        return
+      }
+
       // 1. 진행 중인 인터뷰 세션 복구 시도
       const savedSession = localStorage.getItem(SESSION_CACHE_KEY)
       if (savedSession) {
@@ -78,6 +86,45 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
         alert('분석 실패: ' + result.error); onClose()
       }
     } catch { onClose() }
+  }
+
+  // [보강 모드] 기존 에피소드를 읽고 AI가 부족한 부분 파악 후 첫 질문
+  const startRefineInterview = async (episode: Episode) => {
+    const fakeIdea: EpisodeIdea = {
+      title: episode.title,
+      theme: '보강',
+      hookMessage: episode.summary || '',
+      suggestedAngle: 'S-P-A-A-R-L 보완'
+    }
+    setSelectedIdea(fakeIdea)
+    setStep('interview')
+    setIsAiAiTyping(true)
+    try {
+      const response = await window.api.claudeExecute({
+        prompt: `당신은 자기소개서 코치입니다. 아래 에피소드를 읽고 S-P-A-A-R-L(상황-문제-행동-분석-결과-학습) 구조에서 어떤 부분이 부족한지 파악한 뒤, 가장 보완이 필요한 부분에 대해 구체적인 인터뷰 질문 **한 가지**만 던져주세요. 질문은 한국어로, 친근하고 대화체로 해주세요.
+
+[에피소드 제목]: ${episode.title}
+[에피소드 내용]:
+${episode.rawContent.slice(0, 3000)}
+
+응답 끝에 반드시 [SESSION_ANCHOR: {부족한 섹션 목록}] 형식으로 현재 파악된 보완 필요 섹션들을 기록하세요.`,
+        maxTurns: 1
+      })
+      const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
+      let cleanText = response
+      if (anchorMatch) {
+        setHiddenState(`REFINE|${episode.title}|${anchorMatch[1]}|RAW:${episode.rawContent.slice(0, 2000)}`)
+        cleanText = response.replace(anchorMatch[0], '').trim()
+      } else {
+        setHiddenState(`REFINE|${episode.title}|RAW:${episode.rawContent.slice(0, 2000)}`)
+      }
+      setMessages([{ role: 'ai', content: cleanText }])
+    } catch {
+      setMessages([{ role: 'ai', content: `"${episode.title}" 에피소드를 검토했습니다. 어떤 부분을 더 구체적으로 보강하고 싶으신가요?` }])
+      setHiddenState(`REFINE|${episode.title}|RAW:${episode.rawContent.slice(0, 2000)}`)
+    } finally {
+      setIsAiAiTyping(false)
+    }
   }
 
   useEffect(() => {
@@ -144,16 +191,20 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">✨</span>
+            <span className="text-2xl">{initialEpisode ? '🔍' : '✨'}</span>
             <div>
-              <h2 className="text-xl font-bold">AI 에피소드 발굴 마법사</h2>
+              <h2 className="text-xl font-bold">
+                {initialEpisode ? `에피소드 보강 인터뷰` : 'AI 에피소드 발굴 마법사'}
+              </h2>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
-                {step === 'suggest' ? '보석 창고에서 스토리를 골라보세요.' : 'AI와 대화하며 에피소드를 완성합니다.'}
+                {initialEpisode
+                  ? `"${initialEpisode.title}" — S-P-A-A-R-L 보완 중`
+                  : step === 'suggest' ? '보석 창고에서 스토리를 골라보세요.' : 'AI와 대화하며 에피소드를 완성합니다.'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {step === 'suggest' && (
+            {step === 'suggest' && !initialEpisode && (
               <div className="flex items-center gap-2">
                 <button onClick={fetchNewIdeas} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full">
                   🔄 새로 분석하기
@@ -161,7 +212,7 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
                 <ModelPicker endpointKey="ep_suggest" />
               </div>
             )}
-            {step === 'interview' && (
+            {step === 'interview' && !initialEpisode && (
               <button onClick={() => setStep('suggest')} className="text-sm font-bold text-primary hover:underline">← 창고로 돌아가기</button>
             )}
             <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground">
