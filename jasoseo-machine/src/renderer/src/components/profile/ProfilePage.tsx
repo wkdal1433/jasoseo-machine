@@ -40,7 +40,7 @@ export function ProfilePage() {
   useEffect(() => { loadProfile() }, [])
 
   useEffect(() => {
-    if (isCreatingProfile) setTimeout(() => nameInputRef.current?.focus(), 50)
+    if (isCreatingProfile) setTimeout(() => nameInputRef.current?.focus(), 150)
   }, [isCreatingProfile])
 
   useEffect(() => {
@@ -140,6 +140,7 @@ export function ProfilePage() {
             <div className="flex items-center gap-2">
               <input ref={nameInputRef} type="text" value={newProfileName}
                 onChange={(e) => setNewProfileName(e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).focus()}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProfile(); if (e.key === 'Escape') { setIsCreatingProfile(false); setNewProfileName('') } }}
                 placeholder="프로필 이름"
                 className="rounded-lg border border-primary/50 bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary w-32" />
