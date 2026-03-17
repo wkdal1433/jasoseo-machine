@@ -27,6 +27,7 @@ export const IPC = {
   // Cover Letters
   CL_SAVE: 'cl:save',
   CL_GET: 'cl:get',
+  CL_LIST_BY_APP: 'cl:list-by-app',
   CL_UPDATE: 'cl:update',
 
   // Drafts
@@ -66,7 +67,7 @@ export const IPC = {
 
   // Bridge (v20.0)
   BRIDGE_GET_INFO: 'bridge:get-info',
-  BRIDGE_SET_SCRIPT: 'bridge:set-script',
+  BRIDGE_SET_ANSWERS: 'bridge:set-answers',
   BRIDGE_GET_EMPTY_FIELDS: 'bridge:get-empty-fields',
 
   // Web Fetch (URL 자동 수집)
@@ -75,7 +76,16 @@ export const IPC = {
   // Dev / Testing
   DEV_LOAD_FIXTURES: 'dev:load-fixtures',
   FS_CHECK_TRASH: 'fs:check-trash',
-  FS_EMPTY_TRASH: 'fs:empty-trash'
+  FS_EMPTY_TRASH: 'fs:empty-trash',
+
+  // Patterns (자소서 패턴 강화)
+  PATTERN_LIST: 'pattern:list',
+  PATTERN_SAVE: 'pattern:save',
+  PATTERN_DELETE: 'pattern:delete',
+  PATTERN_TOGGLE: 'pattern:toggle',
+  PATTERN_ANALYZE: 'pattern:analyze',
+  PATTERN_SETTINGS_GET: 'pattern:settings-get',
+  PATTERN_SETTINGS_SAVE: 'pattern:settings-save'
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

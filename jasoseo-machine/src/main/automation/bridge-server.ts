@@ -2,8 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 import { createServer, Server } from 'http';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { getSetting, setSetting, getUserProfile } from '../db';
 import { BrowserWindow, dialog } from 'electron';
+import { executeClaudePrompt } from '../claude-bridge';
 
 /**
  * v20.0 Bridge Server (The Brain of "Hands of God")
@@ -15,16 +19,26 @@ export class BridgeServer {
   private secretKey: string = '';
   private currentPort: number = 12345;
   private isAuthorized: boolean = false;
-  private currentScript: string | null = null; // 현재 생성된 주입 스크립트 메모리 보관
+  private pendingAnswers: { question: string; answer: string; charLimit: number | null }[] | null = null;
   private emptyFieldsReport: { fields: string[]; url: string; reportedAt: string } | null = null;
   private extractedQuestions: { question: string; charLimit: number | null }[] | null = null;
   private mainWindow: BrowserWindow | null = null;
 
   constructor() {
     this.app = express();
-    this.app.use(cors());
-    this.app.use(express.json());
-    this.initSecret();
+    // Chrome Private Network Access (PNA) 정책 대응 — app.options('*') 대신 미들웨어로 처리
+    this.app.use(cors({
+      origin: '*',
+      allowedHeaders: ['Content-Type', 'x-jasoseo-signature', 'x-jasoseo-timestamp', 'x-jasoseo-nonce'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
+    }));
+    this.app.use((_req, res, next) => {
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
+      next();
+    });
+    this.app.use(express.json({ limit: '5mb' }));
+    // initSecret()는 start()에서 호출 — 생성자 실행 시점에는 DB 초기화 전
     this.setupRoutes();
   }
 
@@ -37,11 +51,8 @@ export class BridgeServer {
     this.secretKey = savedSecret;
   }
 
-  /**
-   * 프론트엔드에서 생성된 스크립트를 서버 메모리에 등록
-   */
-  public setPendingScript(script: string) {
-    this.currentScript = script;
+  public setPendingAnswers(answers: { question: string; answer: string; charLimit: number | null }[]) {
+    this.pendingAnswers = answers;
   }
 
   public setMainWindow(win: BrowserWindow) {
@@ -94,6 +105,56 @@ export class BridgeServer {
       res.json({ success: true, profile: getUserProfile() });
     });
 
+    // Gemini로 프로필 → 폼 필드 매핑 분석 (HTML 대신 경량 메타데이터 사용)
+    this.app.post('/analyze-profile-fill', verifySignature, async (req, res) => {
+      const { inputs } = req.body || {};
+      if (!Array.isArray(inputs) || inputs.length === 0) {
+        return res.json({ success: false, error: 'No inputs provided' });
+      }
+
+      const profile = getUserProfile();
+      if (!profile) return res.json({ success: false, error: 'No profile' });
+
+      // 폼 필드 목록 (idx로 식별)
+      const fieldLines = inputs.map((f: any) =>
+        `[${f.idx}] label="${f.labelText || ''}" placeholder="${f.placeholder || ''}" aria-label="${f.ariaLabel || ''}" name="${f.name || ''}"`
+      ).join('\n');
+
+      const prompt = `Convert the following User Profile data into a Form Field mapping.
+
+[USER PROFILE]
+${JSON.stringify(profile, null, 2)}
+
+[TARGET FORM FIELDS]
+${fieldLines}
+
+RULES:
+- DO NOT use any tools (e.g., web_fetch, google_search).
+- Output ONLY a single JSON object in the format: {"fills": [{"idx": number, "value": "string"}, ...]}
+- Only map fields that have a high confidence match.
+- If no matches are found, return {"fills": []}.
+- No preamble or explanation.`;
+
+      try {
+        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', skipProjectDir: true });
+        console.log(`\n===== PROFILE FILL RAW (${raw.length} chars) =====`);
+        console.log(raw.slice(0, 500));
+        console.log('=====');
+        const extractJSON = (text: string): string => {
+          const clean = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+          const fb = clean.indexOf('{'); const lb = clean.lastIndexOf('}');
+          return fb !== -1 && lb > fb ? clean.slice(fb, lb + 1) : clean;
+        };
+        const parsed = JSON.parse(extractJSON(raw));
+        const fills = Array.isArray(parsed) ? parsed : (parsed.fills || []);
+        console.log(`[profile-fill] 매핑된 fills: ${JSON.stringify(fills)}`);
+        res.json({ success: true, fills });
+      } catch (err: any) {
+        console.error('[profile-fill] 에러:', err.message);
+        res.json({ success: false, error: err.message });
+      }
+    });
+
     // 확장 프로그램이 미완성 필드를 보고하는 엔드포인트
     this.app.post('/report-empty-fields', verifySignature, (req, res) => {
       const { fields, url } = req.body || {};
@@ -104,8 +165,8 @@ export class BridgeServer {
     });
 
     // 확장 프로그램이 추출한 자소서 문항을 앱으로 전송
+    // isAuthorized 불필요 — 앱→확장이 아닌 확장→앱 방향이므로 HMAC 서명 검증으로 충분
     this.app.post('/submit-extracted-questions', verifySignature, (req, res) => {
-      if (!this.isAuthorized) return res.status(403).json({ error: 'Not authorized' });
       const { questions } = req.body || {};
       if (Array.isArray(questions) && questions.length > 0) {
         this.extractedQuestions = questions;
@@ -116,18 +177,66 @@ export class BridgeServer {
       res.json({ success: true, received: questions?.length ?? 0 });
     });
 
-    // 확장 프로그램이 주입 스크립트를 가져가는 엔드포인트
-    this.app.post('/get-fill-script', verifySignature, (req, res) => {
+    // Gemini로 페이지 HTML을 분석해서 자소서 문항+글자수 추출 (isAuthorized 불필요 — 페이지 HTML만 처리)
+    this.app.post('/analyze-form', verifySignature, async (req, res) => {
+      const { html } = req.body || {};
+      if (!html || typeof html !== 'string') return res.status(400).json({ success: false, error: 'No HTML provided' });
+
+      const tmpFile = path.join(os.tmpdir(), `form_${Date.now()}.html`);
+      try {
+        fs.writeFileSync(tmpFile, html, 'utf-8');
+        const prompt = `이 HTML은 한국 채용 지원 사이트의 자기소개서 작성 폼 일부입니다.
+자기소개서 textarea 입력창을 모두 찾아서, 각 입력창에 해당하는 실제 질문 텍스트와 글자수 제한을 추출하세요.
+
+반환 규칙:
+- question: 실제 질문 내용 (예: "지원동기를 서술하시오"). "최소 N자", "최대 N자", "N자 이내" 같은 안내문은 절대 포함하지 마세요.
+- charLimit: 글자수 제한 숫자 (없으면 null)
+- order: 페이지에서 위에서부터의 순서 (0부터 시작)
+
+반드시 아래와 같은 형태의 단일 JSON 객체로만 반환하세요 (배열 직접 반환 금지):
+{"questions": [{"question":"...", "charLimit":1000, "order":0}, ...]}`;
+
+        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', filePath: tmpFile });
+
+        // ★ 디버그: Gemini 응답 원문을 파일로 저장 (확인 후 삭제 예정)
+        const debugFile = path.join(os.tmpdir(), `gemini_raw_${Date.now()}.txt`);
+        fs.writeFileSync(debugFile, raw, 'utf-8');
+        console.log(`\n========== RAW GEMINI RESPONSE (${raw.length} chars) ==========`);
+        console.log(raw.slice(0, 500));
+        console.log(`=== saved to: ${debugFile} ===\n`);
+
+        // 텍스트에서 JSON(객체 또는 배열) 추출 — 마크다운 코드블록·앞뒤 설명글 제거
+        const extractJSON = (text: string): string => {
+          const clean = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+          const fb = clean.indexOf('{'); const lb = clean.lastIndexOf('}');
+          const fa = clean.indexOf('['); const la = clean.lastIndexOf(']');
+          if (fb !== -1 && (fa === -1 || fb < fa)) return fb !== -1 && lb > fb ? clean.slice(fb, lb + 1) : clean;
+          return fa !== -1 && la > fa ? clean.slice(fa, la + 1) : clean;
+        };
+
+        const parsed = JSON.parse(extractJSON(raw));
+        const questions = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+        res.json({ success: true, questions });
+      } catch (err: any) {
+        res.json({ success: false, error: err.message });
+      } finally {
+        try { fs.unlinkSync(tmpFile); } catch {}
+      }
+    });
+
+    // 확장 프로그램이 생성된 답변 목록을 가져가는 엔드포인트
+    this.app.post('/get-answers', verifySignature, (req, res) => {
       if (!this.isAuthorized) return res.status(403).json({ error: 'Not authorized' });
-      if (!this.currentScript) return res.status(404).json({ error: 'No script pending' });
-      
-      res.json({ success: true, script: this.currentScript });
+      if (!this.pendingAnswers) return res.json({ success: false, error: 'No answers pending' });
+
+      res.json({ success: true, answers: this.pendingAnswers });
       // 전달 후 메모리 해제 (1회성 보안)
-      this.currentScript = null; 
+      this.pendingAnswers = null;
     });
   }
 
   public async start(startPort: number = 12345): Promise<number> {
+    this.initSecret(); // DB 초기화 후 호출되므로 저장된 시크릿 올바르게 로드
     return new Promise((resolve, reject) => {
       const tryListen = (port: number) => {
         this.server = this.app.listen(port, () => {

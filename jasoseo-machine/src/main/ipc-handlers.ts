@@ -11,6 +11,7 @@ import {
   updateApplicationStatus,
   saveCoverLetter,
   getCoverLetter,
+  listCoverLettersByApp,
   updateCoverLetter,
   saveDraft,
   getDraft,
@@ -24,7 +25,14 @@ import {
   listProfiles,
   switchProfile,
   createProfile,
-  deleteProfile
+  deleteProfile,
+  listPatterns,
+  savePattern,
+  deletePattern,
+  togglePattern,
+  updatePatternAnalysis,
+  getPatternSettings,
+  savePatternSettings
 } from './db'
 import {
   executeClaudePrompt,
@@ -184,6 +192,7 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
 
   ipcMain.handle(IPC.CL_SAVE, (_event, cl) => { saveCoverLetter(cl); return true })
   ipcMain.handle(IPC.CL_GET, (_event, id) => getCoverLetter(id))
+  ipcMain.handle(IPC.CL_LIST_BY_APP, (_event, applicationId) => listCoverLettersByApp(applicationId))
   ipcMain.handle(IPC.CL_UPDATE, (_event, id, updates) => { updateCoverLetter(id, updates); return true })
 
   ipcMain.handle(IPC.DRAFT_SAVE, (_event, id, state) => { saveDraft(id, JSON.stringify(state)); return true })
@@ -262,11 +271,18 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     }
     try {
       sendProgress('AI가 파일을 정독하기 시작했습니다...', 10)
+
+      // 파일 경로인지 텍스트 내용인지 판별
+      // 절대경로 + 파일이 실제로 존재하면 → 파일 경로 모드 (PDF용)
+      // 그 외(텍스트 내용 문자열) → 콘텐츠 모드 (MD/TXT용)
+      const isFilePath = require('path').isAbsolute(filePath) && existsSync(filePath)
       const aiResponse = await executeClaudePrompt({
-        prompt: agent.buildExtractionPrompt(filePath),
+        prompt: isFilePath
+          ? agent.buildExtractionPrompt(filePath)
+          : agent.buildExtractionPromptFromContent(filePath),
         outputFormat: 'json',
         maxTurns: 10,
-        filePath
+        filePath: isFilePath ? filePath : undefined
       })
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
@@ -301,8 +317,8 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
   ipcMain.handle(IPC.BRIDGE_GET_INFO, () => {
     return { port: getSetting('bridge_port') || '12345', secret: bridgeServer.getSecret() }
   })
-  ipcMain.handle(IPC.BRIDGE_SET_SCRIPT, (_event, script) => {
-    bridgeServer.setPendingScript(script); return true
+  ipcMain.handle(IPC.BRIDGE_SET_ANSWERS, (_event, answers) => {
+    bridgeServer.setPendingAnswers(answers); return true
   })
   ipcMain.handle(IPC.BRIDGE_GET_EMPTY_FIELDS, () => bridgeServer.getEmptyFieldsReport())
 
@@ -459,6 +475,68 @@ ${text}
       }
       return { success: true, episodeCount: FIXTURE_EPISODES.length }
     } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  // === Patterns ===
+  ipcMain.handle(IPC.PATTERN_LIST, () => listPatterns())
+
+  ipcMain.handle(IPC.PATTERN_SAVE, (_e, pattern) => {
+    savePattern(pattern)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.PATTERN_DELETE, (_e, id: string) => {
+    deletePattern(id)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.PATTERN_TOGGLE, (_e, id: string, isActive: boolean) => {
+    togglePattern(id, isActive)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.PATTERN_SETTINGS_GET, () => getPatternSettings())
+
+  ipcMain.handle(IPC.PATTERN_SETTINGS_SAVE, (_e, settings) => {
+    savePatternSettings(settings)
+    return { success: true }
+  })
+
+  // 패턴 AI 분석: 자소서 텍스트 → ExtractedPattern
+  ipcMain.handle(IPC.PATTERN_ANALYZE, async (_e, id: string, coverLetterText: string) => {
+    const prompt = `[자소서 패턴 분석 전문가]
+
+다음 합격 자소서에서 서사 패턴을 추출해주세요.
+
+[자소서 전문]:
+"""
+${coverLetterText}
+"""
+
+아래 JSON 형식으로 정확하게 반환하세요:
+{
+  "narrativeStructure": "두괄식/미괄식/문제해결형 등 구조 설명 (1-2문장)",
+  "openingStyle": "도입부 패턴 요약 - 어떤 방식으로 시작하는지 (1-2문장, 실제 표현 스타일 포함)",
+  "dualCodingKeywords": ["기업가치와 개인역량을 동시에 담은 핵심 키워드 5-8개"],
+  "specificityLevel": "수치/기간/고유명사 활용 방식과 밀도 설명 (1-2문장)",
+  "closingStyle": "마무리 패턴 - 어떻게 끝맺는지 (1-2문장)",
+  "toneProfile": "formal/balanced/aggressive 중 하나 + 톤 특징 설명",
+  "highlightExamples": ["S-P-A-A-R-L 구조가 잘 드러난 대표 문장 2-3개 (원문 그대로 발췌)"]
+}`
+
+    try {
+      const response = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const match = response.match(/\{[\s\S]*\}/)
+      const extracted = match ? JSON.parse(match[0]) : null
+      if (extracted) {
+        updatePatternAnalysis(id, 'ready', extracted)
+        return { success: true, extractedPattern: extracted }
+      }
+      throw new Error('파싱 실패')
+    } catch (err: any) {
+      updatePatternAnalysis(id, 'failed', null)
       return { success: false, error: err.message }
     }
   })

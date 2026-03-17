@@ -27,7 +27,7 @@ const api = {
 
   // Bridge (v20.0)
   bridgeGetInfo: () => ipcRenderer.invoke(IPC.BRIDGE_GET_INFO),
-  bridgeSetScript: (script: string) => ipcRenderer.invoke(IPC.BRIDGE_SET_SCRIPT, script),
+  bridgeSetAnswers: (answers: { question: string; answer: string; charLimit: number | null }[]) => ipcRenderer.invoke(IPC.BRIDGE_SET_ANSWERS, answers),
   bridgeGetEmptyFields: () => ipcRenderer.invoke(IPC.BRIDGE_GET_EMPTY_FIELDS),
 
   // Maintenance
@@ -48,6 +48,7 @@ const api = {
   // Cover Letters
   clSave: (cl: unknown) => ipcRenderer.invoke(IPC.CL_SAVE, cl),
   clGet: (id: string) => ipcRenderer.invoke(IPC.CL_GET, id),
+  clListByApp: (applicationId: string) => ipcRenderer.invoke(IPC.CL_LIST_BY_APP, applicationId),
   clUpdate: (id: string, updates: unknown) => ipcRenderer.invoke(IPC.CL_UPDATE, id, updates),
 
   // Drafts
@@ -93,6 +94,15 @@ const api = {
     ipcRenderer.on(IPC.ONBOARDING_PROGRESS, handler)
     return () => ipcRenderer.removeListener(IPC.ONBOARDING_PROGRESS, handler)
   },
+
+  // Patterns (자소서 패턴 강화)
+  patternList: () => ipcRenderer.invoke(IPC.PATTERN_LIST),
+  patternSave: (pattern: unknown) => ipcRenderer.invoke(IPC.PATTERN_SAVE, pattern),
+  patternDelete: (id: string) => ipcRenderer.invoke(IPC.PATTERN_DELETE, id),
+  patternToggle: (id: string, isActive: boolean) => ipcRenderer.invoke(IPC.PATTERN_TOGGLE, id, isActive),
+  patternAnalyze: (id: string, coverLetterText: string) => ipcRenderer.invoke(IPC.PATTERN_ANALYZE, id, coverLetterText),
+  patternSettingsGet: () => ipcRenderer.invoke(IPC.PATTERN_SETTINGS_GET),
+  patternSettingsSave: (settings: unknown) => ipcRenderer.invoke(IPC.PATTERN_SETTINGS_SAVE, settings),
 
   // Bridge - 문항 추출 이벤트 (확장 프로그램 → bridge server → IPC push)
   onQuestionsExtracted: (callback: (questions: { question: string; charLimit: number | null }[]) => void) => {

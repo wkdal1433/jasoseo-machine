@@ -103,30 +103,15 @@ export function FullReview() {
   const handleSendToExtension = async () => {
     setIsSending(true)
     try {
-      const texts = localTexts.filter(Boolean)
-      const script = `(function() {
-  var texts = ${JSON.stringify(texts)};
-  var areas = Array.from(document.querySelectorAll('textarea, [contenteditable="true"]')).filter(function(el) {
-    var style = window.getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 30;
-  });
-  if (areas.length === 0) { alert('자소서 입력창을 찾을 수 없습니다. 자소서 작성 페이지로 이동해 주세요.'); return; }
-  var filled = 0;
-  texts.forEach(function(text, i) {
-    var el = areas[i];
-    if (!el) return;
-    if (el.tagName === 'TEXTAREA') {
-      var setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
-      if (setter) setter.set.call(el, text);
-      else el.value = text;
-    } else { el.innerText = text; }
-    ['input','change','keyup'].forEach(function(evt) { el.dispatchEvent(new Event(evt, { bubbles: true })); });
-    filled++;
-  });
-  alert('✅ ' + filled + '개 문항이 자동 입력되었습니다!');
-})()`
-      await window.api.bridgeSetScript(script)
-      alert(`확장 프로그램으로 ${texts.length}개 문항 데이터가 전송되었습니다.\n브라우저에서 [✨ 자동 입력] 버튼을 눌러주세요!`)
+      const answers = questions
+        .map((q, i) => ({
+          question: q.question,
+          answer: localTexts[i] || q.generatedText || '',
+          charLimit: q.charLimit ?? null
+        }))
+        .filter((a) => a.answer)
+      await window.api.bridgeSetAnswers(answers)
+      alert(`확장 프로그램으로 ${answers.length}개 문항 데이터가 전송되었습니다.\n브라우저에서 [✨ 자동 입력] 버튼을 눌러주세요!`)
     } finally {
       setIsSending(false)
     }

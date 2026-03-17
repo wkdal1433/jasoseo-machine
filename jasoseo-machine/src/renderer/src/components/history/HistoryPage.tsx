@@ -1,18 +1,79 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
 
+interface CoverLetterRecord {
+  id: string
+  applicationId: string
+  questionNumber: number
+  question: string
+  finalText: string | null
+}
+
+interface PassedModalState {
+  appId: string
+  companyName: string
+}
+
 export function HistoryPage() {
   const navigate = useNavigate()
   const { applications, drafts, loadApplications, loadDrafts, deleteDraft, updateStatus, deleteApplication } = useHistoryStore()
   const { restoreFromDraft } = useWizardStore()
+  const [passedModal, setPassedModal] = useState<PassedModalState | null>(null)
+  const [isAddingPattern, setIsAddingPattern] = useState(false)
 
   useEffect(() => {
     loadApplications()
     loadDrafts()
   }, [])
+
+  const handlePassedClick = async (appId: string, companyName: string) => {
+    await updateStatus(appId, 'passed')
+    setPassedModal({ appId, companyName })
+  }
+
+  const handleAddToPattern = async () => {
+    if (!passedModal) return
+    setIsAddingPattern(true)
+    try {
+      const cls = await window.api.clListByApp(passedModal.appId) as CoverLetterRecord[]
+      const text = cls
+        .filter((cl) => cl.finalText?.trim())
+        .sort((a, b) => a.questionNumber - b.questionNumber)
+        .map((cl) => `[문항 ${cl.questionNumber}] ${cl.question}\n${cl.finalText}`)
+        .join('\n\n')
+
+      if (!text.trim()) {
+        alert('저장된 자소서 내용이 없습니다.')
+        setPassedModal(null)
+        return
+      }
+
+      const id = `pat_${Date.now()}`
+      const newPattern = {
+        id,
+        name: `${passedModal.companyName} 합격 자소서`,
+        source: 'history' as const,
+        applicationId: passedModal.appId,
+        isActive: true,
+        analysisStatus: 'analyzing' as const,
+        extractedPattern: null,
+        createdAt: new Date().toISOString()
+      }
+      await window.api.patternSave(newPattern)
+      setPassedModal(null)
+
+      // 백그라운드 AI 분석 (non-blocking)
+      window.api.patternAnalyze(id, text).catch(() => {/* 실패해도 무시 */})
+      alert(`"${passedModal.companyName}" 자소서가 패턴 강화 데이터로 추가되었습니다.\n패턴 강화 페이지에서 분석 결과를 확인하세요.`)
+    } catch (err: any) {
+      alert('패턴 추가 실패: ' + err.message)
+    } finally {
+      setIsAddingPattern(false)
+    }
+  }
 
   const handleResumeDraft = async (applicationId: string) => {
     const raw = await window.api.draftGet(applicationId) as { wizardState: string } | undefined
@@ -132,7 +193,7 @@ export function HistoryPage() {
                 {app.status === 'completed' && (
                   <>
                     <button
-                      onClick={() => updateStatus(app.id, 'passed')}
+                      onClick={() => handlePassedClick(app.id, app.companyName)}
                       className="rounded border border-green-300 px-2.5 py-1 text-xs text-green-600 hover:bg-green-50 dark:border-green-700 dark:hover:bg-green-950"
                     >
                       합격
@@ -146,7 +207,7 @@ export function HistoryPage() {
                   </>
                 )}
                 <button
-                  onClick={() => deleteApplication(app.id)}
+                  onClick={() => confirm(`"${app.companyName}" 지원서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`) && deleteApplication(app.id)}
                   className="rounded border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 >
                   삭제
@@ -154,6 +215,35 @@ export function HistoryPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 합격 → 패턴 추가 모달 */}
+      {passedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl">
+            <h3 className="font-bold text-base mb-2">🎉 합격을 축하합니다!</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              <span className="font-semibold text-foreground">{passedModal.companyName}</span> 합격 자소서를
+              패턴 강화 데이터로 추가하시겠습니까?<br />
+              <span className="text-xs mt-1 block">AI가 문체·구조를 분석해 향후 자소서 생성 품질을 높여드립니다.</span>
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setPassedModal(null)}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent"
+              >
+                나중에
+              </button>
+              <button
+                onClick={handleAddToPattern}
+                disabled={isAddingPattern}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {isAddingPattern ? '추가 중...' : '패턴으로 추가'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

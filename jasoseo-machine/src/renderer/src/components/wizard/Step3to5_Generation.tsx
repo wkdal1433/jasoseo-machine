@@ -37,7 +37,8 @@ export function Step3to5Generation() {
     companyName, jobTitle, jobPosting, hrIntents, strategy,
     questions, activeQuestionIndex,
     isGenerating, setIsGenerating,
-    setGeneratedText, appendGeneratedText, setQuestionStep
+    setGeneratedText, appendGeneratedText, setQuestionStep,
+    activePatternIds, useDefaultPatterns
   } = useWizardStore()
 
   const { episodes } = useEpisodeStore()
@@ -76,7 +77,7 @@ export function Step3to5Generation() {
     if (msgTimerRef.current) { clearInterval(msgTimerRef.current); msgTimerRef.current = null }
   }
 
-  const startGeneration = () => {
+  const startGeneration = async () => {
     // Reset loading state
     setLogs([])
     setShowLog(false)
@@ -120,12 +121,34 @@ export function Step3to5Generation() {
       if (ep?.rawContent) episodeContents[epId] = ep.rawContent
     })
 
+    // 패턴 컨텍스트 빌드
+    let patternContext: string | undefined
+    try {
+      const allPatterns = await window.api.patternList() as Array<{
+        id: string; name: string; isActive: boolean; analysisStatus: string;
+        extractedPattern: { narrativeStructure: string; openingStyle: string; dualCodingKeywords: string[]; specificityLevel: string; closingStyle: string; toneProfile: string } | null
+      }>
+      const selected = allPatterns.filter(
+        (p) => p.isActive && p.analysisStatus === 'ready' && p.extractedPattern &&
+          (activePatternIds.length === 0 || activePatternIds.includes(p.id))
+      )
+      if (selected.length > 0 || useDefaultPatterns) {
+        const lines: string[] = []
+        if (useDefaultPatterns) lines.push('- 기본 패턴: KB증권·삼성생명·현대해상·한국자금중개 S급 합격 자소서 패턴 (두괄식, 이중 코딩, S-P-A-A-R-L 구조)')
+        selected.forEach((p) => {
+          const ep = p.extractedPattern!
+          lines.push(`- [${p.name}] 서사: ${ep.narrativeStructure} | 도입: ${ep.openingStyle} | 톤: ${ep.toneProfile} | 마무리: ${ep.closingStyle}`)
+        })
+        if (lines.length > 0) patternContext = lines.join('\n')
+      }
+    } catch { /* 패턴 로드 실패해도 생성 계속 */ }
+
     const prompt = buildStep3to5Prompt(
       companyName, jobTitle, jobPosting,
       hrIntents, strategy,
       q.analysisResult!.questionReframe,
       q.question, q.charLimit,
-      q.approvedEpisodes, angles, episodeContents
+      q.approvedEpisodes, angles, episodeContents, patternContext
     )
 
     window.api.claudeExecuteStream({

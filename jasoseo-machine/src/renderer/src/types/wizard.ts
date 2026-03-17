@@ -27,6 +27,18 @@ export interface WizardQuestion {
   status: 'pending' | 'in_progress' | 'completed'
 }
 
+export interface SetupDraft {
+  mode: 'select' | 'manual' | 'smart' | 'job-select'
+  companyName: string
+  jobTitle: string
+  jobPosting: string
+  strategy: Strategy
+  questions: QuestionInput[]
+  smartUrl: string
+  jobOptions: Array<{ jobTitle: string; jobPosting: string; questions: QuestionInput[] }>
+  pendingCompanyName: string
+}
+
 export interface WizardState {
   applicationId: string
   boundProfileId: string // 작성 세션이 바인딩된 프로필 ID
@@ -41,4 +53,7 @@ export interface WizardState {
   step0Completed: boolean
   isGenerating: boolean
   isVerifying: boolean
+  activePatternIds: string[]
+  useDefaultPatterns: boolean
+  setupDraft: SetupDraft | null
 }

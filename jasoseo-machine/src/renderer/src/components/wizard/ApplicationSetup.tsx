@@ -1,7 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
+import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
+
+interface PatternRecord {
+  id: string
+  name: string
+  source: 'uploaded' | 'history'
+  isActive: boolean
+  analysisStatus: 'analyzing' | 'ready' | 'failed'
+}
+
+interface PatternSettings {
+  useDefaultPatterns: boolean
+}
 
 type SetupMode = 'select' | 'manual' | 'smart' | 'job-select'
 
@@ -12,7 +25,7 @@ interface JobOption {
 }
 
 export function ApplicationSetup() {
-  const { initWizard } = useWizardStore()
+  const { initWizard, setPatternConfig, setupDraft, saveSetupDraft, clearSetupDraft } = useWizardStore()
   const navigate = useNavigate()
   const [mode, setMode] = useState<SetupMode>('select')
   const [smartUrl, setSmartUrl] = useState('')
@@ -29,6 +42,47 @@ export function ApplicationSetup() {
   const [pendingCompanyName, setPendingCompanyName] = useState('')
   const [isWaitingExtraction, setIsWaitingExtraction] = useState(false)
   const extractionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [loadedPatterns, setLoadedPatterns] = useState<PatternRecord[]>([])
+  const [patternSettings, setPatternSettings] = useState<PatternSettings>({ useDefaultPatterns: true })
+  const [selectedPatternIds, setSelectedPatternIds] = useState<string[]>([])
+  const isRestored = useRef(false)
+
+  // 이탈했다 돌아올 때 입력 데이터 복원
+  useEffect(() => {
+    if (setupDraft && !isRestored.current) {
+      isRestored.current = true
+      setMode(setupDraft.mode)
+      setCompanyName(setupDraft.companyName)
+      setJobTitle(setupDraft.jobTitle)
+      setJobPosting(setupDraft.jobPosting)
+      setStrategy(setupDraft.strategy)
+      setQuestions(setupDraft.questions.length > 0 ? setupDraft.questions : [{ question: '', charLimit: 800 }])
+      setSmartUrl(setupDraft.smartUrl)
+      setJobOptions(setupDraft.jobOptions)
+      setPendingCompanyName(setupDraft.pendingCompanyName)
+    }
+  }, [])
+
+  // 폼에 내용이 생기면 드래프트 저장 (이탈해도 유지)
+  useEffect(() => {
+    const hasData = companyName || jobTitle || jobPosting || smartUrl ||
+      questions.some((q) => q.question) || jobOptions.length > 0
+    if (!hasData) return
+    saveSetupDraft({ mode, companyName, jobTitle, jobPosting, strategy, questions, smartUrl, jobOptions, pendingCompanyName })
+  }, [mode, companyName, jobTitle, jobPosting, strategy, questions, smartUrl, jobOptions, pendingCompanyName])
+
+  // 패턴 데이터 로드
+  useEffect(() => {
+    Promise.all([
+      window.api.patternList() as Promise<PatternRecord[]>,
+      window.api.patternSettingsGet() as Promise<PatternSettings>
+    ]).then(([list, settings]) => {
+      const active = list.filter((p) => p.isActive && p.analysisStatus === 'ready')
+      setLoadedPatterns(active)
+      setPatternSettings(settings)
+      setSelectedPatternIds(active.map((p) => p.id))
+    }).catch(() => {/* 무시 */})
+  }, [])
 
   // 확장 프로그램 문항 추출 대기 (IPC push)
   useEffect(() => {
@@ -40,10 +94,10 @@ export function ApplicationSetup() {
         if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
       }
     })
-    // 60초 타임아웃
+    // 3분 타임아웃
     extractionTimerRef.current = setTimeout(() => {
       setIsWaitingExtraction(false)
-    }, 60000)
+    }, 180000)
     return () => {
       unsub()
       if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
@@ -73,7 +127,9 @@ export function ApplicationSetup() {
 
   const handleSubmit = () => {
     if (!canSubmit) return
+    clearSetupDraft()
     initWizard(companyName, jobTitle, jobPosting, questions, strategy)
+    setPatternConfig(selectedPatternIds, patternSettings.useDefaultPatterns)
     navigate('/wizard')
   }
 
@@ -392,6 +448,53 @@ export function ApplicationSetup() {
             ))}
           </div>
         </div>
+
+        {/* 패턴 설정 */}
+        {(loadedPatterns.length > 0 || !patternSettings.useDefaultPatterns) && (
+          <div>
+            <label className="mb-2 block text-sm font-medium">패턴 강화 설정</label>
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="pat-default"
+                  checked={patternSettings.useDefaultPatterns}
+                  onChange={(e) => setPatternSettings({ useDefaultPatterns: e.target.checked })}
+                  className="accent-primary"
+                />
+                <label htmlFor="pat-default" className="text-xs text-muted-foreground cursor-pointer">
+                  기본 패턴 사용 (KB증권·삼성생명·현대해상·한국자금중개)
+                </label>
+              </div>
+              {loadedPatterns.map((p) => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={`pat-${p.id}`}
+                    checked={selectedPatternIds.includes(p.id)}
+                    onChange={(e) => {
+                      setSelectedPatternIds((prev) =>
+                        e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                      )
+                    }}
+                    className="accent-primary"
+                  />
+                  <label htmlFor={`pat-${p.id}`} className="text-xs cursor-pointer">
+                    <span className={cn(
+                      'mr-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                      p.source === 'history'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                    )}>
+                      {p.source === 'history' ? '합격 이력' : '업로드'}
+                    </span>
+                    {p.name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Submit */}
         <button

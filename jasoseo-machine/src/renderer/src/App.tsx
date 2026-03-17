@@ -13,6 +13,7 @@ import { SettingsPage } from './components/settings/SettingsPage'
 import { GuidePage } from './components/guide/GuidePage'
 import { MagicOnboarding } from './components/dashboard/MagicOnboarding'
 import { FullReview } from './components/wizard/FullReview'
+import { PatternPage } from './components/patterns/PatternPage'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAutoSave } from './hooks/useAutoSave'
 
@@ -45,6 +46,7 @@ function App() {
           <Route path="/history/:id" element={<HistoryDetailPage />} />
           <Route path="/guide" element={<GuidePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/patterns" element={<PatternPage />} />
         </Route>
       </Routes>
     </HashRouter>

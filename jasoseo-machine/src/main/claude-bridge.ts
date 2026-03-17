@@ -66,6 +66,8 @@ function buildSpawnEnv(provider?: string): NodeJS.ProcessEnv {
 export interface ClaudeExecuteOptions {
   prompt: string
   outputFormat: 'json' | 'stream-json' | 'text'
+  modelOverride?: string
+  skipProjectDir?: boolean
   jsonSchema?: string
   maxTurns?: number
   appendSystemPrompt?: string
@@ -87,8 +89,11 @@ function unwrapGeminiResponse(raw: string): string {
       const parsed = JSON.parse(candidate)
       if (typeof parsed.response === 'string') {
         const inner = parsed.response
-        const ib = inner.indexOf('{'); const il = inner.lastIndexOf('}')
-        if (ib !== -1 && il > ib) return inner.slice(ib, il + 1)
+        // 배열 응답 처리: "[{...}, {...}]" — { 보다 [ 가 먼저 나오면 배열 전체 반환
+        const ia = inner.indexOf('['); const il = inner.lastIndexOf(']')
+        const ib = inner.indexOf('{'); const ij = inner.lastIndexOf('}')
+        if (ia !== -1 && il > ia && (ib === -1 || ia < ib)) return inner.slice(ia, il + 1)
+        if (ib !== -1 && ij > ib) return inner.slice(ib, ij + 1)
         return inner
       }
       return candidate
@@ -98,8 +103,8 @@ function unwrapGeminiResponse(raw: string): string {
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
-  const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
-  
+  const model = options.modelOverride || getModel(); const provider = model.startsWith('gemini') ? 'gemini' : 'claude'; const projectDir = getProjectDir(); const cli = getCliPath(provider)
+
   let finalFilePath = options.filePath
   let cleanupTempFile: string | null = null
 
@@ -119,7 +124,7 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
 
   // [핵심 조치 2] os.tmpdir() 포함 보장: 임시 파일이 항상 워크스페이스에 포함되도록
   const tempDir = os.tmpdir()
-  const includeDirs: string[] = [projectDir, tempDir]
+  const includeDirs: string[] = options.skipProjectDir ? [tempDir] : [projectDir, tempDir]
   if (finalFilePath) includeDirs.push(path.dirname(finalFilePath))
   // [핵심 조치 3] 역슬래시 → 슬래시 변환: Windows 경로 인식 오류 방지
   const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir.replace(/\\/g, '/')])
@@ -231,6 +236,12 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
         } else { safeSend(IPC.CLAUDE_STREAM_CHUNK, event) }
       } catch { }
     }
+  })
+  child.on('error', (err) => {
+    clearInterval(watchdog)
+    activeProcesses.delete(child)
+    console.error(`[AI Stream Spawn Error] ${err.message}`)
+    safeSend(IPC.CLAUDE_STREAM_ERROR, { message: err.message.includes('ENOENT') ? 'AI CLI 실행 파일을 찾을 수 없습니다. 설정에서 경로를 확인해주세요.' : err.message })
   })
   child.on('close', (code) => {
     clearInterval(watchdog)

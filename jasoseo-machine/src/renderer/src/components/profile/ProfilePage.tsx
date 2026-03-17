@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useProfileStore } from '../../stores/profileStore'
 import { 
@@ -31,10 +31,19 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadProfile()
   }, [])
+
+  useEffect(() => {
+    if (isCreatingProfile) {
+      setTimeout(() => nameInputRef.current?.focus(), 50)
+    }
+  }, [isCreatingProfile])
 
   useEffect(() => {
     if (isLoaded && profile) {
@@ -73,12 +82,11 @@ export function ProfilePage() {
   }
 
   const handleCreateProfile = async () => {
-    const name = prompt('새 프로필의 이름을 입력하세요:')
-    if (name && name.trim()) {
-      await createProfile(name.trim())
-      await loadProfilesList()
-      alert(`'${name.trim()}' 프로필이 생성되었습니다.`)
-    }
+    if (!newProfileName.trim()) return
+    await createProfile(newProfileName.trim())
+    await loadProfilesList()
+    setNewProfileName('')
+    setIsCreatingProfile(false)
   }
 
   const handleSwitch = async (id: string) => {
@@ -127,12 +135,41 @@ export function ProfilePage() {
             </select>
           </div>
           <div className="h-8 w-px bg-primary/20 mx-2"></div>
-          <button 
-            onClick={handleCreateProfile}
-            className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all"
-          >
-            <span>+</span> 새 프로필 추가
-          </button>
+          {isCreatingProfile ? (
+            <div className="flex items-center gap-2">
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateProfile()
+                  if (e.key === 'Escape') { setIsCreatingProfile(false); setNewProfileName('') }
+                }}
+                placeholder="프로필 이름"
+                className="rounded-lg border border-primary/50 bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary w-32"
+              />
+              <button
+                onClick={handleCreateProfile}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground"
+              >
+                생성
+              </button>
+              <button
+                onClick={() => { setIsCreatingProfile(false); setNewProfileName('') }}
+                className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground"
+              >
+                취소
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsCreatingProfile(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all"
+            >
+              <span>+</span> 새 프로필 추가
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-3">

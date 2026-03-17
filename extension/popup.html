@@ -9,6 +9,14 @@
     label { display: block; font-size: 11px; font-weight: bold; color: #6b7280; margin-bottom: 4px; }
     input { width: 100%; padding: 8px; border: 1px border #d1d5db; border-radius: 6px; font-size: 12px; box-sizing: border-box; }
     button { width: 100%; padding: 10px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding: 10px; background: #f3f4f6; border-radius: 6px; }
+    .toggle-label { font-size: 12px; font-weight: bold; color: #374151; }
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #d1d5db; border-radius: 22px; transition: 0.3s; }
+    .toggle-slider:before { position: absolute; content: ''; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+    input:checked + .toggle-slider { background: #4f46e5; }
+    input:checked + .toggle-slider:before { transform: translateX(18px); }
     .status { margin-top: 10px; font-size: 11px; text-align: center; color: #10b981; }
   </style>
 </head>
@@ -23,6 +31,13 @@
     <input type="password" id="secret" placeholder="앱 설정에서 복사한 키">
   </div>
   <button id="save">연동 정보 저장</button>
+  <div class="toggle-row">
+    <span class="toggle-label">🟣 페이지 버튼 표시</span>
+    <label class="toggle">
+      <input type="checkbox" id="visibilityToggle" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
   <div id="status" class="status"></div>
   <script src="popup.js"></script>
 </body>

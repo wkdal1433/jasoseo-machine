@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
-import type { WizardState, WizardQuestion, WizardStep } from '../types/wizard'
+import type { WizardState, WizardQuestion, WizardStep, SetupDraft } from '../types/wizard'
 import type { Strategy, HRIntentItem, AnalysisResult, VerificationResult, QuestionInput, RecruitmentContext } from '../types/application'
 
 interface WizardActions {
@@ -19,6 +19,9 @@ interface WizardActions {
   setActiveQuestion: (index: number) => void
   setIsGenerating: (val: boolean) => void
   setIsVerifying: (val: boolean) => void
+  setPatternConfig: (activePatternIds: string[], useDefaultPatterns: boolean) => void
+  saveSetupDraft: (draft: Partial<SetupDraft>) => void
+  clearSetupDraft: () => void
   completeQuestion: (questionIndex: number) => void
   reopenQuestion: (questionIndex: number) => void
   resetWizard: () => void
@@ -38,7 +41,10 @@ const initialState: WizardState = {
   activeQuestionIndex: 0,
   step0Completed: false,
   isGenerating: false,
-  isVerifying: false
+  isVerifying: false,
+  activePatternIds: [],
+  useDefaultPatterns: true,
+  setupDraft: null
 }
 
 export const useWizardStore = create<WizardState & WizardActions>((set, get) => ({
@@ -76,7 +82,9 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
       activeQuestionIndex: 0,
       step0Completed: false,
       isGenerating: false,
-      isVerifying: false
+      isVerifying: false,
+      activePatternIds: [],
+      useDefaultPatterns: true
     })
   },
 
@@ -183,6 +191,9 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
   setActiveQuestion: (index) => set({ activeQuestionIndex: index }),
   setIsGenerating: (val) => set({ isGenerating: val }),
   setIsVerifying: (val) => set({ isVerifying: val }),
+  setPatternConfig: (activePatternIds, useDefaultPatterns) => set({ activePatternIds, useDefaultPatterns }),
+  saveSetupDraft: (draft) => set((state) => ({ setupDraft: { ...(state.setupDraft as SetupDraft), ...draft } as SetupDraft })),
+  clearSetupDraft: () => set({ setupDraft: null }),
 
   completeQuestion: (questionIndex) => {
     set((state) => {
@@ -204,6 +215,6 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
     set({ ...initialState, ...savedState })
   },
 
-  resetWizard: () => set(initialState),
+  resetWizard: () => set({ ...initialState, setupDraft: null }),
   getState: () => get()
 }))

@@ -71,11 +71,9 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   createProfile: async (name) => {
     if (get().isLocked) return
-    const newProfile = await window.api.userProfileCreate(name)
-    if (newProfile) {
-      set({ profile: newProfile })
-      await get().loadProfilesList()
-    }
+    await window.api.userProfileCreate(name)
+    // 현재 프로필은 유지, 목록만 갱신
+    await get().loadProfilesList()
   },
 
   deleteProfile: async (id) => {

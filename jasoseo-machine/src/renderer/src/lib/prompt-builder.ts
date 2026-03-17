@@ -153,7 +153,8 @@ export function buildStep3to5Prompt(
   charLimit: number,
   approvedEpisodes: string[],
   angles: Record<string, string>,
-  episodeContents: Record<string, string> = {}
+  episodeContents: Record<string, string> = {},
+  patternContext?: string
 ): string {
   const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
 
@@ -170,8 +171,12 @@ export function buildStep3to5Prompt(
       }).join('\n')
     : '(승인된 에피소드 없음)'
 
-  return `${strategyAnchor}
+  const patternSection = patternContext
+    ? `\n[합격 자소서 패턴 참조] (문체·구조만 참조, 내용 복사 금지):\n${patternContext}\n`
+    : ''
 
+  return `${strategyAnchor}
+${patternSection}
 [Step 3-5: 자소서 생성]
 
 [질문 재해석]: """${questionReframe}"""

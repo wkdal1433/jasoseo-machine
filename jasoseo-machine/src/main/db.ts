@@ -4,6 +4,7 @@ import { join } from 'path'
 
 interface ApplicationRecord {
   id: string
+  profileId?: string
   createdAt: string
   updatedAt: string
   companyName: string
@@ -30,8 +31,34 @@ interface CoverLetterRecord {
 
 interface DraftRecord {
   applicationId: string
+  profileId?: string
   wizardState: string
   savedAt: string
+}
+
+export interface ExtractedPattern {
+  narrativeStructure: string       // 두괄식/미괄식/문제해결형
+  openingStyle: string             // 대표 도입부 패턴 요약
+  dualCodingKeywords: string[]     // 기업가치 연결 키워드 목록
+  specificityLevel: string         // 수치/사례 활용 방식
+  closingStyle: string             // 마무리 패턴
+  toneProfile: string              // 전체 톤 (formal/balanced/aggressive)
+  highlightExamples: string[]      // S-P-A-A-R-L 대표 문장 예시
+}
+
+export interface PatternRecord {
+  id: string
+  name: string
+  source: 'uploaded' | 'history'
+  applicationId?: string           // history에서 추가 시 연결
+  isActive: boolean
+  analysisStatus: 'analyzing' | 'ready' | 'failed'
+  extractedPattern: ExtractedPattern | null
+  createdAt: string
+}
+
+interface PatternSettings {
+  useDefaultPatterns: boolean
 }
 
 interface DbData {
@@ -41,6 +68,8 @@ interface DbData {
   settings: Record<string, string>
   profiles: any[] // 멀티 프로필 지원
   currentProfileId: string | null
+  patterns: PatternRecord[]
+  patternSettings: PatternSettings
 }
 
 let data: DbData = {
@@ -49,7 +78,9 @@ let data: DbData = {
   drafts: [],
   settings: {},
   profiles: [],
-  currentProfileId: null
+  currentProfileId: null,
+  patterns: [],
+  patternSettings: { useDefaultPatterns: true }
 }
 
 let dbPath = ''
@@ -127,6 +158,19 @@ export function initDatabase(): void {
     }
     save()
   }
+
+  // 마이그레이션: profileId 없는 기존 applications/drafts를 첫 번째 프로필에 배정
+  if (data.profiles.length > 0) {
+    const firstProfileId = data.profiles[0].id
+    let migrated = false
+    data.applications.forEach((a) => {
+      if (!a.profileId) { a.profileId = firstProfileId; migrated = true }
+    })
+    data.drafts.forEach((d) => {
+      if (!d.profileId) { d.profileId = firstProfileId; migrated = true }
+    })
+    if (migrated) save()
+  }
 }
 
 // === Profiles ===
@@ -184,7 +228,8 @@ export function createProfile(name: string): any {
     preferences: { isVeteran: false, isProtection: false, isSubsidy: false, isDisabled: false, military: { status: '' } }
   }
   data.profiles.push(newProfile)
-  data.currentProfileId = newProfile.id
+  // currentProfileId는 변경하지 않음 — 기존 프로필 유지
+  // 사용자가 드롭다운에서 직접 선택해야 전환됨
   save()
   return newProfile
 }
@@ -203,6 +248,7 @@ export function deleteProfile(id: string): string | null {
 
 // === Applications ===
 export function saveApplication(app: ApplicationRecord): void {
+  if (!app.profileId) app.profileId = data.currentProfileId || undefined
   const idx = data.applications.findIndex((a) => a.id === app.id)
   if (idx >= 0) {
     data.applications[idx] = app
@@ -213,7 +259,9 @@ export function saveApplication(app: ApplicationRecord): void {
 }
 
 export function listApplications(): (ApplicationRecord & { question_count: number })[] {
+  const currentProfileId = data.currentProfileId
   return data.applications
+    .filter((a) => a.profileId === currentProfileId)
     .map((a) => ({
       ...a,
       question_count: data.coverLetters.filter((cl) => cl.applicationId === a.id).length
@@ -251,6 +299,10 @@ export function getCoverLetter(id: string): CoverLetterRecord | undefined {
   return data.coverLetters.find((c) => c.id === id)
 }
 
+export function listCoverLettersByApp(applicationId: string): CoverLetterRecord[] {
+  return data.coverLetters.filter((c) => c.applicationId === applicationId)
+}
+
 export function saveCoverLetter(cl: CoverLetterRecord): void {
   const idx = data.coverLetters.findIndex((c) => c.id === cl.id)
   if (idx >= 0) {
@@ -274,6 +326,7 @@ export function saveDraft(applicationId: string, wizardState: string): void {
   const idx = data.drafts.findIndex((d) => d.applicationId === applicationId)
   const draft: DraftRecord = {
     applicationId,
+    profileId: data.currentProfileId || undefined,
     wizardState,
     savedAt: new Date().toISOString()
   }
@@ -295,9 +348,10 @@ export function deleteDraft(applicationId: string): void {
 }
 
 export function listDrafts() {
+  const currentProfileId = data.currentProfileId
   const savedAppIds = new Set(data.applications.map((a) => a.id))
   return data.drafts
-    .filter((d) => !savedAppIds.has(d.applicationId))
+    .filter((d) => d.profileId === currentProfileId && !savedAppIds.has(d.applicationId))
     .map((d) => ({
       applicationId: d.applicationId,
       savedAt: d.savedAt,
@@ -348,5 +402,61 @@ export function getSetting(key: string): string | null {
 
 export function setSetting(key: string, value: string): void {
   data.settings[key] = value
+  save()
+}
+
+// === Patterns ===
+export function listPatterns(): PatternRecord[] {
+  if (!data.patterns) data.patterns = []
+  return [...data.patterns].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
+export function savePattern(pattern: PatternRecord): void {
+  if (!data.patterns) data.patterns = []
+  const idx = data.patterns.findIndex((p) => p.id === pattern.id)
+  if (idx >= 0) {
+    data.patterns[idx] = pattern
+  } else {
+    data.patterns.push(pattern)
+  }
+  save()
+}
+
+export function updatePatternAnalysis(
+  id: string,
+  status: PatternRecord['analysisStatus'],
+  extractedPattern: ExtractedPattern | null
+): void {
+  if (!data.patterns) data.patterns = []
+  const p = data.patterns.find((p) => p.id === id)
+  if (p) {
+    p.analysisStatus = status
+    p.extractedPattern = extractedPattern
+    save()
+  }
+}
+
+export function togglePattern(id: string, isActive: boolean): void {
+  if (!data.patterns) data.patterns = []
+  const p = data.patterns.find((p) => p.id === id)
+  if (p) {
+    p.isActive = isActive
+    save()
+  }
+}
+
+export function deletePattern(id: string): void {
+  if (!data.patterns) data.patterns = []
+  data.patterns = data.patterns.filter((p) => p.id !== id)
+  save()
+}
+
+export function getPatternSettings(): PatternSettings {
+  if (!data.patternSettings) data.patternSettings = { useDefaultPatterns: true }
+  return { ...data.patternSettings }
+}
+
+export function savePatternSettings(settings: PatternSettings): void {
+  data.patternSettings = settings
   save()
 }

@@ -87,3 +87,11 @@ app.on('will-quit', () => {
   stopAllProcesses()
   bridgeServer.stop()
 })
+
+// 메인 프로세스 안전망: 처리되지 않은 에러로 인한 앱 강제 종료 방지
+process.on('uncaughtException', (err) => {
+  console.error('[Main Process] uncaughtException:', err.message, err.stack)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[Main Process] unhandledRejection:', reason)
+})

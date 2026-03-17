@@ -10,7 +10,13 @@ document.getElementById('save').addEventListener('click', () => {
 });
 
 // 기존 값 로드
-chrome.storage.local.get(['bridgePort', 'bridgeSecret'], (res) => {
+chrome.storage.local.get(['bridgePort', 'bridgeSecret', 'jasoseoButtonsVisible'], (res) => {
   if (res.bridgePort) document.getElementById('port').value = res.bridgePort;
   if (res.bridgeSecret) document.getElementById('secret').value = res.bridgeSecret;
+  document.getElementById('visibilityToggle').checked = res.jasoseoButtonsVisible !== false;
+});
+
+// 버튼 표시 토글
+document.getElementById('visibilityToggle').addEventListener('change', (e) => {
+  chrome.storage.local.set({ jasoseoButtonsVisible: e.target.checked });
 });

@@ -9,6 +9,7 @@ const navItems = [
   { path: '/profile', label: '내 프로필', icon: '👤' },
   { path: '/episodes', label: '에피소드', icon: '📋' },
   { path: '/history', label: '작성 이력', icon: '📁' },
+  { path: '/patterns', label: '패턴 강화', icon: '🧬' },
   { path: '/guide', label: '사용 가이드', icon: '📖' },
   { path: '/settings', label: '설정', icon: '⚙️' }
 ]
