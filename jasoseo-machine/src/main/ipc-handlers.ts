@@ -170,10 +170,11 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
         existingTitles = readdirSync(dir).filter(f => f.endsWith('.md'))
       }
 
-        const aiResponse = await executeClaudePrompt({ 
-          prompt: interviewer.buildIdeaSuggestionPrompt(profile, existingTitles), 
-          outputFormat: 'json', 
-          maxTurns: 5 
+        const aiResponse = await executeClaudePrompt({
+          prompt: interviewer.buildIdeaSuggestionPrompt(profile, existingTitles),
+          outputFormat: 'json',
+          maxTurns: 5,
+          modelOverride: getSetting('model_ep_ep_suggest') || undefined
         })
 
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
@@ -238,7 +239,7 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     try {
       const profile = getUserProfile()
       if (!profile) throw new Error('프로필이 없습니다.')
-      const aiResponse = await executeClaudePrompt({ prompt: analyzer.buildBatchPrompt(html, profile), outputFormat: 'json', maxTurns: 5 })
+      const aiResponse = await executeClaudePrompt({ prompt: analyzer.buildBatchPrompt(html, profile), outputFormat: 'json', maxTurns: 5, modelOverride: getSetting('model_ep_form_analyze') || undefined })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 응답이 올바르지 않습니다.')
       const result = JSON.parse(jsonMatch[0])
@@ -251,7 +252,7 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     const analyst = new CompanyAnalyst()
     try {
       const query = analyst.buildSearchQuery(name, date, additionalContext)
-      const aiResponse = await executeClaudePrompt({ prompt: analyst.buildAnalysisPrompt(name, `[Search for ${query}]`, date, additionalContext), outputFormat: 'json', maxTurns: 5 })
+      const aiResponse = await executeClaudePrompt({ prompt: analyst.buildAnalysisPrompt(name, `[Search for ${query}]`, date, additionalContext), outputFormat: 'json', maxTurns: 5, modelOverride: getSetting('model_ep_company_analyze') || undefined })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
       let result = JSON.parse(jsonMatch[0])
@@ -288,7 +289,8 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
           : agent.buildExtractionPromptFromContent(filePath),
         outputFormat: 'json',
         maxTurns: 10,
-        filePath: isFilePath ? filePath : undefined
+        filePath: isFilePath ? filePath : undefined,
+        modelOverride: getSetting('model_ep_onboarding_parse') || undefined
       })
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
@@ -440,7 +442,7 @@ ${text}
 - jobs[].jobTitle: 직무명 (하나의 직무만, 다른 직무와 합치지 말 것)
 - jobs[].jobPosting: 해당 직무의 채용공고 요약 (자격요건, 우대사항, 인재상 포함)
 - jobs[].questions: 자소서 문항 배열 (없으면 빈 배열 [])`
-      const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3 })
+      const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3, modelOverride: getSetting('model_ep_web_fetch') || undefined })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
       const parsed = JSON.parse(jsonMatch[0])
@@ -547,7 +549,7 @@ ${coverLetterText}
 }`
 
     try {
-      const response = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const response = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: getSetting('model_ep_pattern_analyze') || undefined })
       const match = response.match(/\{[\s\S]*\}/)
       const extracted = match ? JSON.parse(match[0]) : null
       if (extracted) {

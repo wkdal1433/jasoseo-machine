@@ -184,7 +184,7 @@ RULES:
 - No preamble or explanation.`;
 
       try {
-        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', skipProjectDir: true });
+        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', skipProjectDir: true, modelOverride: getSetting('model_ep_profile_fill') || undefined });
         console.log(`\n===== PROFILE FILL RAW (${raw.length} chars) =====`);
         console.log(raw.slice(0, 500));
         console.log('=====');
@@ -244,7 +244,7 @@ RULES:
 반드시 아래와 같은 형태의 단일 JSON 객체로만 반환하세요 (배열 직접 반환 금지):
 {"questions": [{"question":"...", "charLimit":1000, "order":0}, ...]}`;
 
-        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', filePath: tmpFile });
+        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', filePath: tmpFile, modelOverride: getSetting('model_ep_form_extract') || undefined });
 
         // ★ 디버그: Gemini 응답 원문을 파일로 저장 (확인 후 삭제 예정)
         const debugFile = path.join(os.tmpdir(), `gemini_raw_${Date.now()}.txt`);
