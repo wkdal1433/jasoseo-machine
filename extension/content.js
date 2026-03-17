@@ -112,6 +112,146 @@
         console.log(`✅ 프로필 채움: "${rawLabel}" → "${rule.value}"`);
       }
     });
+
+    // Select 처리 — 키워드 매칭
+    document.querySelectorAll('select').forEach(select => {
+      if (select.disabled) return;
+      const style = window.getComputedStyle(select);
+      if (style.display === 'none' || style.visibility === 'hidden') return;
+      const curVal = select.value;
+      if (curVal && curVal !== '0' && curVal !== '-1') return;
+
+      const rawLabel = getLabelText(select);
+      if (!rawLabel) return;
+      const label = rawLabel.toLowerCase().replace(/[\s\*\(\)\[\]]/g, '');
+
+      const rule = fieldRules.find(r => r.keys.some(k => label.includes(k.replace(/\s/g, ''))));
+      if (!rule) return;
+
+      const target = String(rule.value).toLowerCase();
+      const opts = Array.from(select.options);
+      const match = opts.find(o =>
+        o.value.toLowerCase() === target ||
+        o.text.trim().toLowerCase() === target ||
+        o.text.trim().toLowerCase().includes(target) ||
+        target.includes(o.text.trim().toLowerCase()) && o.text.trim().length > 0
+      );
+      if (match) {
+        select.value = match.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        filledCount++;
+        console.log(`✅ Select 채움: "${rawLabel}" → "${match.text.trim()}"`);
+      }
+    });
+
+    // Date input 처리 — 키워드 매칭
+    const dateRules = [
+      { keys: ['생년월일', '출생일', 'birth'], value: p.birthDate },
+    ].filter(r => r.value);
+
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+      if (input.disabled || input.readOnly || input.value) return;
+      const style = window.getComputedStyle(input);
+      if (style.display === 'none' || style.visibility === 'hidden') return;
+
+      const rawLabel = getLabelText(input);
+      if (!rawLabel) return;
+      const label = rawLabel.toLowerCase().replace(/[\s\*\(\)\[\]]/g, '');
+
+      const rule = dateRules.find(r => r.keys.some(k => label.includes(k)));
+      if (rule) {
+        input.value = String(rule.value).slice(0, 10);
+        ['input', 'change'].forEach(e => input.dispatchEvent(new Event(e, { bubbles: true })));
+        filledCount++;
+        console.log(`✅ Date 채움: "${rawLabel}" → "${input.value}"`);
+      }
+    });
+
+    // 라디오 버튼 처리 — 성별, 병역 등
+    // 그룹 라벨(예: "성별")을 조상에서 찾고, 옵션 라벨(예: "남")이 맞는 것을 클릭
+    function fillRadio(groupKeywords, valueAliases) {
+      const allRadios = Array.from(document.querySelectorAll('input[type="radio"]'));
+      for (const radio of allRadios) {
+        if (radio.disabled || radio.checked) continue;
+        const style = window.getComputedStyle(radio);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+
+        const radioValue = (radio.value || '').toLowerCase();
+        const optLabel = getLabelText(radio).toLowerCase().replace(/[\s\*]/g, '');
+
+        // 이 라디오의 옵션값이 target value와 일치하는지
+        const isTargetValue = valueAliases.some(v => {
+          const vl = v.toLowerCase();
+          return optLabel === vl || radioValue === vl || optLabel.startsWith(vl) || radioValue.startsWith(vl);
+        });
+        if (!isTargetValue) continue;
+
+        // 조상 요소에서 그룹 라벨 키워드 탐색 (직계 텍스트 + 앞 형제 텍스트)
+        let ancestor = radio.parentElement;
+        let groupFound = false;
+        for (let d = 0; d < 8 && ancestor && ancestor !== document.body; d++) {
+          // 직계 텍스트 노드
+          const directText = Array.from(ancestor.childNodes)
+            .filter(n => n.nodeType === Node.TEXT_NODE)
+            .map(n => n.textContent.trim().toLowerCase()).join(' ');
+          // 앞 형제 요소 텍스트 (th, td, label 등)
+          const prevSibText = ancestor.previousElementSibling
+            ? ancestor.previousElementSibling.textContent.trim().toLowerCase() : '';
+          const combinedText = directText + ' ' + prevSibText;
+          if (groupKeywords.some(k => combinedText.includes(k.toLowerCase()))) {
+            groupFound = true;
+            break;
+          }
+          ancestor = ancestor.parentElement;
+        }
+
+        if (groupFound) {
+          radio.click();
+          ['change', 'input'].forEach(e => radio.dispatchEvent(new Event(e, { bubbles: true })));
+          console.log(`✅ Radio 채움: [${groupKeywords[0]}] → "${radio.value}"`);
+          filledCount++;
+          break;
+        }
+      }
+    }
+
+    const gender = p.gender;
+    if (gender === 'male' || gender === '남') {
+      fillRadio(['성별', 'gender', '남녀'], ['남', '남성', 'male', 'm', '1']);
+    } else if (gender === 'female' || gender === '여') {
+      fillRadio(['성별', 'gender', '남녀'], ['여', '여성', 'female', 'f', '2']);
+    }
+
+    // 체크박스 처리 — 프로필에서 true인 항목만 체크 (false여도 절대 uncheck 안 함)
+    const prefs = profile.preferences || {};
+    const checkboxRules = [
+      { keys: ['보훈', '국가유공', '보훈대상'], shouldCheck: !!prefs.isVeteran },
+      { keys: ['장애', '장애인', '장애여부'], shouldCheck: !!prefs.isDisabled },
+      { keys: ['취업보호', '취업지원대상', '고용지원'], shouldCheck: !!prefs.isProtection },
+      { keys: ['운전면허', '운전가능', '면허보유'], shouldCheck: !!prefs.hasDriverLicense },
+      { keys: ['취약계층'], shouldCheck: !!prefs.isVulnerable },
+    ].filter(r => r.shouldCheck);
+
+    if (checkboxRules.length > 0) {
+      document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        if (checkbox.disabled || checkbox.checked) return;
+        const style = window.getComputedStyle(checkbox);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+
+        const rawLabel = getLabelText(checkbox);
+        if (!rawLabel) return;
+        const label = rawLabel.toLowerCase().replace(/[\s\*\(\)\[\]]/g, '');
+
+        const rule = checkboxRules.find(r => r.keys.some(k => label.includes(k.toLowerCase().replace(/\s/g, ''))));
+        if (rule) {
+          checkbox.click();
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+          filledCount++;
+          console.log(`✅ Checkbox 체크: "${rawLabel}"`);
+        }
+      });
+    }
+
     console.log(`[프로필] ${filledCount}개 필드 채움`);
     return [];
   }
@@ -346,59 +486,125 @@
       const port = config.bridgePort;
       const secret = config.bridgeSecret;
 
-      // 폼 입력 필드 메타데이터 수집 (Gemini에 보낼 경량 구조체)
-      const formInputs = [];
-      const selectors = 'input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])';
-      document.querySelectorAll(selectors).forEach((input) => {
-        if (input.disabled || input.readOnly) return;
-        const style = window.getComputedStyle(input);
-        if (style.display === 'none' || style.visibility === 'hidden') return;
-        if (input.offsetWidth === 0) return;
-        if (input.value) return;
-
-        // 라벨 텍스트 수집 — fillProfileFields의 getLabelText와 동일한 5가지 전략 적용
+      // ── 라벨 텍스트 추출 공통 헬퍼 (5가지 전략) ──────────────────────
+      function collectLabelText(el) {
         let labelText = '';
-        // 1. <label for="id">
-        if (input.id) {
+        if (el.id) {
           try {
-            const lbl = document.querySelector(`label[for="${CSS.escape(input.id)}"]`);
+            const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
             if (lbl) labelText = lbl.textContent.trim();
           } catch {}
         }
-        // 2. aria-label
-        if (!labelText) labelText = input.getAttribute('aria-label') || '';
-        // 3. placeholder
-        if (!labelText) labelText = input.placeholder || '';
-        // 4. 부모 <label>
+        if (!labelText) labelText = el.getAttribute('aria-label') || '';
+        if (!labelText) labelText = el.placeholder || '';
         if (!labelText) {
-          let node = input.parentElement;
+          let node = el.parentElement;
           while (node && node !== document.body) {
-            if (node.tagName === 'LABEL') { labelText = node.textContent.replace(input.value || '', '').trim(); break; }
+            if (node.tagName === 'LABEL') { labelText = node.textContent.replace(el.value || '', '').trim(); break; }
             node = node.parentElement;
           }
         }
-        // 5. 가까운 조상의 형제 텍스트
         if (!labelText) {
-          let node = input.parentElement;
+          let node = el.parentElement;
           outer: for (let i = 0; i < 4 && node && node !== document.body; i++) {
             for (const child of node.children) {
-              if (child.contains(input)) continue;
+              if (child.contains(el)) continue;
               const t = child.textContent.trim();
               if (t.length > 0 && t.length < 30 && !t.includes('\n')) { labelText = t; break outer; }
             }
             node = node.parentElement;
           }
         }
+        return labelText.replace(/[*\s]+/g, ' ').trim();
+      }
+
+      // 폼 입력 필드 메타데이터 수집 (text / select / date — Gemini에 보낼 경량 구조체)
+      const formInputs = [];
+
+      // 1) text 계열 input
+      const textSelectors = 'input[type="text"], input[type="email"], input[type="tel"], input[type="number"], input:not([type])';
+      document.querySelectorAll(textSelectors).forEach((input) => {
+        if (input.disabled || input.readOnly) return;
+        const style = window.getComputedStyle(input);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (input.offsetWidth === 0) return;
+        if (input.value) return;
 
         const idx = formInputs.length;
         input.setAttribute('data-fill-idx', idx);
         formInputs.push({
           idx,
+          type: 'text',
           id: input.id || null,
           name: input.getAttribute('name') || null,
-          labelText: labelText.replace(/[*\s]+/g, ' ').trim(),
+          labelText: collectLabelText(input),
           placeholder: input.placeholder || null,
           ariaLabel: input.getAttribute('aria-label') || null,
+        });
+      });
+
+      // 2) date input
+      document.querySelectorAll('input[type="date"]').forEach((input) => {
+        if (input.disabled || input.readOnly) return;
+        const style = window.getComputedStyle(input);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (input.value) return;
+
+        const idx = formInputs.length;
+        input.setAttribute('data-fill-idx', idx);
+        formInputs.push({
+          idx,
+          type: 'date',
+          id: input.id || null,
+          name: input.getAttribute('name') || null,
+          labelText: collectLabelText(input),
+        });
+      });
+
+      // 4) checkbox — 이미 체크된 것(개인정보 동의 등)은 건드리지 않음
+      //    disabled 상태도 수집은 함 (radio/select 채운 후 활성화될 수 있어서)
+      document.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        if (checkbox.checked) return; // 이미 체크된 건 건드리지 않음
+        const style = window.getComputedStyle(checkbox);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (checkbox.offsetWidth === 0) return;
+
+        const idx = formInputs.length;
+        checkbox.setAttribute('data-fill-idx', idx);
+        formInputs.push({
+          idx,
+          type: 'checkbox',
+          id: checkbox.id || null,
+          name: checkbox.getAttribute('name') || null,
+          labelText: collectLabelText(checkbox),
+          disabled: checkbox.disabled, // AI에게 현재 disabled 여부 알림
+        });
+      });
+
+      // 3) select (드롭다운) — options 목록 포함해서 AI에 전달
+      document.querySelectorAll('select').forEach((select) => {
+        if (select.disabled) return;
+        const style = window.getComputedStyle(select);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (select.offsetWidth === 0) return;
+        // 이미 의미 있는 값이 선택된 경우 스킵 (placeholder option은 value="" 또는 0)
+        const curVal = select.value;
+        if (curVal && curVal !== '0' && curVal !== '-1') return;
+
+        const options = Array.from(select.options)
+          .filter(o => o.value !== '' && o.value !== '0' && o.value !== '-1')
+          .map(o => `${o.text.trim()}(value=${o.value})`);
+        if (options.length === 0) return;
+
+        const idx = formInputs.length;
+        select.setAttribute('data-fill-idx', idx);
+        formInputs.push({
+          idx,
+          type: 'select',
+          id: select.id || null,
+          name: select.getAttribute('name') || null,
+          labelText: collectLabelText(select),
+          options,
         });
       });
 
@@ -428,14 +634,48 @@
         ? profileFillResult.value.fills || []
         : [];
       aiFills.forEach(({ idx, value }) => {
-        const input = document.querySelector(`[data-fill-idx="${idx}"]`);
-        if (!input || !value) return;
-        const proto = window.HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value');
-        if (setter && setter.set) setter.set.call(input, value);
-        else input.value = value;
-        ['input', 'change', 'blur'].forEach(e => input.dispatchEvent(new Event(e, { bubbles: true })));
-        console.log(`✅ AI 프로필 채움: idx=${idx} → "${value}"`);
+        const el = document.querySelector(`[data-fill-idx="${idx}"]`);
+        if (!el || !value) return;
+
+        if (el.tagName === 'SELECT') {
+          // select: value 또는 option text로 매칭
+          const opts = Array.from(el.options);
+          const target = String(value).toLowerCase();
+          const match = opts.find(o =>
+            o.value.toLowerCase() === target ||
+            o.text.trim().toLowerCase() === target ||
+            o.text.trim().toLowerCase().includes(target) ||
+            target.includes(o.text.trim().toLowerCase()) && o.text.trim().length > 0
+          );
+          if (match) {
+            el.value = match.value;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`✅ AI Select 채움: idx=${idx} → "${match.text.trim()}"`);
+          } else {
+            console.warn(`⚠️ Select 옵션 미매칭: idx=${idx} value="${value}"`);
+          }
+        } else if (el.type === 'checkbox') {
+          // checkbox: "true"/"1"/true 일 때만 체크 (절대 uncheck 안 함)
+          const shouldCheck = value === 'true' || value === true || value === '1' || value === 1;
+          if (shouldCheck && !el.checked) {
+            el.click();
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`✅ AI Checkbox 체크: idx=${idx} label="${el.getAttribute('data-fill-idx')}"`);
+          }
+        } else if (el.type === 'date') {
+          // date: YYYY-MM-DD 형식 그대로
+          el.value = String(value).slice(0, 10);
+          ['input', 'change'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+          console.log(`✅ AI Date 채움: idx=${idx} → "${el.value}"`);
+        } else {
+          // text 계열
+          const proto = window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+          if (setter && setter.set) setter.set.call(el, value);
+          else el.value = value;
+          ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+          console.log(`✅ AI 프로필 채움: idx=${idx} → "${value}"`);
+        }
       });
       console.log(`[프로필] AI ${aiFills.length}개 채움`);
 
@@ -445,6 +685,40 @@
         fillProfileFields(profile);
       } else {
         console.log('[프로필] 프로필 정보 없음 — 키워드 보완 생략');
+      }
+
+      // 3단계: 600ms 후 재시도 — radio/select 채운 직후 disabled 해제되는 연동 필드 대응
+      // 예) "보훈여부: 예" 선택 → "보훈구분" input이 enabled로 전환
+      if (profile) {
+        setTimeout(() => {
+          // AI fill 중 disabled였던 필드들 재시도 (data-fill-idx 있으나 당시 disabled)
+          aiFills.forEach(({ idx, value }) => {
+            const el = document.querySelector(`[data-fill-idx="${idx}"]`);
+            if (!el || !value || !el.disabled === false) return; // 여전히 disabled면 스킵
+            // 이미 값이 있으면 스킵
+            if (el.tagName === 'SELECT' && el.value && el.value !== '0' && el.value !== '-1') return;
+            if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.value) return;
+
+            if (el.tagName === 'SELECT') {
+              const opts = Array.from(el.options);
+              const target = String(value).toLowerCase();
+              const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target);
+              if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [재시도] Select: idx=${idx} → "${match.text.trim()}"`); }
+            } else if (el.type === 'checkbox') {
+              const shouldCheck = value === 'true' || value === '1';
+              if (shouldCheck && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [재시도] Checkbox: idx=${idx}`); }
+            } else {
+              const proto = window.HTMLInputElement.prototype;
+              const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+              if (setter && setter.set) setter.set.call(el, value);
+              ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+              console.log(`✅ [재시도] Input: idx=${idx} → "${value}"`);
+            }
+          });
+          // 키워드 매칭도 재시도 (새로 활성화된 필드 커버)
+          fillProfileFields(profile);
+          console.log('[재시도] 연동 필드 재시도 완료');
+        }, 600);
       }
 
       if (analyzeResult.status !== 'fulfilled' || !analyzeResult.value?.success) {

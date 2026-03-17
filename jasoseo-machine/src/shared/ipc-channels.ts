@@ -69,6 +69,8 @@ export const IPC = {
   BRIDGE_GET_INFO: 'bridge:get-info',
   BRIDGE_SET_ANSWERS: 'bridge:set-answers',
   BRIDGE_GET_EMPTY_FIELDS: 'bridge:get-empty-fields',
+  BRIDGE_PEEK_QUESTIONS: 'bridge:peek-questions',    // 저장된 문항 조회 (소비 안 함)
+  BRIDGE_CLEAR_QUESTIONS: 'bridge:clear-questions',  // 문항 소비 후 클리어
 
   // Web Fetch (URL 자동 수집)
   WEB_FETCH_URL: 'web:fetch-url',

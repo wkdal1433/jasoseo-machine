@@ -65,6 +65,44 @@ export class BridgeServer {
     return q;
   }
 
+  /** 소비하지 않고 조회만 (앱 시작 시 미수신 문항 확인용) */
+  public peekExtractedQuestions() {
+    return this.extractedQuestions;
+  }
+
+  public clearExtractedQuestions() {
+    this.extractedQuestions = null;
+  }
+
+  /** 영문 enum 값을 한국 채용 폼에서 인식 가능한 한국어로 변환 */
+  private normalizeProfileForFill(profile: any): any {
+    const p = JSON.parse(JSON.stringify(profile));
+
+    // 성별
+    if (p.personal?.gender === 'male') p.personal.gender = '남';
+    else if (p.personal?.gender === 'female') p.personal.gender = '여';
+
+    // 병역 상태
+    const militaryMap: Record<string, string> = {
+      fulfilled: '군필', exempted: '면제', serving: '복무중', not_applicable: '해당없음'
+    };
+    if (p.preferences?.military?.status) {
+      p.preferences.military.status = militaryMap[p.preferences.military.status] ?? p.preferences.military.status;
+    }
+
+    // 학력 상태
+    const eduStatusMap: Record<string, string> = {
+      graduated: '졸업', expected: '졸업예정', attending: '재학중', dropout: '중퇴'
+    };
+    if (Array.isArray(p.education)) {
+      p.education.forEach((edu: any) => {
+        if (edu.status) edu.status = eduStatusMap[edu.status] ?? edu.status;
+      });
+    }
+
+    return p;
+  }
+
   private setupRoutes() {
     const verifySignature = (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const signature = req.headers['x-jasoseo-signature'] as string;
@@ -112,13 +150,18 @@ export class BridgeServer {
         return res.json({ success: false, error: 'No inputs provided' });
       }
 
-      const profile = getUserProfile();
+      const profile = this.normalizeProfileForFill(getUserProfile());
       if (!profile) return res.json({ success: false, error: 'No profile' });
 
       // 폼 필드 목록 (idx로 식별)
-      const fieldLines = inputs.map((f: any) =>
-        `[${f.idx}] label="${f.labelText || ''}" placeholder="${f.placeholder || ''}" aria-label="${f.ariaLabel || ''}" name="${f.name || ''}"`
-      ).join('\n');
+      const fieldLines = inputs.map((f: any) => {
+        let line = `[${f.idx}] type="${f.type || 'text'}" label="${f.labelText || ''}"`;
+        if (f.placeholder) line += ` placeholder="${f.placeholder}"`;
+        if (f.ariaLabel) line += ` aria-label="${f.ariaLabel}"`;
+        if (f.name) line += ` name="${f.name}"`;
+        if (f.type === 'select' && f.options?.length) line += ` options=[${f.options.join(', ')}]`;
+        return line;
+      }).join('\n');
 
       const prompt = `Convert the following User Profile data into a Form Field mapping.
 
@@ -132,6 +175,11 @@ RULES:
 - DO NOT use any tools (e.g., web_fetch, google_search).
 - Output ONLY a single JSON object in the format: {"fills": [{"idx": number, "value": "string"}, ...]}
 - Only map fields that have a high confidence match.
+- For type="select": the value MUST exactly match one of the option values shown in options=[...] (use the part before "(value=", or the value= part). Pick the most semantically correct option.
+- For type="date": output value in YYYY-MM-DD format.
+- For type="checkbox": output "true" ONLY if the profile explicitly indicates this field is true/yes/applicable. Output "false" otherwise. NEVER check boxes that look like privacy agreements or terms consent. Fields with disabled=true may become enabled after other fields are filled — still include them in mapping if they match.
+- Fields marked disabled=true will be retried automatically after other fields are filled.
+- For type="text": output the profile value as a plain string.
 - If no matches are found, return {"fills": []}.
 - No preamble or explanation.`;
 

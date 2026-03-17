@@ -7,56 +7,134 @@ export const FIXTURE_PROFILE = {
   id: 'fixture-profile',
   personal: {
     name: '김테스트',
+    nameEn: 'KIM TEST',           // 영문명 (여권 기준)
+    nameHanja: '金테스트',          // 한자명
     birthDate: '1998-05-15',
+    gender: 'male' as const,
     email: 'test@example.com',
     mobile: '010-1234-5678',
-    address: '서울시 강남구',
-    gender: 'male' as const
+    phone: '02-1234-5678',
+    address: '서울시 강남구 테헤란로 123',
+    postalCode: '06234',
+    nationality: '대한민국',
   },
-  education: [{
-    name: '한국대학교',
-    major: '컴퓨터공학과',
-    startDate: '2017-03',
-    endDate: '2023-02',
-    status: '졸업',
-    gpa: '3.8/4.5'
-  }],
+  education: [
+    {
+      id: 'edu-1',
+      type: 'highschool' as const,
+      name: '서울고등학교',
+      major: '',
+      startDate: '2014-03',
+      endDate: '2017-02',
+      status: 'graduated' as const,
+      gpa: '',
+      gpaScale: ''
+    },
+    {
+      id: 'edu-2',
+      type: 'university' as const,
+      name: '한국대학교',
+      major: '컴퓨터공학과',
+      startDate: '2017-03',
+      endDate: '2023-02',
+      status: 'graduated' as const,
+      gpa: '3.8',
+      gpaScale: '4.5'
+    }
+  ],
   experience: [{
+    id: 'exp-1',
     companyName: '테크스타트업',
+    dept: '개발팀',
+    rank: '인턴',
     jobCategory: '백엔드 개발',
+    employmentType: '인턴',        // 고용형태
     startDate: '2022-07',
     endDate: '2022-12',
-    description: '사용자 인증 API 설계 및 구현, MySQL 쿼리 최적화로 응답시간 40% 단축'
+    isCurrent: false,
+    description: '사용자 인증 API 설계 및 구현, MySQL 쿼리 최적화로 응답시간 40% 단축',
+    resignReason: '인턴십 계약 만료',  // 퇴직사유
+    salary: '',
+    isPublic: { salary: false, description: true, companyName: true }
+  }],
+  projects: [{                    // 프로젝트 (경력과 별도)
+    id: 'proj-1',
+    name: '일정 자동화 SaaS 개발',
+    client: '개인 프로젝트',
+    startDate: '2023-03',
+    endDate: '2023-08',
+    participation: '100',
+    role: '기획/개발/배포 전담',
+    description: 'Next.js + Supabase 기반 1인 개발, DAU 12명 달성'
   }],
   skills: ['Python', 'TypeScript', 'React', 'Node.js', 'MySQL', 'Docker', 'Git'],
+  computerSkills: [{              // 컴퓨터활용능력
+    id: 'cs-1',
+    program: 'Microsoft Excel',
+    level: '상',
+    period: '3년'
+  }],
   activities: [{
+    id: 'act-1',
+    type: 'club' as const,
     organization: '교내 AI 동아리',
+    role: '스터디 운영진',
     startDate: '2021-03',
     endDate: '2022-12',
     description: '주간 논문 스터디 운영, 머신러닝 프로젝트 3건 완료'
   }],
-  training: [],
+  training: [{
+    id: 'tr-1',
+    name: 'AWS Solutions Architect 교육',
+    organization: 'AWS Korea',
+    startDate: '2023-06',
+    endDate: '2023-06',
+    description: '클라우드 아키텍처 설계 실습 과정'
+  }],
   certificates: [{
+    id: 'cert-1',
     name: '정보처리기사',
     issuer: '한국산업인력공단',
+    number: '23-12345678',         // 자격증 번호
     date: '2022-11'
   }],
   languages: [{
+    id: 'lang-1',
+    category: '영어',
     language: '영어',
     testName: 'TOEIC',
     grade: '875',
+    level: '상',
     date: '2023-01'
   }],
-  awards: [],
-  overseas: [],
-  portfolio: [{
-    label: 'GitHub',
-    path: 'https://github.com/fixture-user'
+  awards: [{
+    id: 'award-1',
+    name: '우수 졸업논문상',
+    issuer: '한국대학교 컴퓨터공학과',
+    date: '2023-02',
+    description: '분산 시스템 성능 최적화 연구'
   }],
+  overseas: [],
+  portfolio: [
+    { id: 'port-1', type: 'url' as const, label: 'GitHub', path: 'https://github.com/fixture-user' },
+    { id: 'port-2', type: 'url' as const, label: '블로그', path: 'https://blog.fixture-user.dev' }
+  ],
   preferences: {
     isVeteran: false,
     isDisabled: false,
-    military: { status: '군필', branch: '육군', rank: '병장', startDate: '2019-03', endDate: '2020-12' }
+    isProtection: false,
+    isSubsidy: false,
+    isVulnerable: false,           // 취약계층 여부
+    vulnerableClass: '',           // 취약계층 구분
+    hasDriverLicense: true,        // 운전면허 보유
+    applicationChannel: '채용 홈페이지', // 지원경로
+    military: {
+      status: 'fulfilled' as const,
+      branch: '육군',
+      rank: '병장',
+      startDate: '2019-03',
+      endDate: '2020-12'
+    }
   }
 }
 

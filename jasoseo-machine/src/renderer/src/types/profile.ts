@@ -4,45 +4,55 @@ export interface UserProfile {
   skills: string[]
   education: EducationItem[]
   experience: ExperienceItem[]
+  projects: ProjectItem[]
   activities: ActivityItem[]
   training: TrainingItem[]
   certificates: CertificateItem[]
   awards: AwardItem[]
   overseas: OverseasItem[]
   languages: LanguageItem[]
+  computerSkills: ComputerSkillItem[]
   portfolio: PortfolioItem[]
   preferences: PreferenceInfo
 }
 
 export interface PersonalInfo {
   name: string
-  birthDate: string // YYYY.MM.DD
+  nameEn?: string      // 영문명 (여권 기준, e.g. KIM GILDONG)
+  nameHanja?: string   // 한자명
+  birthDate: string    // YYYY-MM-DD
   gender: 'male' | 'female' | ''
   email: string
-  phone: string // 집전화
-  mobile: string // 휴대폰
+  phone: string        // 집전화
+  mobile: string       // 휴대폰
   address: string
-  photoPath?: string // 사진 파일 경로
+  postalCode?: string  // 우편번호
+  nationality?: string // 국적 (default: 대한민국)
+  photoPath?: string   // 사진 파일 경로
 }
 
 export interface DesiredJobInfo {
-  keywords: string[] // 태그형 키워드
+  keywords: string[]   // 희망직종 태그
+  regions?: string[]   // 희망지역
+  salary?: string      // 희망연봉 (만원)
+  employmentTypes?: string[] // 고용형태 (정규직/계약직 등)
 }
 
 export interface EducationItem {
   id: string
-  isUnderHighSchool?: boolean // 고교 미만 졸업 여부
+  isUnderHighSchool?: boolean
   type: 'highschool' | 'university' | 'graduate'
   name: string
   startDate: string
   endDate: string
   status: 'graduated' | 'expected' | 'attending' | 'dropout' | ''
-  isTransfer?: boolean // 편입 여부
+  isTransfer?: boolean
   major: string
+  otherMajor?: string  // 복수전공/부전공명
   gpa?: string
   gpaScale?: string
-  hasOtherMajor?: boolean // 다른 전공 여부
-  thesis?: string // 논문/작품
+  hasOtherMajor?: boolean
+  thesis?: string
 }
 
 export interface ExperienceItem {
@@ -51,23 +61,38 @@ export interface ExperienceItem {
   dept: string
   startDate: string
   endDate: string
-  isCurrent?: boolean // 재직중 여부
+  isCurrent?: boolean
   rank: string
-  jobCategory: string // 담당직무
-  salary?: string // 연봉 (만원 단위)
-  description: string // 담당업무
+  jobCategory: string
+  employmentType?: string
+  resignReason?: string
+  salary?: string
+  description: string
   isPublic: {
     salary: boolean
     description: boolean
     companyName: boolean
   }
-  careerStatementUrl?: string // 경력기술서 링크
+  careerStatementUrl?: string
+}
+
+export interface ProjectItem {
+  id: string
+  name: string
+  client: string       // 발주처/고객사
+  startDate: string
+  endDate: string
+  isCurrent?: boolean
+  participation?: string // 참여도 (%)
+  role: string           // 담당역할
+  description: string
 }
 
 export interface ActivityItem {
   id: string
   type: 'campus' | 'social' | 'club' | 'etc' | ''
   organization: string
+  role?: string        // 직책/역할
   startDate: string
   endDate: string
   description: string
@@ -86,6 +111,7 @@ export interface CertificateItem {
   id: string
   name: string
   issuer: string
+  number?: string
   date: string
 }
 
@@ -100,6 +126,7 @@ export interface AwardItem {
 export interface OverseasItem {
   id: string
   country: string
+  type?: string        // 방문목적: 어학연수/취업/여행/기타
   startDate: string
   endDate: string
   description: string
@@ -107,25 +134,40 @@ export interface OverseasItem {
 
 export interface LanguageItem {
   id: string
-  category: string // 구분 (영어, 일어 등)
-  language: string // 외국어명
-  testName: string // 공인시험
-  grade: string // 급수/점수
+  category: string
+  language: string
+  testName: string
+  grade: string        // 점수/급수
+  level?: string       // 능숙도: 상/중/하
   date: string
+}
+
+export interface ComputerSkillItem {
+  id: string
+  program: string
+  level: string        // 상/중/하
+  period?: string      // 활용기간
 }
 
 export interface PortfolioItem {
   id: string
   type: 'url' | 'pc' | 'cloud' | ''
-  label: string // 유형 라벨 (예: 기타)
-  path: string // 링크 혹은 파일 경로
+  label: string
+  path: string
 }
 
 export interface PreferenceInfo {
-  isVeteran: boolean // 보훈
-  isProtection: boolean // 취업보호
-  isSubsidy: boolean // 고용지원금
-  isDisabled: boolean // 장애
+  isVeteran: boolean
+  veteranType?: string      // 보훈 구분
+  isProtection: boolean
+  isSubsidy: boolean
+  isDisabled: boolean
+  disabledGrade?: string    // 장애 등급
+  hasDriverLicense?: boolean
+  driverLicenseType?: string // 1종 보통/2종 보통 등
+  isVulnerable?: boolean    // 취약계층
+  vulnerableClass?: string  // 취약계층 구분
+  applicationChannel?: string // 지원경로
   military: MilitaryInfo
 }
 
@@ -135,6 +177,7 @@ export interface MilitaryInfo {
   rank?: string
   startDate?: string
   endDate?: string
+  exemptReason?: string  // 면제사유
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -148,23 +191,28 @@ export const DEFAULT_PROFILE: UserProfile = {
     address: ''
   },
   desiredJob: {
-    keywords: []
+    keywords: [],
+    regions: [],
+    employmentTypes: []
   },
   skills: [],
   education: [],
   experience: [],
+  projects: [],
   activities: [],
   training: [],
   certificates: [],
   awards: [],
   overseas: [],
   languages: [],
+  computerSkills: [],
   portfolio: [],
   preferences: {
     isVeteran: false,
     isProtection: false,
     isSubsidy: false,
     isDisabled: false,
+    hasDriverLicense: false,
     military: {
       status: ''
     }

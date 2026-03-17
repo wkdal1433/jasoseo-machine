@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
@@ -27,6 +27,7 @@ interface JobOption {
 export function ApplicationSetup() {
   const { initWizard, setPatternConfig, setupDraft, saveSetupDraft, clearSetupDraft } = useWizardStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mode, setMode] = useState<SetupMode>('select')
   const [smartUrl, setSmartUrl] = useState('')
   const [isFetching, setIsFetching] = useState(false)
@@ -46,6 +47,15 @@ export function ApplicationSetup() {
   const [patternSettings, setPatternSettings] = useState<PatternSettings>({ useDefaultPatterns: true })
   const [selectedPatternIds, setSelectedPatternIds] = useState<string[]>([])
   const isRestored = useRef(false)
+
+  // Layout 알림 배너에서 넘어온 문항 자동 적용
+  useEffect(() => {
+    const state = location.state as { pendingQuestions?: { question: string; charLimit: number | null }[] } | null
+    if (state?.pendingQuestions && state.pendingQuestions.length > 0) {
+      setQuestions(state.pendingQuestions.map(q => ({ question: q.question, charLimit: q.charLimit ?? 800 })))
+      setMode('manual')
+    }
+  }, [])
 
   // 이탈했다 돌아올 때 입력 데이터 복원
   useEffect(() => {

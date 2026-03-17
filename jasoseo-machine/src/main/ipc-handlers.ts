@@ -321,6 +321,8 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     bridgeServer.setPendingAnswers(answers); return true
   })
   ipcMain.handle(IPC.BRIDGE_GET_EMPTY_FIELDS, () => bridgeServer.getEmptyFieldsReport())
+  ipcMain.handle(IPC.BRIDGE_PEEK_QUESTIONS, () => bridgeServer.peekExtractedQuestions())
+  ipcMain.handle(IPC.BRIDGE_CLEAR_QUESTIONS, () => { bridgeServer.clearExtractedQuestions(); return true })
 
   ipcMain.handle(IPC.FS_READ_MD, (_event, path) => { try { return readFileSync(path, 'utf-8') } catch { return null } })
 

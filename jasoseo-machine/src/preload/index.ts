@@ -29,6 +29,8 @@ const api = {
   bridgeGetInfo: () => ipcRenderer.invoke(IPC.BRIDGE_GET_INFO),
   bridgeSetAnswers: (answers: { question: string; answer: string; charLimit: number | null }[]) => ipcRenderer.invoke(IPC.BRIDGE_SET_ANSWERS, answers),
   bridgeGetEmptyFields: () => ipcRenderer.invoke(IPC.BRIDGE_GET_EMPTY_FIELDS),
+  bridgePeekQuestions: () => ipcRenderer.invoke(IPC.BRIDGE_PEEK_QUESTIONS),
+  bridgeClearQuestions: () => ipcRenderer.invoke(IPC.BRIDGE_CLEAR_QUESTIONS),
 
   // Maintenance
   checkTrash: () => ipcRenderer.invoke('maintenance:check-trash'),
