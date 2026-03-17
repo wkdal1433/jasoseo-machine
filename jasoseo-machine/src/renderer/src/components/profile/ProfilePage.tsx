@@ -131,6 +131,32 @@ export function ProfilePage() {
     alert('복제 완료! 드롭다운에서 새 프로필을 선택할 수 있습니다.')
   }
 
+  const handleExportProfile = () => {
+    const json = JSON.stringify(localProfile, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `profile_${localProfile.personal?.name || 'export'}_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportProfile = async () => {
+    const filePath = await window.api.selectFile([{ name: 'JSON 프로필', extensions: ['json'] }])
+    if (!filePath) return
+    const content = await window.api.readMd(filePath as string)
+    if (!content) { alert('파일을 읽을 수 없습니다.'); return }
+    try {
+      const imported = JSON.parse(content)
+      const p = profile as any
+      if (!confirm('가져온 데이터로 현재 프로필을 덮어쓰시겠습니까?\n(저장하기 전까지는 되돌리기로 복구 가능합니다.)')) return
+      setLocalProfile({ ...imported, id: p.id })
+    } catch {
+      alert('유효하지 않은 JSON 파일입니다.')
+    }
+  }
+
   const handleRevertProfile = () => {
     if (!confirm('마지막으로 저장된 상태로 되돌리시겠습니까?\n저장하지 않은 변경 내용이 모두 사라집니다.')) return
     const p = profile as any
@@ -220,6 +246,15 @@ export function ProfilePage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={handleExportProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-green-50 hover:text-green-700 transition-all">
+            ⬇ 내보내기
+          </button>
+          <button onClick={handleImportProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-green-50 hover:text-green-700 transition-all">
+            ⬆ 가져오기
+          </button>
+          <div className="h-5 w-px bg-border mx-1" />
           <button onClick={handleRevertProfile}
             className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-yellow-50 hover:text-yellow-700 transition-all">
             ↺ 되돌리기
