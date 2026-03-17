@@ -74,7 +74,15 @@ Identify distinct stories from the file. Format each into the GOLD STANDARD S-P-
     "preferences": { "isVeteran": "boolean", "isDisabled": "boolean", "military": { "status": "string", "branch": "string", "rank": "string", "startDate": "string", "endDate": "string" } }
   },
   "episodes": [
-    { "title": "string", "content": "string", "status": "ready|needs_review|draft", "reason": "string" }
+    {
+      "title": "string",
+      "organization": "string|null (소속 조직/회사/학교 — 없으면 null)",
+      "period": "string|null (활동 기간, 예: '2023-03 ~ 2024-02' — 문서에 없으면 null)",
+      "role": "string|null (담당 역할/직책 — 없으면 null)",
+      "content": "string",
+      "status": "ready|needs_review|draft",
+      "reason": "string"
+    }
   ],
   "missingFields": ["string"]
 }`;

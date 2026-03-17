@@ -17,7 +17,9 @@ export function parseEpisodeMd(fileName: string, content: string): Episode {
   const id = fileName.replace(/\.md$/, '').replace(/^ep(\d+)_.*/, 'ep$1')
 
   const titleMatch = content.match(/^#\s+Episode\s+\d+\.\s+(.+)$/m)
-  const title = titleMatch?.[1]?.trim() || fileName
+  const title = titleMatch?.[1]?.trim()
+    || content.split(/[.。\n]/)[0]?.trim().slice(0, 60)
+    || fileName
 
   const periodMatch = content.match(/\*\*기간\*\*\s*\|\s*(.+?)(?:\s*\||\s*$)/m)
   const period = periodMatch?.[1]?.trim() || ''

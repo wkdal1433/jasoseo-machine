@@ -203,7 +203,18 @@ export function MagicOnboarding({ onClose }: Props) {
       await window.api.userProfileSave(finalProfile)
       for (let i = 0; i < result.episodes.length; i++) {
         const ep = result.episodes[i]
-        await window.api.episodeSaveFile(`ep_magic_${Date.now()}_${i}.md`, ep.content)
+        const slug = (ep.title || '')
+          .replace(/[^\w가-힣\s]/g, '').replace(/\s+/g, '_').slice(0, 30) || `ep${i + 1}`
+        const fileName = `ep_magic_${Date.now()}_${i}_${slug}.md`
+        const metaLines: string[] = []
+        if (ep.organization) metaLines.push(`| **조직** | ${ep.organization} |`)
+        if (ep.period)       metaLines.push(`| **기간** | ${ep.period} |`)
+        if (ep.role)         metaLines.push(`| **역할** | ${ep.role} |`)
+        const metaTable = metaLines.length > 0
+          ? `\n| 항목 | 내용 |\n|------|------|\n${metaLines.join('\n')}\n`
+          : ''
+        const structured = `# Episode ${i + 1}. ${ep.title || slug}\n${metaTable}\n${ep.content}`
+        await window.api.episodeSaveFile(fileName, structured)
       }
       // 저장 완료 → 임시저장 삭제
       try { await window.api.draftDelete('__onboarding_pending__') } catch { /* ignore */ }
