@@ -46,7 +46,7 @@ function classifyError(stderr: string, exitCode: number): ClassifiedError {
     return { type: 'quota_exhausted', message: '계정 한도 초과' }
   }
   if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')) {
-    return { type: 'rate_limit', message: '사용량 한도 도달' }
+    return { type: 'rate_limit', message: '요청 한도 초과 (429). 다른 터미널에서 Gemini를 사용 중이라면 모두 종료 후 재시도해주세요.' }
   }
   return { type: 'unknown', message: `AI 오류 (${exitCode}): ${stderr.trim().slice(0, 100)}` }
 }
@@ -193,7 +193,9 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
 }
 
 export function executeClaudeStream(options: ClaudeExecuteOptions, window: BrowserWindow): ChildProcess {
-  const model = getModel(); const provider = getProvider(); const projectDir = getProjectDir(); const cli = getCliPath(provider)
+  const model = options.modelOverride || getModel()
+  const provider: AIProvider = model.startsWith('gemini') ? 'gemini' : 'claude'
+  const projectDir = getProjectDir(); const cli = getCliPath(provider)
   const includeDirs: string[] = [projectDir]
   if (options.filePath && path.isAbsolute(options.filePath)) includeDirs.push(path.dirname(options.filePath))
   const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir])
