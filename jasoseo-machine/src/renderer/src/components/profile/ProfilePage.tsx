@@ -103,6 +103,27 @@ export function ProfilePage() {
     }
   }
 
+  const handleRevertProfile = () => {
+    if (!confirm('마지막으로 저장된 상태로 되돌리시겠습니까?\n저장하지 않은 변경 내용이 모두 사라집니다.')) return
+    const p = profile as any
+    setLocalProfile({
+      ...DEFAULT_PROFILE, ...p,
+      personal: { ...DEFAULT_PROFILE.personal, ...p.personal },
+      desiredJob: { ...DEFAULT_PROFILE.desiredJob, ...p.desiredJob },
+      preferences: { ...DEFAULT_PROFILE.preferences, ...p.preferences, military: { ...DEFAULT_PROFILE.preferences.military, ...p.preferences?.military } },
+      education: p.education || [], experience: p.experience || [], projects: p.projects || [],
+      activities: p.activities || [], training: p.training || [], certificates: p.certificates || [],
+      languages: p.languages || [], computerSkills: p.computerSkills || [], awards: p.awards || [],
+      overseas: p.overseas || [], portfolio: p.portfolio || [], skills: p.skills || []
+    })
+  }
+
+  const handleResetProfile = () => {
+    if (!confirm('프로필의 모든 데이터를 초기화하시겠습니까?\n이름을 제외한 모든 내용이 지워집니다.\n(저장하기 전까지는 \'되돌리기\'로 복구할 수 있습니다.)')) return
+    const p = profile as any
+    setLocalProfile({ ...DEFAULT_PROFILE, id: p.id, personal: { ...DEFAULT_PROFILE.personal, name: p.personal?.name || '' } })
+  }
+
   const updatePersonal = (updates: Partial<UserProfile['personal']>) =>
     setLocalProfile({ ...localProfile!, personal: { ...localProfile!.personal, ...updates } })
 
@@ -154,7 +175,16 @@ export function ProfilePage() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button onClick={handleRevertProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-yellow-50 hover:text-yellow-700 transition-all">
+            ↺ 되돌리기
+          </button>
+          <button onClick={handleResetProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-orange-50 hover:text-orange-600 transition-all">
+            🗑 초기화
+          </button>
+          <div className="h-5 w-px bg-border mx-1" />
           <button onClick={handleDeleteProfile}
             className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all">
             현재 프로필 삭제
