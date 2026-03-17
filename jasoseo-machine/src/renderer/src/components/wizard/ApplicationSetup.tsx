@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
+import { ModelPicker } from '../common/ModelPicker'
 
 interface PatternRecord {
   id: string
@@ -507,13 +508,18 @@ export function ApplicationSetup() {
         )}
 
         {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="w-full rounded-xl bg-primary py-3.5 text-base font-bold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          AI 분석 시작
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="w-full rounded-xl bg-primary py-3.5 text-base font-bold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            AI 분석 시작
+          </button>
+          <div className="flex justify-end">
+            <ModelPicker endpointKey="company_analyze" />
+          </div>
+        </div>
       </div>
     </div>
   )

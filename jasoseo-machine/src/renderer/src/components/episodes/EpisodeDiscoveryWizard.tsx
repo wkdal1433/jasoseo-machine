@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { EpisodeIdea } from '../../../../main/automation/episode-interviewer'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
+import { ModelPicker } from '../common/ModelPicker'
 
 interface Props {
   onClose: () => void
@@ -153,9 +154,12 @@ export function EpisodeDiscoveryWizard({ onClose }: Props) {
           </div>
           <div className="flex items-center gap-4">
             {step === 'suggest' && (
-              <button onClick={fetchNewIdeas} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full">
-                🔄 새로 분석하기
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={fetchNewIdeas} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full">
+                  🔄 새로 분석하기
+                </button>
+                <ModelPicker endpointKey="ep_suggest" />
+              </div>
             )}
             {step === 'interview' && (
               <button onClick={() => setStep('suggest')} className="text-sm font-bold text-primary hover:underline">← 창고로 돌아가기</button>

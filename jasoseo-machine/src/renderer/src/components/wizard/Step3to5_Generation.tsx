@@ -3,6 +3,7 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep3to5Prompt, buildShortenPrompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
+import { ModelPicker } from '@/components/common/ModelPicker'
 import { Sparkles } from 'lucide-react'
 
 const FUN_MESSAGES = [
@@ -380,13 +381,18 @@ export function Step3to5Generation() {
           </div>
         </div>
 
-        <button
-          onClick={startGeneration}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99]"
-        >
-          <Sparkles className="h-5 w-5" />
-          초안 생성하기
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={startGeneration}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <Sparkles className="h-5 w-5" />
+            초안 생성하기
+          </button>
+          <div className="flex justify-end">
+            <ModelPicker endpointKey="cover_letter" />
+          </div>
+        </div>
       </div>
     )
   }

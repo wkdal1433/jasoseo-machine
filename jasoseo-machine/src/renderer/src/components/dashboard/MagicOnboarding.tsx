@@ -6,6 +6,7 @@ import { useProfileStore } from '@/stores/profileStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 import { EngineSwapModal } from '../common/EngineSwapModal'
+import { ModelPicker } from '../common/ModelPicker'
 
 interface Props {
   onClose: () => void
@@ -245,12 +246,15 @@ export function MagicOnboarding({ onClose }: Props) {
                 <p className="mb-8 text-muted-foreground px-10">AI가 직접 파일을 읽고 12개 섹션 프로필과 에피소드를 구성합니다.</p>
                 
                 {/* [v20.7] 네이티브 파일 선택 버튼으로 교체 */}
-                <button 
-                  onClick={handleSelectFile}
-                  className="rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all active:scale-95"
-                >
-                  파일 선택하기
-                </button>
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    onClick={handleSelectFile}
+                    className="rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all active:scale-95"
+                  >
+                    파일 선택하기
+                  </button>
+                  <ModelPicker endpointKey="onboarding_parse" />
+                </div>
               </div>
               <p className="mt-8 text-xs text-muted-foreground">※ v20.7 AI-Native 기술: 시스템 네이티브 파일 선택으로 경로 인식을 보장합니다.</p>
             </div>
