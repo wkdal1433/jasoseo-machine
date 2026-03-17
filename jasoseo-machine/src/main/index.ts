@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu } from 'electron'
+import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc-handlers'
@@ -6,8 +6,10 @@ import { initDatabase } from './db'
 import { startFileWatcher, stopFileWatcher } from './file-watcher'
 import { stopAllProcesses } from './claude-bridge'
 import { bridgeServer } from './automation/bridge-server'
+import { IPC } from '../shared/ipc-channels'
 
 let mainWindow: BrowserWindow | null = null
+let allowClose = false
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -25,6 +27,14 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+  })
+
+  // 종료 전 저장 확인 (Word 스타일)
+  mainWindow.on('close', (event) => {
+    if (!allowClose) {
+      event.preventDefault()
+      mainWindow?.webContents.send(IPC.APP_BEFORE_CLOSE)
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -51,6 +61,15 @@ app.whenReady().then(async () => {
 
   initDatabase()
   registerIpcHandlers()
+
+  // 종료 확인 응답 처리
+  ipcMain.on(IPC.APP_CLOSE_REPLY, (_, confirmed: boolean) => {
+    if (confirmed) {
+      allowClose = true
+      mainWindow?.close()
+    }
+    // confirmed=false → 창 유지, 아무것도 하지 않음
+  })
   
   // [v20.0] 브릿지 서버 시작 (확장 프로그램 연동)
   try {

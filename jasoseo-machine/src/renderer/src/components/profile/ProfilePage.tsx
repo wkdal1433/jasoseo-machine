@@ -35,6 +35,7 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('basic')
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const localProfileRef = useRef<UserProfile | null>(null)
   const [isCreatingProfile, setIsCreatingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -43,6 +44,15 @@ export function ProfilePage() {
   const renameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadProfile() }, [])
+
+  // 앱 종료 직전 save-all 이벤트에 응답
+  useEffect(() => {
+    const handler = () => {
+      if (localProfileRef.current) saveProfile(localProfileRef.current)
+    }
+    window.addEventListener('jasoseo:save-all', handler)
+    return () => window.removeEventListener('jasoseo:save-all', handler)
+  }, [])
 
   useEffect(() => {
     if (isCreatingProfile) setTimeout(() => nameInputRef.current?.focus(), 150)
@@ -81,6 +91,9 @@ export function ProfilePage() {
       setLocalProfile(merged)
     }
   }, [isLoaded, profile])
+
+  // ref 동기화: 이벤트 핸들러에서 최신 localProfile 접근용
+  useEffect(() => { localProfileRef.current = localProfile }, [localProfile])
 
   if (!localProfile) return <div className="p-8 text-center animate-pulse text-muted-foreground">프로필 데이터를 불러오는 중...</div>
 

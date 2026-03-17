@@ -77,6 +77,10 @@ export const IPC = {
   // Web Fetch (URL 자동 수집)
   WEB_FETCH_URL: 'web:fetch-url',
 
+  // Window close lifecycle
+  APP_BEFORE_CLOSE: 'app:before-close',
+  APP_CLOSE_REPLY:  'app:close-reply',
+
   // Dev / Testing
   DEV_LOAD_FIXTURES: 'dev:load-fixtures',
   FS_CHECK_TRASH: 'fs:check-trash',

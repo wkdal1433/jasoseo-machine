@@ -130,7 +130,15 @@ const api = {
     const handler = (_: unknown, data: unknown) => callback(data)
     ipcRenderer.on(IPC.CLAUDE_STREAM_ERROR, handler)
     return () => ipcRenderer.removeListener(IPC.CLAUDE_STREAM_ERROR, handler)
-  }
+  },
+
+  // Window close lifecycle
+  onBeforeClose: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on(IPC.APP_BEFORE_CLOSE, handler)
+    return () => ipcRenderer.removeListener(IPC.APP_BEFORE_CLOSE, handler)
+  },
+  replyClose: (confirmed: boolean) => ipcRenderer.send(IPC.APP_CLOSE_REPLY, confirmed)
 }
 
 contextBridge.exposeInMainWorld('api', api)
