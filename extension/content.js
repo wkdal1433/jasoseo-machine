@@ -764,7 +764,10 @@
         throw new Error(result?.error || '전송 실패');
       }
     } catch (err) {
-      alert('문항 추출 실패: ' + err.message);
+      const msg = err.message?.includes('Extension context invalidated')
+        ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
+        : '문항 추출 실패: ' + err.message;
+      alert(msg);
       extractBtn.innerText = '❌ 실패';
     } finally {
       setTimeout(() => {
@@ -936,7 +939,10 @@
       const totalFilled = aiFills.length;
       profileFillBtn.innerText = totalFilled > 0 ? `✅ ${totalFilled}개 채움!` : '✅ 완료 (매칭 없음)';
     } catch (err) {
-      alert('프로필 채우기 실패: ' + err.message);
+      const msg = err.message?.includes('Extension context invalidated')
+        ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
+        : '프로필 채우기 실패: ' + err.message;
+      alert(msg);
       profileFillBtn.innerText = '❌ 실패';
     } finally {
       setTimeout(() => {
@@ -1058,7 +1064,10 @@
       btn.innerText = `✅ ${filledCount}개 완료!`;
       console.log(`✅ ${filledCount}/${answers.length}개 문항 자동 입력 완료`);
     } catch (err) {
-      alert('주입 실패: ' + err.message);
+      const msg = err.message?.includes('Extension context invalidated')
+        ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
+        : '주입 실패: ' + err.message;
+      alert(msg);
       btn.innerText = '❌ 실패';
     } finally {
       setTimeout(() => {
