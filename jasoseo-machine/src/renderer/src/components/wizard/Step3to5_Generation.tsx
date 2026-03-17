@@ -151,11 +151,13 @@ export function Step3to5Generation() {
       q.approvedEpisodes, angles, episodeContents, patternContext
     )
 
+    const coverLetterModel = await window.api.settingsGet('model_ep_cover_letter') as string | null
     window.api.claudeExecuteStream({
       prompt,
       outputFormat: 'stream-json',
       maxTurns: 5,
-      appendSystemPrompt: GUI_SYSTEM_PROMPT
+      appendSystemPrompt: GUI_SYSTEM_PROMPT,
+      modelOverride: coverLetterModel || undefined
     })
   }
 
@@ -256,7 +258,8 @@ export function Step3to5Generation() {
       setShortenMsg(`축약 중... (${attempt}/${MAX_TRIES}회, 현재 ${currentLen}자)`)
       try {
         const prompt = buildShortenPrompt(currentText, currentLen, q.charLimit)
-        const result = await window.api.claudeExecute({ prompt, outputFormat: 'text', maxTurns: 1 })
+        const shortenModel = await window.api.settingsGet('model_ep_cover_letter') as string | null
+        const result = await window.api.claudeExecute({ prompt, outputFormat: 'text', maxTurns: 1, modelOverride: shortenModel || undefined })
         const trimmed = result.trim()
         if (!trimmed || trimmed.length < 50) break // 비정상 응답 방어
         currentText = trimmed
