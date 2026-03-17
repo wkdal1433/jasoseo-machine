@@ -18,6 +18,8 @@ interface ProfileState {
   switchProfile: (id: string) => Promise<void>
   createProfile: (name: string) => Promise<void>
   deleteProfile: (id: string) => Promise<void>
+  renameProfile: (id: string, newName: string) => Promise<void>
+  duplicateProfile: (id: string) => Promise<void>
   setLock: (locked: boolean) => void
   updatePersonal: (personal: Partial<UserProfile['personal']>) => void
   updateMilitary: (military: Partial<UserProfile['military']>) => void
@@ -80,6 +82,16 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     if (get().isLocked) return
     await window.api.userProfileDelete(id)
     await get().loadProfile()
+  },
+
+  renameProfile: async (id, newName) => {
+    await (window.api as any).userProfileRename(id, newName)
+    await get().loadProfile()
+  },
+
+  duplicateProfile: async (id) => {
+    await (window.api as any).userProfileDuplicate(id)
+    await get().loadProfilesList()
   },
 
   setLock: (locked) => set({ isLocked: locked }),

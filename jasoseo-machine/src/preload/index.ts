@@ -83,6 +83,8 @@ const api = {
   userProfileSwitch: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_SWITCH, id),
   userProfileCreate: (name: string) => ipcRenderer.invoke(IPC.USER_PROFILE_CREATE, name),
   userProfileDelete: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_DELETE, id),
+  userProfileRename: (id: string, newName: string) => ipcRenderer.invoke(IPC.USER_PROFILE_RENAME, id, newName),
+  userProfileDuplicate: (id: string) => ipcRenderer.invoke(IPC.USER_PROFILE_DUPLICATE, id),
 
   // Web Fetch (URL 자동 수집)
   webFetchUrl: (url: string) => ipcRenderer.invoke(IPC.WEB_FETCH_URL, url),

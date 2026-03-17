@@ -28,6 +28,8 @@ export function ProfilePage() {
     switchProfile,
     createProfile,
     deleteProfile,
+    renameProfile,
+    duplicateProfile,
     isLoaded
   } = useProfileStore()
   const [activeTab, setActiveTab] = useState('basic')
@@ -36,12 +38,19 @@ export function ProfilePage() {
   const [isCreatingProfile, setIsCreatingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const [isRenamingProfile, setIsRenamingProfile] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const renameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { loadProfile() }, [])
 
   useEffect(() => {
     if (isCreatingProfile) setTimeout(() => nameInputRef.current?.focus(), 150)
   }, [isCreatingProfile])
+
+  useEffect(() => {
+    if (isRenamingProfile) setTimeout(() => renameInputRef.current?.focus(), 150)
+  }, [isRenamingProfile])
 
   useEffect(() => {
     if (isLoaded && profile) {
@@ -103,6 +112,25 @@ export function ProfilePage() {
     }
   }
 
+  const handleStartRename = () => {
+    setRenameValue(localProfile.personal?.name || '')
+    setIsRenamingProfile(true)
+  }
+
+  const handleConfirmRename = async () => {
+    if (!renameValue.trim()) return
+    await renameProfile((profile as any).id, renameValue.trim())
+    await loadProfilesList()
+    setLocalProfile(prev => prev ? { ...prev, personal: { ...prev.personal, name: renameValue.trim() } } : prev)
+    setIsRenamingProfile(false)
+  }
+
+  const handleDuplicateProfile = async () => {
+    if (!confirm(`'${localProfile.personal?.name || '알 수 없음'}' 프로필을 복제하시겠습니까?`)) return
+    await duplicateProfile((profile as any).id)
+    alert('복제 완료! 드롭다운에서 새 프로필을 선택할 수 있습니다.')
+  }
+
   const handleRevertProfile = () => {
     if (!confirm('마지막으로 저장된 상태로 되돌리시겠습니까?\n저장하지 않은 변경 내용이 모두 사라집니다.')) return
     const p = profile as any
@@ -151,10 +179,26 @@ export function ProfilePage() {
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Active Profile</span>
-            <select value={(profile as any).id} onChange={(e) => handleSwitch(e.target.value)}
-              className="bg-transparent font-bold text-lg outline-none cursor-pointer hover:text-primary transition-colors">
-              {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            {isRenamingProfile ? (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <input ref={renameInputRef} type="text" value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onClick={e => (e.target as HTMLInputElement).focus()}
+                  onKeyDown={e => { if (e.key === 'Enter') handleConfirmRename(); if (e.key === 'Escape') setIsRenamingProfile(false) }}
+                  className="rounded-md border border-primary/50 bg-background px-2 py-1 text-sm font-bold outline-none focus:ring-1 focus:ring-primary w-32" />
+                <button onClick={handleConfirmRename} className="rounded px-2 py-1 bg-primary text-[10px] font-bold text-primary-foreground">확인</button>
+                <button onClick={() => setIsRenamingProfile(false)} className="rounded px-2 py-1 border text-[10px] text-muted-foreground">취소</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <select value={(profile as any).id} onChange={(e) => handleSwitch(e.target.value)}
+                  className="bg-transparent font-bold text-lg outline-none cursor-pointer hover:text-primary transition-colors">
+                  {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <button onClick={handleStartRename} title="이름 변경"
+                  className="text-muted-foreground hover:text-primary transition-colors text-xs">✏️</button>
+              </div>
+            )}
           </div>
           <div className="h-8 w-px bg-primary/20 mx-2" />
           {isCreatingProfile ? (
@@ -183,6 +227,10 @@ export function ProfilePage() {
           <button onClick={handleResetProfile}
             className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-orange-50 hover:text-orange-600 transition-all">
             🗑 초기화
+          </button>
+          <button onClick={handleDuplicateProfile}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-blue-50 hover:text-blue-600 transition-all">
+            ⎘ 복제
           </button>
           <div className="h-5 w-px bg-border mx-1" />
           <button onClick={handleDeleteProfile}

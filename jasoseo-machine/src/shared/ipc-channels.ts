@@ -58,6 +58,8 @@ export const IPC = {
   USER_PROFILE_SWITCH: 'user-profile:switch',
   USER_PROFILE_CREATE: 'user-profile:create',
   USER_PROFILE_DELETE: 'user-profile:delete',
+  USER_PROFILE_RENAME: 'user-profile:rename',
+  USER_PROFILE_DUPLICATE: 'user-profile:duplicate',
 
   // Automation
   ANALYZE_FORM_STRUCTURE: 'analyze-form-structure',

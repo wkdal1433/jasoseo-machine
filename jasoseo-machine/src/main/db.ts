@@ -234,6 +234,25 @@ export function createProfile(name: string): any {
   return newProfile
 }
 
+export function renameProfile(id: string, newName: string): void {
+  const profile = data.profiles.find(p => p.id === id)
+  if (!profile) return
+  if (!profile.personal) profile.personal = {}
+  profile.personal.name = newName
+  save()
+}
+
+export function duplicateProfile(id: string): any | null {
+  const source = data.profiles.find(p => p.id === id)
+  if (!source) return null
+  const copy = JSON.parse(JSON.stringify(source))
+  copy.id = 'profile-' + Date.now()
+  if (copy.personal?.name) copy.personal.name = copy.personal.name + ' (복사)'
+  data.profiles.push(copy)
+  save()
+  return copy
+}
+
 export function deleteProfile(id: string): string | null {
   const profile = data.profiles.find(p => p.id === id)
   const profileId = profile?.id || null

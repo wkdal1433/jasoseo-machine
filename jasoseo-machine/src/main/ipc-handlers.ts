@@ -26,6 +26,8 @@ import {
   switchProfile,
   createProfile,
   deleteProfile,
+  renameProfile,
+  duplicateProfile,
   listPatterns,
   savePattern,
   deletePattern,
@@ -225,6 +227,10 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
     }
     return true
   })
+
+  ipcMain.handle(IPC.USER_PROFILE_RENAME, (_event, id, newName) => { renameProfile(id, newName); return true })
+
+  ipcMain.handle(IPC.USER_PROFILE_DUPLICATE, (_event, id) => { return duplicateProfile(id) })
 
   ipcMain.handle(IPC.ANALYZE_FORM_STRUCTURE, async (_event, html) => {
     const { FormAnalyzer } = await import('./automation/form-analyzer')
