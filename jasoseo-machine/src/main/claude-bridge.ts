@@ -132,14 +132,15 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   let args: string[], prompt: string, tempPromptFile: string | null = null
   if (provider === 'gemini') {
     prompt = sanitizePromptForGemini(options.prompt)
-    if (finalFilePath) {
-      // [핵심 조치 3] @filepath 단일턴 방식 (검증된 패턴)
-      // "도구를 써서 읽어라" 멀티턴 방식은 <ctrl46>} 빈 응답 유발 → @filepath로 사전 로딩
-      const forwardSlashPath = finalFilePath.replace(/\\/g, '/')
-      prompt = `@"${forwardSlashPath}"\n\n${prompt}`
-    }
     if (options.outputFormat === 'json') {
       prompt = 'IMPORTANT: Output ONLY a single JSON object. No other text.\n\n' + prompt
+    }
+    if (finalFilePath) {
+      // [핵심 조치 3] @filepath는 반드시 프롬프트 파일의 맨 첫 줄이어야 함
+      // Gemini CLI는 @filepath가 중간에 있으면 파일 사전 로딩을 건너뛰고
+      // YOLO 모드에서 shell 도구로 직접 PDF 파싱 시도 → 인코딩 오류/무한 루프 유발
+      const forwardSlashPath = finalFilePath.replace(/\\/g, '/')
+      prompt = `@"${forwardSlashPath}"\n\nNOTE: The file above has been pre-loaded into your context. Do NOT use shell tools or scripts to read the file. Analyze the pre-loaded content directly.\n\n${prompt}`
     }
 
     tempPromptFile = path.join(tempDir, `g_p_${Date.now()}.txt`)
