@@ -287,17 +287,29 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
       
       sendProgress('핵심 데이터를 추출하여 구조화하고 있습니다...', 50)
       
-      // [v20.7 개선] 방탄 JSON 추출 로직 (마크다운, 인사말 등 제거)
-      let cleanedResponse = aiResponse.trim();
-      const firstBrace = cleanedResponse.indexOf('{');
-      const lastBrace = cleanedResponse.lastIndexOf('}');
-      
-      if (firstBrace === -1 || lastBrace === -1) {
+      // [v20.8 개선] AI가 JSON을 여러 번 출력할 때 마지막 완전한 JSON만 추출
+      // (첫번째 초안 → 수정본 → 추론텍스트 순으로 출력될 경우 마지막 것만 사용)
+      const extractLastJSON = (text: string): string => {
+        // 마지막 } 위치에서 역방향으로 중괄호를 추적해 완전한 JSON 범위 탐색
+        let end = -1;
+        for (let i = text.length - 1; i >= 0; i--) {
+          if (text[i] === '}') { end = i; break; }
+        }
+        if (end === -1) return '';
+        let depth = 0, start = -1;
+        for (let i = end; i >= 0; i--) {
+          if (text[i] === '}') depth++;
+          else if (text[i] === '{') { depth--; if (depth === 0) { start = i; break; } }
+        }
+        return start !== -1 ? text.slice(start, end + 1) : '';
+      };
+
+      const jsonStr = extractLastJSON(aiResponse);
+      if (!jsonStr) {
         console.error('[AI Raw Output Error]:', aiResponse);
         throw new Error('AI 응답에서 유효한 JSON 데이터를 찾을 수 없습니다.');
       }
-      
-      const jsonStr = cleanedResponse.slice(firstBrace, lastBrace + 1);
+
       let result;
       try {
         result = JSON.parse(jsonStr);
