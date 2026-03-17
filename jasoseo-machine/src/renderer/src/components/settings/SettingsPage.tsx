@@ -2,6 +2,18 @@ import { useEffect, useState } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 
+const ENDPOINT_CONFIGS = [
+  { key: 'cover_letter',     label: '자소서 작성 (실시간)',    recommended: 'opus',                  reason: '최고 품질 글쓰기' },
+  { key: 'company_analyze',  label: '기업 리서치 (Step 0)',    recommended: 'gemini-2.5-pro',        reason: '웹 검색 + 심층 분석' },
+  { key: 'onboarding_parse', label: '온보딩 PDF 분석',         recommended: 'gemini-2.5-pro',        reason: '복잡한 문서 구조 파악' },
+  { key: 'ep_suggest',       label: '에피소드 아이디어 제안',  recommended: 'gemini-2.5-flash',      reason: '구조화 출력, 중간 복잡도' },
+  { key: 'web_fetch',        label: '채용공고 URL 파싱',       recommended: 'gemini-2.5-flash',      reason: '단순 텍스트 추출' },
+  { key: 'pattern_analyze',  label: '자소서 패턴 분석',        recommended: 'gemini-2.5-flash',      reason: '단순 패턴 추출' },
+  { key: 'form_analyze',     label: '폼 구조 분석 (확장)',     recommended: 'gemini-2.5-flash-lite', reason: '단순 필드 매칭' },
+  { key: 'profile_fill',     label: '프로필 채우기 (확장)',    recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 매핑' },
+  { key: 'form_extract',     label: '문항 추출 (확장)',         recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 추출' },
+] as const
+
 const MODEL_OPTIONS = [
   { group: 'Claude', models: [
     { value: 'opus', label: 'Opus', desc: '최고 품질, 느린 속도' },
@@ -30,6 +42,7 @@ export function SettingsPage() {
   const [geminiTestResult, setGeminiTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isGeminiTesting, setIsGeminiTesting] = useState(false)
   
+  const [endpointModels, setEndpointModels] = useState<Record<string, string>>({})
   const [bridgeInfo, setBridgeInfo] = useState<{ port: string; secret: string } | null>(null)
   const [showSecret, setShowSecret] = useState(false)
   const [secretCopied, setSecretCopied] = useState(false)
@@ -44,7 +57,29 @@ export function SettingsPage() {
   useEffect(() => {
     loadSettings()
     loadBridgeInfo()
+    loadEndpointModels()
   }, [])
+
+  const loadEndpointModels = async () => {
+    const models: Record<string, string> = {}
+    for (const ep of ENDPOINT_CONFIGS) {
+      const val = await window.api.settingsGet(`model_ep_${ep.key}`) as string | null
+      models[ep.key] = val || ep.recommended
+    }
+    setEndpointModels(models)
+  }
+
+  const handleEndpointModelChange = async (key: string, value: string) => {
+    await window.api.settingsSet(`model_ep_${key}`, value)
+    setEndpointModels(prev => ({ ...prev, [key]: value }))
+  }
+
+  const resetEndpointModels = async () => {
+    for (const ep of ENDPOINT_CONFIGS) {
+      await window.api.settingsSet(`model_ep_${ep.key}`, ep.recommended)
+    }
+    setEndpointModels(Object.fromEntries(ENDPOINT_CONFIGS.map(ep => [ep.key, ep.recommended])))
+  }
 
   const loadBridgeInfo = async () => {
     try {
@@ -211,6 +246,47 @@ export function SettingsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* AI 호출별 모델 설정 */}
+        <div className="rounded-lg border border-border p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">AI 호출별 모델 설정</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">기능마다 최적 모델을 선택하세요. ⭐는 앱 추천 모델입니다.</p>
+            </div>
+            <button
+              onClick={resetEndpointModels}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent whitespace-nowrap"
+            >
+              ↺ 추천으로 초기화
+            </button>
+          </div>
+          <div className="space-y-2">
+            {ENDPOINT_CONFIGS.map((ep) => {
+              const allModels = MODEL_OPTIONS.flatMap(g => g.models)
+              const current = endpointModels[ep.key] || ep.recommended
+              const isRecommended = current === ep.recommended
+              return (
+                <div key={ep.key} className="grid grid-cols-2 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/30 transition-colors">
+                  <div>
+                    <span className="text-xs font-medium">{ep.label}</span>
+                    <span className="ml-1.5 text-[10px] text-muted-foreground">⭐ {ep.recommended}</span>
+                    {isRecommended && <span className="ml-1 text-[10px] bg-primary/10 text-primary rounded px-1">추천</span>}
+                  </div>
+                  <select
+                    value={current}
+                    onChange={(e) => handleEndpointModelChange(ep.key, e.target.value)}
+                    className="rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    {allModels.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )
+            })}
           </div>
         </div>
 
