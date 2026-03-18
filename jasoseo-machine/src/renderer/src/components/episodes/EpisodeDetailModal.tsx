@@ -1,6 +1,67 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Episode } from '@/types/episode'
-import { ClipboardList, Sparkles, CheckCircle2 } from 'lucide-react'
+import { ClipboardList, Sparkles, CheckCircle2, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+interface UsageRecord { appId: string; companyName: string; questionNumber: number; question: string; finalText: string | null }
+
+function EpisodeUsageHistory({ episodeId }: { episodeId: string }) {
+  const [records, setRecords] = useState<UsageRecord[]>([])
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const apps = await window.api.appList() as { id: string; companyName: string }[]
+        const found: UsageRecord[] = []
+        for (const app of apps) {
+          const cls = await window.api.clListByApp(app.id) as { questionNumber: number; question: string; finalText: string | null; episodesUsed: string | null }[]
+          for (const cl of cls) {
+            let ids: string[] = []
+            try { ids = JSON.parse(cl.episodesUsed || '[]') } catch { /* skip */ }
+            if (ids.includes(episodeId)) {
+              found.push({ appId: app.id, companyName: app.companyName, questionNumber: cl.questionNumber, question: cl.question, finalText: cl.finalText })
+            }
+          }
+        }
+        if (!cancelled) setRecords(found)
+      } catch { /* ignore */ } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [episodeId])
+
+  if (isLoading) return <p className="text-xs text-muted-foreground py-2 animate-pulse">사용 이력 조회 중...</p>
+  if (records.length === 0) return <p className="text-xs text-muted-foreground py-2">이 에피소드를 사용한 자소서가 없습니다.</p>
+
+  return (
+    <div className="space-y-2">
+      {records.map((r, i) => (
+        <div key={i} className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setExpanded(expanded === `${i}` ? null : `${i}`)}
+            className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-bold text-primary shrink-0">{r.companyName}</span>
+              <span className="text-xs text-muted-foreground truncate">Q{r.questionNumber}. {r.question.slice(0, 40)}{r.question.length > 40 ? '...' : ''}</span>
+            </div>
+            {expanded === `${i}` ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {expanded === `${i}` && r.finalText && (
+            <div className="px-3 pb-3 border-t border-border bg-muted/10">
+              <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto mt-2">{r.finalText}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 const STATUS_CONFIG = {
   ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
@@ -214,6 +275,20 @@ ${instruction.trim()}
                 })}
               </div>
             )}
+          </div>
+
+          {/* 사용 이력 (#5 멀티타겟 앵글 비교) */}
+          <div className="px-6 py-4 border-b">
+            <details className="group">
+              <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-muted-foreground select-none list-none">
+                <History size={12} />
+                이 에피소드를 사용한 자소서
+                <ChevronDown size={11} className="group-open:rotate-180 transition-transform ml-auto" />
+              </summary>
+              <div className={cn("mt-3")}>
+                <EpisodeUsageHistory episodeId={episode.id} />
+              </div>
+            </details>
           </div>
 
           {/* AI 수정 요청 섹션 */}
