@@ -294,4 +294,26 @@ export function buildSurgicalEditPrompt(
 `;
 }
 
+// [#3] 소제목 품질 등급 평가 프롬프트
+export function buildHeadlineGradePrompt(headline: string, jobTitle: string, companyName: string): string {
+  return `자소서 소제목 품질을 S~C 4단계로 평가하세요.
+
+[소제목]: """${headline}"""
+[직무]: ${jobTitle}
+[기업]: ${companyName}
+
+평가 기준:
+- S급: 직무 키워드 + 해결 과제 + 기여 방향 3요소 모두 포함. 구체적 행동/성과 담김.
+- A급: 위 3요소 중 2개 포함. 방향은 맞지만 구체성이 부족.
+- B급: 1요소만 포함. 추상적이지만 직무 연관성 있음.
+- C급: 직무 무관, 진부한 표현 ("열정", "최선" 등), 또는 너무 일반적.
+
+JSON만 출력하세요:
+{
+  "grade": "S|A|B|C",
+  "reason": "한 줄 근거 (한국어, 30자 이내)",
+  "improved": "S급 개선안 (소제목만, 따옴표 없이)"
+}`
+}
+
 export { GUI_SYSTEM_PROMPT }

@@ -2,12 +2,26 @@ import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
-import { Pencil } from 'lucide-react'
+import { buildHeadlineGradePrompt } from '@/lib/prompt-builder'
+import { cn } from '@/lib/utils'
+import { Pencil, Star, RefreshCw } from 'lucide-react'
+
+type HeadlineGrade = 'S' | 'A' | 'B' | 'C'
+interface HeadlineGradeResult { grade: HeadlineGrade; reason: string; improved: string }
+
+const GRADE_COLORS: Record<HeadlineGrade, string> = {
+  S: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  A: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  B: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  C: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+}
 
 export function FinalResult() {
-  const { questions, activeQuestionIndex, setQuestionStep, setGeneratedText, reopenQuestion, setActiveQuestion } = useWizardStore()
+  const { questions, activeQuestionIndex, setQuestionStep, setGeneratedText, reopenQuestion, setActiveQuestion, companyName, jobTitle } = useWizardStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
+  const [headlineGrade, setHeadlineGrade] = useState<HeadlineGradeResult | null>(null)
+  const [isGrading, setIsGrading] = useState(false)
 
   const q = questions[activeQuestionIndex]
   if (!q) return null
@@ -31,6 +45,29 @@ export function FinalResult() {
   const handleGoToStep = (step: number) => {
     reopenQuestion(activeQuestionIndex)
     setQuestionStep(activeQuestionIndex, step as any)
+  }
+
+  const runHeadlineGrade = async () => {
+    if (!q) return
+    const headline = q.generatedText.split('\n')[0].replace(/^#+\s*/, '').trim()
+    if (!headline) return
+    setIsGrading(true)
+    try {
+      const prompt = buildHeadlineGradePrompt(headline, jobTitle, companyName)
+      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const match = raw.match(/\{[\s\S]*\}/)
+      if (match) setHeadlineGrade(JSON.parse(match[0]) as HeadlineGradeResult)
+    } catch { /* ignore */ } finally {
+      setIsGrading(false)
+    }
+  }
+
+  const applyImprovedHeadline = () => {
+    if (!headlineGrade || !q) return
+    const lines = q.generatedText.split('\n')
+    lines[0] = headlineGrade.improved
+    setGeneratedText(activeQuestionIndex, lines.join('\n'))
+    setHeadlineGrade(null)
   }
 
   return (
@@ -93,6 +130,45 @@ export function FinalResult() {
           <span className={v.dualCodingCheck.overallPassed ? 'text-green-600' : 'text-red-600'}>
             이중코딩 {v.dualCodingCheck.overallPassed ? '\u2713' : '\u2717'}
           </span>
+        </div>
+      )}
+
+      {/* 소제목 등급 평가 (#3) */}
+      {!isEditing && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+              <Star size={12} /> 소제목 품질 등급
+            </span>
+            <button
+              onClick={runHeadlineGrade}
+              disabled={isGrading}
+              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
+            >
+              {isGrading ? <><RefreshCw size={10} className="animate-spin" /> 평가 중...</> : '평가하기'}
+            </button>
+          </div>
+          {headlineGrade && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-bold', GRADE_COLORS[headlineGrade.grade])}>
+                  {headlineGrade.grade}급
+                </span>
+                <span className="text-xs text-muted-foreground">{headlineGrade.reason}</span>
+              </div>
+              {headlineGrade.grade !== 'S' && headlineGrade.improved && (
+                <div className="flex items-center gap-2 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-3 py-1.5">
+                  <span className="text-xs text-green-800 dark:text-green-200 flex-1">S급 개선안: {headlineGrade.improved}</span>
+                  <button
+                    onClick={applyImprovedHeadline}
+                    className="shrink-0 rounded-md bg-green-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-green-700"
+                  >
+                    적용
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
