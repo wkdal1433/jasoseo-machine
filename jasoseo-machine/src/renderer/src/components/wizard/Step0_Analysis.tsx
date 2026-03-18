@@ -4,7 +4,14 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep0Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { HRIntentItem, Strategy, RecruitmentContext } from '@/types/application'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, Globe, Search, Link, Lightbulb, AlertTriangle, Target } from 'lucide-react'
+import { CheckCircle2, Globe, Search, Link, Lightbulb, AlertTriangle, Target, ChevronDown } from 'lucide-react'
+
+function confidenceColor(confidence?: number): string {
+  if (confidence === undefined) return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+  if (confidence >= 80) return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+  if (confidence >= 60) return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+  return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+}
 
 const INTENT_LABELS: Record<string, string> = {
   Execution: '실행력',
@@ -15,7 +22,8 @@ const INTENT_LABELS: Record<string, string> = {
 
 export function Step0Analysis() {
   const {
-    companyName, jobTitle, jobPosting, strategy, hrIntents, recruitmentContext,
+    companyName, jobTitle, jobPosting, strategy, strategyConfidence, hrIntents,
+    alternativeIntents, recruitmentContext,
     questions, step0Completed, setStep0Result, setRecruitmentContext
   } = useWizardStore()
   const { episodes, loadEpisodes } = useEpisodeStore()
@@ -26,6 +34,7 @@ export function Step0Analysis() {
   const [tempContext, setTempContext] = useState<RecruitmentContext | null>(null)
   const [showResearchInput, setShowResearchInput] = useState(false)
   const [researchContext, setResearchContext] = useState('')
+  const [showAlternatives, setShowAlternatives] = useState(false)
 
   useEffect(() => {
     if (episodes.length === 0) loadEpisodes()
@@ -85,7 +94,7 @@ export function Step0Analysis() {
         appendSystemPrompt: GUI_SYSTEM_PROMPT
       })
 
-      let parsed: { hrIntents: HRIntentItem[]; strategy: Strategy }
+      let parsed: { hrIntents: HRIntentItem[]; strategy: Strategy; alternativeIntents?: HRIntentItem[]; strategyConfidence?: number }
       try {
         parsed = JSON.parse(raw)
       } catch {
@@ -101,7 +110,7 @@ export function Step0Analysis() {
         parsed.strategy = strategy || 'Balanced'
       }
 
-      setStep0Result(parsed.hrIntents, parsed.strategy)
+      setStep0Result(parsed.hrIntents, parsed.strategy, parsed.alternativeIntents, parsed.strategyConfidence)
     } catch (err: any) {
       setError('분석 실패: ' + err.message)
     }
@@ -120,35 +129,92 @@ export function Step0Analysis() {
 
   if (step0Completed && hrIntents) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-center gap-2 text-green-600">
           <CheckCircle2 size={20} className="text-green-500" />
           <h3 className="text-lg font-bold">Step 0: 기업 분석 및 전략 수립 완료</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-800 dark:bg-green-950">
-            <p className="mb-3 text-sm font-bold text-green-800">AI 제안 HR 의도</p>
-            <div className="space-y-2">
-              {hrIntents.map((h, i) => (
-                <div key={i} className="text-xs">
-                  <span className="font-bold text-green-700">[{h.intent}]</span> {h.reason}
+        {/* HR 의도 카드 */}
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 dark:border-green-800 dark:bg-green-950 space-y-4">
+          <p className="text-sm font-bold text-green-800 dark:text-green-300">AI 제안 HR 의도</p>
+          {hrIntents.map((h, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="rounded-full bg-green-600 text-white px-3 py-0.5 text-xs font-bold">{INTENT_LABELS[h.intent] || h.intent}</span>
+                {h.confidence !== undefined && (
+                  <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', confidenceColor(h.confidence))}>
+                    신뢰도 {h.confidence}%
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-green-900/80 dark:text-green-200/80 leading-relaxed">{h.reason}</p>
+              {h.reasoning && (
+                <p className="text-[11px] text-green-800/60 dark:text-green-300/60 italic">{h.reasoning}</p>
+              )}
+              {h.evidenceKeywords && h.evidenceKeywords.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {h.evidenceKeywords.map((kw, ki) => (
+                    <span key={ki} className="rounded bg-green-200/60 dark:bg-green-800/60 px-1.5 py-0.5 text-[10px] font-medium text-green-800 dark:text-green-200">
+                      {kw}
+                    </span>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-950">
-            <p className="mb-3 text-sm font-bold text-blue-800">선택된 작성 전략</p>
-            <p className="text-sm font-bold text-blue-700 capitalize">{strategy}</p>
-            <p className="mt-1 text-xs text-blue-600/80 leading-relaxed">
-              해당 기업의 가치와 직무 우대사항을 고려한 전략입니다.
-            </p>
-          </div>
+          ))}
         </div>
 
+        {/* 작성 전략 카드 */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-950">
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-sm font-bold text-blue-800 dark:text-blue-300">선택된 작성 전략</p>
+            <span className="rounded-full bg-blue-600 text-white px-3 py-0.5 text-xs font-bold capitalize">{strategy}</span>
+            {strategyConfidence !== null && strategyConfidence !== undefined && (
+              <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', confidenceColor(strategyConfidence))}>
+                신뢰도 {strategyConfidence}%
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-blue-600/80 dark:text-blue-300/70 leading-relaxed">
+            해당 기업의 가치와 직무 우대사항을 고려한 전략입니다.
+          </p>
+        </div>
+
+        {/* 탈락한 대안 의도 */}
+        {alternativeIntents && alternativeIntents.length > 0 && (
+          <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2">
+            <button
+              onClick={() => setShowAlternatives((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown size={14} className={cn('transition-transform', showAlternatives && 'rotate-180')} />
+              검토된 다른 의도 ({alternativeIntents.length}개)
+            </button>
+            {showAlternatives && (
+              <div className="space-y-2 pt-1">
+                {alternativeIntents.map((h, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-background p-3 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground">{INTENT_LABELS[h.intent] || h.intent}</span>
+                      {h.confidence !== undefined && (
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', confidenceColor(h.confidence))}>
+                          {h.confidence}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{h.reason}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 확정된 기업 인재상 */}
         {recruitmentContext && (
           <div className="rounded-2xl border border-border bg-muted/20 p-5">
-            <p className="mb-2 text-xs font-bold text-muted-foreground uppercase tracking-wider text-muted-foreground/60">Confirmed Hiring Values</p>
+            <p className="mb-2 text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">Confirmed Hiring Values</p>
             <div className="flex flex-wrap gap-2">
               {recruitmentContext.hiringValues.map((v, i) => (
                 <span key={i} className="rounded-full bg-background border border-border px-2 py-1 text-[10px]">{v}</span>

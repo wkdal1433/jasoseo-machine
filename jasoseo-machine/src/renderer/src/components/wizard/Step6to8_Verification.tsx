@@ -3,6 +3,8 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { buildStep6to8Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { cn } from '@/lib/utils'
 import type { VerificationResult } from '@/types/application'
+import { calcOverallVerificationScore, evaluateVerificationScore } from '@/lib/confidence-gate'
+import { AlertTriangle, CheckCircle2, XCircle, MapPin } from 'lucide-react'
 
 export function Step6to8Verification() {
   const {
@@ -59,15 +61,57 @@ export function Step6to8Verification() {
       v.failPatternCheck.overallPassed &&
       v.dualCodingCheck.overallPassed
 
+    // 점수 계산 — scores 필드가 있으면 사용, 없으면 boolean → 추정값
+    const scores = v.scores ?? {
+      hallucination: v.hallucinationCheck.overallPassed ? 85 : 40,
+      failPattern: v.failPatternCheck.overallPassed ? 85 : 40,
+      dualCoding: v.dualCodingCheck.overallPassed ? 85 : 40,
+      overall: 0,
+    }
+    if (!v.scores) {
+      scores.overall = calcOverallVerificationScore(scores.hallucination, scores.failPattern, scores.dualCoding)
+    }
+    const overallDecision = evaluateVerificationScore(scores.overall)
+
     return (
       <div className="space-y-5">
         <h3 className="text-lg font-bold">검증 결과</h3>
+
+        {/* 종합 스코어 대시보드 */}
+        <div className={cn(
+          'rounded-2xl border-2 p-5 space-y-4',
+          overallDecision === 'proceed' ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950'
+          : overallDecision === 'warn_and_proceed' ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950'
+          : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950'
+        )}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold">종합 검증 점수</p>
+            <div className="flex items-center gap-2">
+              <span className={cn('text-2xl font-bold',
+                overallDecision === 'proceed' ? 'text-green-700 dark:text-green-300'
+                : overallDecision === 'warn_and_proceed' ? 'text-amber-700 dark:text-amber-300'
+                : 'text-red-700 dark:text-red-300'
+              )}>{scores.overall}</span>
+              <span className="text-xs text-muted-foreground">/ 100</span>
+              {overallDecision === 'proceed' && <CheckCircle2 size={18} className="text-green-600" />}
+              {overallDecision === 'warn_and_proceed' && <AlertTriangle size={18} className="text-amber-600" />}
+              {overallDecision === 'stop' && <XCircle size={18} className="text-red-600" />}
+            </div>
+          </div>
+          {/* 세부 점수 게이지 */}
+          <div className="space-y-2">
+            <ScoreBar label="할루시네이션 방지" score={scores.hallucination} weight="50%" />
+            <ScoreBar label="탈락 패턴" score={scores.failPattern} weight="30%" />
+            <ScoreBar label="이중 코딩" score={scores.dualCoding} weight="20%" />
+          </div>
+        </div>
 
         {/* Step 6: Hallucination */}
         <VerificationSection
           title="Step 6: 할루시네이션 방지 검증"
           items={v.hallucinationCheck.items}
           passed={v.hallucinationCheck.overallPassed}
+          score={scores.hallucination}
         />
 
         {/* Step 7: Fail Pattern */}
@@ -75,6 +119,7 @@ export function Step6to8Verification() {
           title="Step 7: 탈락 패턴 검증"
           items={v.failPatternCheck.items}
           passed={v.failPatternCheck.overallPassed}
+          score={scores.failPattern}
         />
         {v.failPatternCheck.suggestions.length > 0 && (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950">
@@ -92,19 +137,28 @@ export function Step6to8Verification() {
           title="Step 8: 이중 코딩 최종 검증"
           items={v.dualCodingCheck.items}
           passed={v.dualCodingCheck.overallPassed}
+          score={scores.dualCoding}
         />
 
-        {/* Overall Result */}
-        <div className={cn(
-          'rounded-lg border-2 p-4 text-center',
-          allPassed
-            ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950'
-            : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950'
-        )}>
-          <p className="text-lg font-bold">
-            {allPassed ? '전체 검증 통과' : '일부 항목 실패'}
-          </p>
-        </div>
+        {/* 액션 아이템 */}
+        {v.actionItems && v.actionItems.length > 0 && (
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+              <MapPin size={13} /> 수정 필요 위치
+            </p>
+            <div className="space-y-2">
+              {v.actionItems.map((item, i) => (
+                <div key={i} className="rounded-lg border border-border bg-background p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">{item.location}</span>
+                  </div>
+                  <p className="text-xs text-red-600 dark:text-red-400">{item.issue}</p>
+                  <p className="text-xs text-foreground/70">→ {item.suggestion}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2">
           {!allPassed && (
@@ -180,25 +234,53 @@ export function Step6to8Verification() {
   )
 }
 
+function ScoreBar({ label, score, weight }: { label: string; score: number; weight: string }) {
+  const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-muted-foreground">{label} <span className="opacity-50">({weight})</span></span>
+        <span className="font-bold">{score}</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+        <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${score}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function VerificationSection({
-  title, items, passed
+  title, items, passed, score
 }: {
   title: string
   items: { check: string; passed: boolean; detail: string }[]
   passed: boolean
+  score?: number
 }) {
   return (
     <div className="rounded-lg border border-border p-4">
       <div className="mb-3 flex items-center justify-between">
         <h4 className="text-sm font-bold">{title}</h4>
-        <span className={cn(
-          'rounded-full px-2 py-0.5 text-xs font-medium',
-          passed
-            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-        )}>
-          {passed ? '통과' : '실패'}
-        </span>
+        <div className="flex items-center gap-2">
+          {score !== undefined && (
+            <span className={cn(
+              'rounded-full px-2 py-0.5 text-[11px] font-bold',
+              score >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+              : score >= 60 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+            )}>
+              {score}점
+            </span>
+          )}
+          <span className={cn(
+            'rounded-full px-2 py-0.5 text-xs font-medium',
+            passed
+              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+          )}>
+            {passed ? '통과' : '실패'}
+          </span>
+        </div>
       </div>
       <div className="space-y-1.5">
         {items.map((item, i) => (

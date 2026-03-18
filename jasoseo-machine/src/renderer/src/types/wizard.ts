@@ -46,7 +46,9 @@ export interface WizardState {
   jobTitle: string
   jobPosting: string
   strategy: Strategy | null
+  strategyConfidence: number | null
   hrIntents: HRIntentItem[] | null
+  alternativeIntents: HRIntentItem[] | null
   recruitmentContext: RecruitmentContext | null
   questions: WizardQuestion[]
   activeQuestionIndex: number

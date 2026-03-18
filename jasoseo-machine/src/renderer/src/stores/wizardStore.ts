@@ -9,7 +9,7 @@ let _streamCleanup: (() => void) | null = null
 interface WizardActions {
   initWizard: (companyName: string, jobTitle: string, jobPosting: string, questions: QuestionInput[], strategy?: Strategy) => void
   restoreFromDraft: (savedState: Partial<WizardState>) => void
-  setStep0Result: (hrIntents: HRIntentItem[], strategy: Strategy) => void
+  setStep0Result: (hrIntents: HRIntentItem[], strategy: Strategy, alternativeIntents?: HRIntentItem[], strategyConfidence?: number) => void
   setRecruitmentContext: (context: RecruitmentContext) => void
   setQuestionAnalysis: (questionIndex: number, analysis: AnalysisResult) => void
   approveEpisode: (questionIndex: number, episodeId: string) => void
@@ -43,7 +43,9 @@ const initialState: WizardState = {
   jobTitle: '',
   jobPosting: '',
   strategy: null,
+  strategyConfidence: null,
   hrIntents: null,
+  alternativeIntents: null,
   recruitmentContext: null,
   questions: [],
   activeQuestionIndex: 0,
@@ -99,10 +101,12 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
     })
   },
 
-  setStep0Result: (hrIntents, strategy) => {
+  setStep0Result: (hrIntents, strategy, alternativeIntents?, strategyConfidence?) => {
     set((state) => ({
       hrIntents,
       strategy,
+      alternativeIntents: alternativeIntents || null,
+      strategyConfidence: strategyConfidence ?? null,
       step0Completed: true,
       questions: state.questions.map((q) =>
         q.currentStep === 0 ? { ...q, currentStep: 1 as WizardStep } : q

@@ -4,6 +4,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep3to5Prompt, buildShortenPrompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { ModelPicker } from '@/components/common/ModelPicker'
+import { estimateStepDuration, estimateStreamRemaining, formatDuration } from '@/lib/time-estimator'
 import { Sparkles, Eye, Scissors } from 'lucide-react'
 
 const FUN_MESSAGES = [
@@ -57,6 +58,7 @@ export function Step3to5Generation() {
   const [logs, setLogs] = useState<string[]>([])
   const [showLog, setShowLog] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [estimatedSecs, setEstimatedSecs] = useState<number | null>(null)
   const [funMsgIdx, setFunMsgIdx] = useState(0)
   const [fakeStep, setFakeStep] = useState(0)
   const logRef = useRef<HTMLDivElement>(null)
@@ -110,6 +112,14 @@ export function Step3to5Generation() {
     }, 2500)
 
     addLog('프롬프트 전송 완료')
+
+    // 시간 예측 — 이전 실행 기록 조회
+    try {
+      const history = await window.api.executionHistoryGet('step3to5_generation') as { durationSecs: number }[]
+      const durations = history.map((h) => h.durationSecs)
+      const estimated = estimateStepDuration('step3to5_generation', durations)
+      setEstimatedSecs(estimated)
+    } catch { /* 예측 실패 시 무시 */ }
 
     const angles: Record<string, string> = {}
     q.analysisResult!.suggestedEpisodes.forEach((ep) => {
@@ -195,6 +205,16 @@ export function Step3to5Generation() {
     if (!isGenerating && firstTokenRef.current) {
       const finalLen = q.generatedText.length
       addLog(`생성 완료 (${finalLen}자)`)
+      // 실행 이력 저장 — 다음 세션에서 시간 예측에 사용
+      const durationSecs = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0
+      if (durationSecs > 0) {
+        window.api.executionHistorySave({
+          step: 'step3to5_generation',
+          model: 'default',
+          durationSecs,
+          charLimit: q.charLimit || undefined,
+        }).catch(() => { /* 저장 실패 시 무시 */ })
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating])
@@ -392,7 +412,10 @@ export function Step3to5Generation() {
           {/* Fun message */}
           <div className="space-y-1">
             <p className="text-base font-bold animate-pulse">{FUN_MESSAGES[funMsgIdx]}</p>
-            <p className="text-xs text-muted-foreground">경과 {formatElapsed(elapsed)}</p>
+            <p className="text-xs text-muted-foreground">
+              경과 {formatElapsed(elapsed)}
+              {estimatedSecs !== null && ` / 예상 ${formatDuration(estimatedSecs)}`}
+            </p>
           </div>
 
           {/* Fake step progress */}
@@ -448,7 +471,13 @@ export function Step3to5Generation() {
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary inline-block" />
               생성 중...
             </span>
-            <span>{q.generatedText.length}자 / {q.charLimit}자 | {formatElapsed(elapsed)}</span>
+            <span>
+              {q.generatedText.length}자 / {q.charLimit}자 | {formatElapsed(elapsed)}
+              {(() => {
+                const remaining = q.charLimit > 0 ? estimateStreamRemaining(q.generatedText.length, q.charLimit, elapsed) : null
+                return remaining !== null ? ` | 약 ${formatDuration(remaining)} 남음` : ''
+              })()}
+            </span>
           </div>
           <div className="h-1 w-full overflow-hidden rounded-full bg-primary/10">
             <div
