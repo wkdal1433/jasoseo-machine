@@ -1,10 +1,10 @@
-# 자소서 머신 사용 설명서 (Part 3: 나의 무기 만들기)
+# <img src="https://unpkg.com/lucide-static@latest/icons/library.svg" width="32" height="32" valign="bottom" /> 자소서 머신 사용 설명서 (Part 3: 나의 무기 만들기)
 
 환경 설정이 끝났다면 이제 AI가 나를 대신해 글을 쓸 수 있도록, 나의 경험 데이터를 입력할 차례입니다. 자소서 머신은 단순한 텍스트 입력이 아닌, **지능형 온보딩**과 **AI 인터뷰**를 통해 당신의 무기를 날카롭게 다듬어 줍니다.
 
 ---
 
-## 📦 3-1. 매직 온보딩 (Magic Onboarding)
+## <img src="https://unpkg.com/lucide-static@latest/icons/box.svg" width="24" height="24" valign="bottom" /> 3-1. 매직 온보딩 (Magic Onboarding)
 기존에 가지고 있던 이력서나 자기소개서 파일을 업로드하면, AI가 이를 분석하여 핵심 프로필과 에피소드를 자동으로 추출합니다.
 
 1.  대시보드 또는 프로필 메뉴에서 **[이력서 업로드]** 버튼을 클릭합니다.
@@ -18,7 +18,7 @@
 
 ---
 
-## 🎙️ 3-2. 에피소드 마이닝 (Episode Interviewer)
+## <img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="24" height="24" valign="bottom" /> 3-2. 에피소드 마이닝 (Episode Interviewer)
 추출된 내용이 부족하거나 새로운 경험을 추가하고 싶을 때, AI와 대화하며 경험을 구조화할 수 있습니다.
 
 1.  에피소드 메뉴에서 **[새 에피소드 발굴하기]**를 클릭합니다.
@@ -33,7 +33,7 @@
 
 ---
 
-## 🗃️ 3-3. 에피소드 라이브러리 관리
+## <img src="https://unpkg.com/lucide-static@latest/icons/archive.svg" width="24" height="24" valign="bottom" /> 3-3. 에피소드 라이브러리 관리
 저장된 에피소드들은 나중에 자소서를 쓸 때 AI가 골라 쓸 수 있는 **'원천 데이터'**가 됩니다.
 
 *   **에피소드 카드:** 각 카드에는 제목, 직무 역량, HR 의도(실행력, 성장성 등)가 태그로 붙어 있습니다.

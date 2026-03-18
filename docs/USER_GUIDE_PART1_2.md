@@ -1,10 +1,10 @@
-# <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/book-open.svg" width="32" height="32" valign="bottom" /> 자소서 머신 사용 설명서 (Part 1 & 2: 설치 및 환경 설정)
+# <img src="https://unpkg.com/lucide-static@latest/icons/book-open.svg" width="32" height="32" valign="bottom" /> 자소서 머신 사용 설명서 (Part 1 & 2: 설치 및 환경 설정)
 
 본 가이드는 AI를 활용해 서류 합격률을 극대화하는 **자소서 머신**의 초기 설정 방법을 다룹니다. 가이드를 따라 차근차근 설정을 완료해 보세요!
 
 ---
 
-## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/settings.svg" width="24" height="24" valign="bottom" /> Part 1. 시작하기 전에 (필수 환경 설정)
+## <img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="24" height="24" valign="bottom" /> Part 1. 시작하기 전에 (필수 환경 설정)
 
 자소서 머신은 똑똑한 두뇌(AI)를 빌려와 작동합니다. 이를 위해 내 컴퓨터에 AI 엔진을 설치하는 과정이 필요합니다.
 
@@ -15,7 +15,7 @@
 ### 1-2. AI 엔진(CLI) 설치
 자소서 머신이 지원하는 두 가지 AI 엔진 중 하나 이상을 설치해야 합니다. (둘 다 설치하는 것을 권장합니다.)
 
-#### 🔹 Gemini CLI (구글)
+#### <img src="https://unpkg.com/lucide-static@latest/icons/bot.svg" width="18" height="18" valign="bottom" /> Gemini CLI (구글)
 1.  **API 키 발급:** [Google AI Studio](https://aistudio.google.com/app/apikey)에서 무료 API 키를 발급받으세요.
 2.  **설치:** 터미널(CMD 또는 PowerShell)을 열고 아래 명령어를 입력합니다.
     ```bash
@@ -23,7 +23,7 @@
     ```
 3.  **인증:** `gemini auth`를 입력하고 발급받은 API 키를 붙여넣으세요.
 
-#### 🔸 Claude Code (앤스로픽)
+#### <img src="https://unpkg.com/lucide-static@latest/icons/cpu.svg" width="18" height="18" valign="bottom" /> Claude Code (앤스로픽)
 1.  **설치:** 터미널에 아래 명령어를 입력합니다.
     ```bash
     npm install -g @anthropic-ai/claude-code
@@ -40,7 +40,7 @@
 
 ---
 
-## 📦 Part 2. 프로그램 설치 및 실행
+## <img src="https://unpkg.com/lucide-static@latest/icons/package.svg" width="24" height="24" valign="bottom" /> Part 2. 프로그램 설치 및 실행
 
 ### 2-1. 자소서 머신 앱 실행
 1.  다운로드 받은 **자소서 머신 패키지**의 압축을 해제합니다.
@@ -66,7 +66,7 @@
 
 ---
 
-## ⚙️ Part 2-3. 앱과 AI 엔진 연결하기
+## <img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="24" height="24" valign="bottom" /> Part 2-3. 앱과 AI 엔진 연결하기
 
 앱을 실행했다면, 설치한 Gemini/Claude가 앱과 잘 연결되는지 확인해야 합니다.
 

@@ -1,10 +1,10 @@
-# 자소서 머신 사용 설명서 (Part 4 & 5: 실전 작성 및 자동 제출)
+# <img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="32" height="32" valign="bottom" /> 자소서 머신 사용 설명서 (Part 4 & 5: 실전 작성 및 자동 제출)
 
 축하합니다! 이제 당신의 에피소드들이 준비되었습니다. 이제 자소서 머신의 핵심인 **9-Step 생성 파이프라인**을 통해 실제 자기소개서를 완성하고, 채용 사이트에 클릭 한 번으로 제출해 보겠습니다.
 
 ---
 
-## 🪄 Part 4. 자소서 작성 마법사 (Wizard 실전)
+## <img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="24" height="24" valign="bottom" /> Part 4. 자소서 작성 마법사 (Wizard 실전)
 
 ### 4-1. 새 지원서 작성 시작
 1.  대시보드 상단의 **[새 지원서 작성]** 버튼을 클릭합니다.
@@ -31,7 +31,7 @@
 
 ---
 
-## 🚀 Part 5. 사이트 연동 및 자동 제출
+## <img src="https://unpkg.com/lucide-static@latest/icons/rocket.svg" width="24" height="24" valign="bottom" /> Part 5. 사이트 연동 및 자동 제출
 
 ### 5-1. 전체 검토 및 최종 수정 (Full Review)
 모든 문항 작성이 완료되면 전체 자소서를 한눈에 볼 수 있는 화면으로 이동합니다.
@@ -57,4 +57,4 @@
 > *   강조: 크롬 상단 툴바의 **자소서 머신 확장 아이콘**이 활성화(초록색)된 상태
 
 ---
-**🎉 축하합니다!** 자소서 머신과 함께라면 며칠이 걸리던 서류 작업이 단 10분 만에 끝납니다. 이제 당신의 합격을 응원합니다!
+**<img src="https://unpkg.com/lucide-static@latest/icons/party-popper.svg" width="20" height="20" valign="bottom" /> 축하합니다!** 자소서 머신과 함께라면 며칠이 걸리던 서류 작업이 단 10분 만에 끝납니다. 이제 당신의 합격을 응원합니다!

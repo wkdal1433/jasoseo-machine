@@ -1,15 +1,15 @@
-# Security Policy
+# <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield.svg" width="32" height="32" valign="bottom" /> Security Policy
 
-## Supported Versions
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/check-circle-2.svg" width="24" height="24" valign="bottom" /> Supported Versions
 
 현재 최신 메인 브랜치의 버전만 보안 업데이트가 지원됩니다.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.0.x   | ✅         |
-| < 1.0.0 | ❌         |
+| 1.0.x   | <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/check.svg" width="16" height="16" valign="bottom" /> |
+| < 1.0.0 | <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/x.svg" width="16" height="16" valign="bottom" /> |
 
-## Reporting a Vulnerability
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/alert-circle.svg" width="24" height="24" valign="bottom" /> Reporting a Vulnerability
 
 본 프로젝트에서 보안 취약점(예: API 키 노출 위험, 로컬 파일 접근 취약점 등)을 발견하셨다면, 공개적인 Issue 탭 대신 아래 메일 주소로 직접 보고해 주시기 바랍니다.
 

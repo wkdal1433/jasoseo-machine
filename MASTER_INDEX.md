@@ -1,8 +1,8 @@
-# Resume & Cover Letter Experience Master Index
+# <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/clipboard-list.svg" width="32" height="32" valign="bottom" /> Resume & Cover Letter Experience Master Index
 
 ---
 
-## 0. 이 파일의 목적 (AI 필독)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/target.svg" width="24" height="24" valign="bottom" /> 0. 이 파일의 목적 (AI 필독)
 
 이 문서는 나의 경험 전체를 요약하는 파일이 **아니다**.
 이 문서는 **아래에 정리된 경험들을 어떻게 자소서 문장으로 변환해야 하는지에 대한 지침서**다.
@@ -15,7 +15,7 @@ AI는 이 파일을 기준으로:
 
 ---
 
-## 1. 자소서 생성 기본 원칙
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/scroll-text.svg" width="24" height="24" valign="bottom" /> 1. 자소서 생성 기본 원칙
 
 - STAR 형식은 **출력용 구조**일 뿐, 입력 원본이 아니다.
 - 기업이 요구하는 역량이 명확할 경우, STAR의 모든 요소를 사용할 필요는 없다.
@@ -25,7 +25,7 @@ AI는 이 파일을 기준으로:
 
 ---
 
-## 2. 경험 참조 우선순위
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/list-ordered.svg" width="24" height="24" valign="bottom" /> 2. 경험 참조 우선순위
 
 자소서 생성 시 참조 우선순위는 다음과 같다.
 
@@ -39,7 +39,7 @@ AI는 이 파일을 기준으로:
 
 ---
 
-## 3. 기업 요구사항 해석 규칙 (Critical Layer)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/search-code.svg" width="24" height="24" valign="bottom" /> 3. 기업 요구사항 해석 규칙 (Critical Layer)
 
 ### [입력값] (User Provided)
 - 기업명
@@ -59,7 +59,7 @@ AI는 이 파일을 기준으로:
 
 ---
 
-## 4. 작성 전략 결정 규칙 (Mandatory)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chess-knight.svg" width="24" height="24" valign="bottom" /> 4. 작성 전략 결정 규칙 (Mandatory)
 
 AI는 작성 전 반드시 아래 중 **1개 전략을 선택**하고,
 선택 이유를 사용자에게 **1줄로 제시한 후** 작성한다.
@@ -72,7 +72,7 @@ AI는 작성 전 반드시 아래 중 **1개 전략을 선택**하고,
 
 ---
 
-## 5. Episode 사용 가이드
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/book-open.svg" width="24" height="24" valign="bottom" /> 5. Episode 사용 가이드
 
 각 Episode는 다음 목적을 가진다.
 
@@ -85,7 +85,7 @@ AI는 작성 전 반드시 아래 중 **1개 전략을 선택**하고,
 
 ---
 
-## 6. Episode 요약 및 활용 방향
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/layers.svg" width="24" height="24" valign="bottom" /> 6. Episode 요약 및 활용 방향
 
 ---
 
@@ -217,7 +217,7 @@ AI는 작성 전 반드시 아래 중 **1개 전략을 선택**하고,
 
 ---
 
-## 7. Fact Sheet (Reference Only)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file-text.svg" width="24" height="24" valign="bottom" /> 7. Fact Sheet (Reference Only)
 
 | 항목 | 내용 |
 |------|------|
@@ -227,7 +227,7 @@ AI는 작성 전 반드시 아래 중 **1개 전략을 선택**하고,
 
 ---
 
-## 8. AI Agent Execution Rules (Final)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/bot.svg" width="24" height="24" valign="bottom" /> 8. AI Agent Execution Rules (Final)
 
 > **마스터 워크플로우는 `CLAUDE.md`의 9-Step Mandatory Workflow를 따른다.**
 
