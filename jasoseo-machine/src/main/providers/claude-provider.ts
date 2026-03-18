@@ -121,6 +121,9 @@ export class ClaudeProvider implements AIProvider {
 
   private classifyError(stderr: string, exitCode: number): string {
     const lower = stderr.toLowerCase()
+    if (lower.includes('enoent') || lower.includes('spawn') && exitCode === -1) {
+      return 'Claude CLI를 찾을 수 없습니다. 설정 → Claude 경로를 확인해주세요.'
+    }
     if (lower.includes('credit limit') || lower.includes('insufficient_quota') || lower.includes('out of credits')) {
       return '계정 한도 초과'
     }

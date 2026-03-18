@@ -188,6 +188,9 @@ export class GeminiProvider implements AIProvider {
 
   private classifyError(stderr: string, exitCode: number): string {
     const lower = stderr.toLowerCase()
+    if (lower.includes('enoent') || lower.includes('spawn') && exitCode === -1) {
+      return 'Gemini CLI를 찾을 수 없습니다. 설정 → Gemini 경로를 확인해주세요.'
+    }
     if (lower.includes('credit limit') || lower.includes('insufficient_quota') || lower.includes('out of credits')) return '계정 한도 초과'
     if (lower.includes('rate limit') || lower.includes('429')) return '요청 한도 초과 (429). 다른 터미널에서 Gemini 사용 중이라면 종료 후 재시도해주세요.'
     return `AI 오류 (${exitCode}): ${stderr.trim().slice(0, 100)}`
