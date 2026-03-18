@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { EpisodeIdea } from '../../../../shared/types/automation'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
@@ -29,6 +29,19 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
   const [savedTitle, setSavedTitle] = useState<string | null>(null) // 저장 완료 상태
 
   const { profile } = useProfileStore()
+
+  // S-P-A-A-R-L 진행도: hiddenState에서 MISSING/FILLED 파싱
+  const spaarlProgress = useMemo(() => {
+    const SECTIONS = ['상황', '문제', '행동', '분석', '결과', '학습']
+    const missingMatch = hiddenState.match(/MISSING=([^|]+)/)
+    const filledMatch = hiddenState.match(/FILLED=([^|]+)/)
+    const missing = missingMatch ? missingMatch[1].split(',').map(s => s.trim()).filter(Boolean) : []
+    const filled = filledMatch ? filledMatch[1].split(',').map(s => s.trim()).filter(Boolean) : []
+    // MISSING/FILLED 정보가 없으면(발굴 모드 등) 진행도 미표시
+    const hasTracking = missingMatch !== null || filledMatch !== null
+    return { missing, filled, all: SECTIONS, hasTracking }
+  }, [hiddenState])
+
   const chatEndRef = useRef<HTMLDivElement>(null)
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -104,13 +117,19 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
     setIsAiAiTyping(true)
     try {
       const response = await window.api.claudeExecute({
-        prompt: `당신은 자기소개서 코치입니다. 아래 에피소드를 읽고 S-P-A-A-R-L(상황-문제-행동-분석-결과-학습) 구조에서 어떤 부분이 부족한지 파악한 뒤, 가장 보완이 필요한 부분에 대해 구체적인 인터뷰 질문 **한 가지**만 던져주세요. 질문은 한국어로, 친근하고 대화체로 해주세요.
+        prompt: `당신은 자기소개서 코치입니다.
 
 [에피소드 제목]: ${episode.title}
-[에피소드 내용]:
+[현재 에피소드 내용]:
 ${episode.rawContent.slice(0, 3000)}
 
-응답 끝에 반드시 [SESSION_ANCHOR: {부족한 섹션 목록}] 형식으로 현재 파악된 보완 필요 섹션들을 기록하세요.`,
+위 에피소드를 S-P-A-A-R-L 6개 섹션(상황/문제/행동/분석/결과/학습) 기준으로 검토하세요.
+어떤 섹션에 내용이 있고 어떤 섹션이 비어있거나 부족한지 파악한 뒤,
+가장 우선적으로 채워야 할 섹션에 대해 **인터뷰 질문 1가지만** 한국어로 친근하게 물어보세요.
+
+반드시 응답 끝에 다음 형식을 추가하세요:
+[SESSION_ANCHOR: MISSING={부족한_섹션명,콤마구분} | FILLED={완성된_섹션명,콤마구분}]
+예시: [SESSION_ANCHOR: MISSING=행동,분석,결과,학습 | FILLED=상황,문제]`,
         maxTurns: 1
       })
       const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
@@ -119,7 +138,7 @@ ${episode.rawContent.slice(0, 3000)}
         setHiddenState(`REFINE|${episode.title}|${anchorMatch[1]}|RAW:${episode.rawContent.slice(0, 2000)}`)
         cleanText = response.replace(anchorMatch[0], '').trim()
       } else {
-        setHiddenState(`REFINE|${episode.title}|RAW:${episode.rawContent.slice(0, 2000)}`)
+        setHiddenState(`REFINE|${episode.title}|MISSING=상황,문제,행동,분석,결과,학습 | FILLED=|RAW:${episode.rawContent.slice(0, 2000)}`)
       }
       setMessages([{ role: 'ai', content: cleanText }])
     } catch {
@@ -159,14 +178,62 @@ ${episode.rawContent.slice(0, 3000)}
     setIsAiAiTyping(true)
 
     try {
+      const missingMatch = hiddenState.match(/MISSING=([^|]+)/)
+      const stillMissing = missingMatch ? missingMatch[1].split(',').map(s => s.trim()).filter(Boolean) : []
+      const allFilled = stillMissing.length === 0
+
       const response = await window.api.claudeExecute({
-        prompt: `인터뷰 중... [상태]: ${hiddenState}\n[주제]: ${selectedIdea?.title}\n[대화]: ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}\nuser: ${userMsg}\n\n질문 후 [SESSION_ANCHOR: {상태}] 필수. 완벽하면 \`\`\`markdown 출력.`,
+        prompt: `당신은 자기소개서 인터뷰 코치입니다.
+
+[인터뷰 주제]: ${selectedIdea?.title}
+[현재 진행 상태]: ${hiddenState}
+
+[지금까지 대화]:
+${messages.map(m => `${m.role === 'ai' ? 'AI' : '사용자'}: ${m.content}`).join('\n\n')}
+사용자: ${userMsg}
+
+---
+**규칙**:
+${allFilled
+  ? '모든 섹션이 채워졌습니다. 아래 형식의 완성된 마크다운을 출력하세요.'
+  : `아직 부족한 섹션: [${stillMissing.join(', ')}]\n→ 다음으로 가장 중요한 섹션에 대해 **질문 1가지만** 한국어로 친근하게 물어보세요.\n→ 모든 섹션이 채워지기 전까지는 절대 마크다운을 출력하지 마세요.`
+}
+
+**마크다운 출력 시 반드시 이 형식 사용**:
+\`\`\`markdown
+# [에피소드 제목]
+
+## 상황
+(구체적인 상황과 배경)
+
+## 문제
+(직면한 문제 또는 도전)
+
+## 행동
+(내가 취한 구체적 행동과 판단)
+
+## 분석
+(선택의 근거, 대안 검토, 핵심 통찰)
+
+## 결과
+(수치·사실 기반의 결과)
+
+## 학습
+(이 경험에서 얻은 인사이트와 앞으로의 적용)
+\`\`\`
+
+응답 끝에 반드시 추가:
+[SESSION_ANCHOR: MISSING={아직_부족한_섹션,콤마구분} | FILLED={완성된_섹션,콤마구분}]
+모든 섹션이 완성되어 마크다운을 출력하는 경우: [SESSION_ANCHOR: MISSING= | FILLED=상황,문제,행동,분석,결과,학습]`,
         maxTurns: 1
       })
       const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
       let cleanText = response
       if (anchorMatch) {
-        setHiddenState(anchorMatch[1])
+        // 기존 RAW 원문 유지하면서 MISSING/FILLED 갱신
+        const rawPart = hiddenState.match(/RAW:[\s\S]*/)?.[0] || ''
+        const refinePart = hiddenState.match(/^REFINE\|[^|]+\|/)?.[0] || ''
+        setHiddenState(`${refinePart}${anchorMatch[1]}|${rawPart}`)
         cleanText = response.replace(anchorMatch[0], '').trim()
       }
       setMessages(prev => [...prev, { role: 'ai', content: cleanText }])
@@ -331,7 +398,38 @@ ${episode.rawContent.slice(0, 3000)}
           )}
 
           {step === 'interview' && !savedTitle && (
-            <div className="h-full flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-500">
+            <div className="h-full flex flex-col space-y-4 animate-in slide-in-from-right-4 duration-500">
+              {/* S-P-A-A-R-L 진행도 표시 (보강 모드 + 섹션 추적 정보 있을 때) */}
+              {initialEpisode && spaarlProgress.hasTracking && (
+                <div className="flex items-center gap-2 rounded-2xl bg-muted/40 border border-border px-4 py-2.5">
+                  <span className="text-[10px] font-bold text-muted-foreground shrink-0">진행도</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {spaarlProgress.all.map((section) => {
+                      const isFilled = spaarlProgress.filled.includes(section)
+                      const isMissing = spaarlProgress.missing.includes(section)
+                      return (
+                        <span
+                          key={section}
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold border transition-colors',
+                            isFilled
+                              ? 'bg-green-100 text-green-700 border-green-200'
+                              : isMissing
+                              ? 'bg-orange-50 text-orange-500 border-orange-200'
+                              : 'bg-muted text-muted-foreground border-border'
+                          )}
+                        >
+                          {isFilled ? '✓ ' : ''}{section}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                    {spaarlProgress.filled.length}/6 완성
+                  </span>
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 {messages.map((msg, i) => (
                   <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>

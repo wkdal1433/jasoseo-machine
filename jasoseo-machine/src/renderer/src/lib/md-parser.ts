@@ -2,15 +2,17 @@ import type { Episode, EpisodeStatus } from '../types/episode'
 import type { HRIntent } from '../types/application'
 
 function inferStatus(content: string): EpisodeStatus {
-  // S-P-A-A-R-L 섹션 존재 여부로 완성도 판단
-  const hasSituation = /##\s*(상황|Situation|S\b)/i.test(content)
-  const hasProblem = /##\s*(문제|Problem|P\b)/i.test(content)
-  const hasAction = /##\s*(행동|Action|A\b)/i.test(content)
-  const hasResult = /##\s*(결과|Result|R\b)/i.test(content)
-  const filledSections = [hasSituation, hasProblem, hasAction, hasResult].filter(Boolean).length
-  if (filledSections >= 3) return 'ready'
-  if (filledSections >= 1) return 'needs_review'
-  return 'draft'
+  // S-P-A-A-R-L 6개 섹션 존재 여부로 완성도 판단
+  const hasSituation = /##\s*(상황|Situation)/i.test(content)
+  const hasProblem   = /##\s*(문제|Problem)/i.test(content)
+  const hasAction    = /##\s*(행동|Action)/i.test(content)
+  const hasAnalysis  = /##\s*(분석|Analysis)/i.test(content)
+  const hasResult    = /##\s*(결과|Result)/i.test(content)
+  const hasLearning  = /##\s*(학습|Learning)/i.test(content)
+  const filledSections = [hasSituation, hasProblem, hasAction, hasAnalysis, hasResult, hasLearning].filter(Boolean).length
+  if (filledSections >= 5) return 'ready'        // 5~6개: 완성
+  if (filledSections >= 2) return 'needs_review' // 2~4개: 초안
+  return 'draft'                                  // 0~1개: 미완성
 }
 
 export function parseEpisodeMd(fileName: string, content: string): Episode {
