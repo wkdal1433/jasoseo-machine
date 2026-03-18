@@ -3,9 +3,10 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { useProfileStore } from '@/stores/profileStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { buildStep1to2Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { AnalysisResult } from '@/types/application'
-import { Lightbulb } from 'lucide-react'
+import { Lightbulb, FastForward } from 'lucide-react'
 
 function questionSimilarity(a: string, b: string): number {
   const tokenize = (s: string) => s.replace(/[^가-힣a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean)
@@ -26,11 +27,13 @@ interface SimilarDraft {
 export function Step1Reframe() {
   const {
     companyName, jobTitle, jobPosting, hrIntents, strategy,
-    questions, activeQuestionIndex, setQuestionAnalysis, setGeneratedText
+    questions, activeQuestionIndex, setQuestionAnalysis, setGeneratedText, setQuestionStep,
+    getState: getWizardState,
   } = useWizardStore()
   const { profile } = useProfileStore()
   const { episodes } = useEpisodeStore()
   const { applications, loadApplications } = useHistoryStore()
+  const { saveSnapshot } = useSnapshotStore()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [similarDraft, setSimilarDraft] = useState<SimilarDraft | null>(null)
@@ -146,15 +149,30 @@ export function Step1Reframe() {
             </div>
             <button onClick={() => setShowDraftBanner(false)} className="text-amber-500 hover:text-amber-700 text-lg leading-none">×</button>
           </div>
-          <button
-            onClick={() => {
-              setGeneratedText(activeQuestionIndex, similarDraft.text)
-              setShowDraftBanner(false)
-            }}
-            className="mt-3 w-full rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600 transition-colors"
-          >
-            이전 초안 불러오기 (바로 편집 가능)
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => {
+                setGeneratedText(activeQuestionIndex, similarDraft.text)
+                setShowDraftBanner(false)
+                // 초안 주입 후 현재 상태 스냅샷 저장
+                saveSnapshot(`문항 ${activeQuestionIndex + 1}: 이전 초안 주입`, getWizardState(), activeQuestionIndex)
+                // Step 3~5로 바로 이동
+                setQuestionStep(activeQuestionIndex, 3)
+              }}
+              className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <FastForward size={12} /> 이전 초안 불러오기 + 바로 생성 단계로
+            </button>
+            <button
+              onClick={() => {
+                setGeneratedText(activeQuestionIndex, similarDraft.text)
+                setShowDraftBanner(false)
+              }}
+              className="rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-950 py-2 px-3 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors"
+            >
+              참고만
+            </button>
+          </div>
         </div>
       )}
 

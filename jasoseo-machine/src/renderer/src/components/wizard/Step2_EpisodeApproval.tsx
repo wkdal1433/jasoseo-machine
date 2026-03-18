@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, BookOpen } from 'lucide-react'
+import { AlertTriangle, BookOpen, UserCircle } from 'lucide-react'
 
 export function Step2EpisodeApproval() {
   const {
@@ -12,6 +13,7 @@ export function Step2EpisodeApproval() {
 
   const { episodes } = useEpisodeStore()
   const [showManualPicker, setShowManualPicker] = useState(false)
+  const navigate = useNavigate()
 
   const q = questions[activeQuestionIndex]
   if (!q?.analysisResult) return null
@@ -58,7 +60,20 @@ export function Step2EpisodeApproval() {
       )}
 
       {/* 수동 에피소드 선택기 */}
-      {showManualPicker && (
+      {showManualPicker && episodes.length === 0 && (
+        <div className="rounded-xl border-2 border-dashed border-border p-6 text-center space-y-3">
+          <UserCircle size={32} className="mx-auto text-muted-foreground/40" />
+          <p className="text-sm font-bold text-muted-foreground">에피소드 라이브러리가 비어있습니다</p>
+          <p className="text-xs text-muted-foreground/70">프로필 설정에서 에피소드를 먼저 추가해주세요.</p>
+          <button
+            onClick={() => navigate('/profile')}
+            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:opacity-90"
+          >
+            프로필 페이지로 이동
+          </button>
+        </div>
+      )}
+      {showManualPicker && episodes.length > 0 && (
         <div className="space-y-2 rounded-xl border border-border bg-muted/10 p-4">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">전체 에피소드 라이브러리</p>
           {episodes.map((ep) => {

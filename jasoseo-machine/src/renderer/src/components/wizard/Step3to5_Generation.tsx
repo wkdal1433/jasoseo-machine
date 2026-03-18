@@ -5,6 +5,7 @@ import { buildStep3to5Prompt, buildShortenPrompt, GUI_SYSTEM_PROMPT } from '@/li
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { ModelPicker } from '@/components/common/ModelPicker'
 import { estimateStepDuration, estimateStreamRemaining, formatDuration } from '@/lib/time-estimator'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { Sparkles, Eye, Scissors } from 'lucide-react'
 
 const FUN_MESSAGES = [
@@ -46,6 +47,7 @@ export function Step3to5Generation() {
   } = useWizardStore()
 
   const { episodes } = useEpisodeStore()
+  const { saveSnapshot } = useSnapshotStore()
 
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
@@ -215,6 +217,9 @@ export function Step3to5Generation() {
           charLimit: q.charLimit || undefined,
         }).catch(() => { /* 저장 실패 시 무시 */ })
       }
+      // 생성 완료 시 스냅샷 저장
+      const wizardState = useWizardStore.getState()
+      saveSnapshot(`문항 ${activeQuestionIndex + 1}: 초안 생성 완료 (${finalLen}자)`, wizardState, activeQuestionIndex)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating])
