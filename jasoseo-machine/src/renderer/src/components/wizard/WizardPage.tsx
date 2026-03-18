@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useProfileStore } from '@/stores/profileStore'
@@ -12,8 +12,109 @@ import { FinalResult } from './FinalResult'
 import { WizardStepper } from './WizardStepper'
 import { QuestionTab } from './QuestionTab'
 import { buildStep1to2Prompt } from '@/lib/prompt-builder'
+import { cn } from '@/lib/utils'
 
-import { ArrowLeft, PartyPopper } from 'lucide-react'
+import { ArrowLeft, PartyPopper, CheckCircle2, AlertTriangle, ChevronRight, Target, BarChart2 } from 'lucide-react'
+
+const INTENT_LABELS: Record<string, string> = {
+  Execution: '실행력', Growth: '성장', Stability: '안정성', Communication: '협업',
+}
+
+// ── Gate Confirmation Screen (L3 필수 확인) ──────────────────────────────────
+function Step0GateScreen({ onConfirm }: { onConfirm: () => void }) {
+  const { hrIntents, strategy, strategyConfidence, companyName, questions } = useWizardStore()
+  if (!hrIntents || !strategy) return null
+
+  return (
+    <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center justify-center min-h-0">
+      <div className="w-full max-w-2xl space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        {/* 헤더 */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900">
+            <CheckCircle2 size={24} className="text-green-600 dark:text-green-400" />
+          </div>
+          <h2 className="text-xl font-bold">기업 분석 완료</h2>
+          <p className="text-sm text-muted-foreground">
+            {companyName} 합격 전략 수립이 완료됐습니다. 아래 내용을 확인하고 작성을 시작하세요.
+          </p>
+        </div>
+
+        {/* 분석 요약 */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* HR 의도 카드 */}
+          <div className="rounded-2xl border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950 p-5 space-y-3">
+            <p className="text-xs font-bold text-green-800 dark:text-green-300 uppercase tracking-wider">HR 의도 분석</p>
+            {hrIntents.map((h, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="mt-0.5 rounded-full bg-green-600 text-white px-2 py-0.5 text-[10px] font-bold shrink-0">
+                  {INTENT_LABELS[h.intent] || h.intent}
+                </span>
+                <div className="space-y-0.5">
+                  <p className="text-xs text-green-900/80 dark:text-green-200/80 leading-relaxed">{h.reason}</p>
+                  {h.confidence !== undefined && (
+                    <span className={cn(
+                      'inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                      h.confidence >= 80 ? 'bg-green-200 text-green-800' : h.confidence >= 60 ? 'bg-amber-200 text-amber-800' : 'bg-red-200 text-red-800'
+                    )}>신뢰도 {h.confidence}%</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 전략 + 문항 요약 */}
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 p-4 space-y-2">
+              <p className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider">작성 전략</p>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-blue-600 text-white px-3 py-0.5 text-xs font-bold capitalize">{strategy}</span>
+                {strategyConfidence !== null && strategyConfidence !== undefined && (
+                  <span className={cn(
+                    'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                    strategyConfidence >= 80 ? 'bg-green-100 text-green-700' : strategyConfidence >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                  )}>신뢰도 {strategyConfidence}%</span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-1">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <BarChart2 size={12} /> 작성 예정 문항
+              </p>
+              {questions.map((q, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="rounded-full bg-primary/10 text-primary w-4 h-4 flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
+                  <span className="text-foreground/70 truncate">{q.question.slice(0, 40)}{q.question.length > 40 ? '...' : ''}</span>
+                  {q.charLimit ? <span className="ml-auto text-muted-foreground shrink-0">{q.charLimit}자</span> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* L3 게이트 경고 */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 flex items-start gap-2">
+          <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            <strong>L3 필수 확인 게이트</strong> — 이 분석은 모든 문항에 적용됩니다. 전략이 잘못되면 전체 자소서를 다시 작성해야 합니다. 위 내용이 맞는지 확인 후 진행하세요.
+          </p>
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={onConfirm}
+          className="w-full rounded-2xl bg-primary py-4 text-sm font-bold text-primary-foreground shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+        >
+          <Target size={16} />
+          분석 확인 완료 — 자소서 작성 시작
+          <ChevronRight size={16} />
+        </button>
+        <p className="text-center text-[10px] text-muted-foreground">
+          돌아가서 수정하려면 Step 0 탭을 클릭하면 됩니다.
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export function WizardPage() {
   const navigate = useNavigate()
@@ -35,21 +136,16 @@ export function WizardPage() {
   } = useWizardStore()
   const { profile } = useProfileStore()
 
+  const [step0GateConfirmed, setStep0GateConfirmed] = useState(false)
+
+  // 지원서가 바뀌면 게이트 초기화 (이어쓰기 복원 시 이미 확인됐다고 간주)
+  useEffect(() => {
+    setStep0GateConfirmed(step0Completed)
+  }, [applicationId])
+
   const allCompleted = questions.length > 0 && questions.every((q) => q.status === 'completed')
 
-  // [v21.6] 추측성 선행 분석 (Speculative Pre-fetch)
-  useEffect(() => {
-    if (step0Completed && hrIntents && strategy) {
-      // 모든 문항에 대해 백그라운드에서 Step 1-2 분석 시작 (병렬)
-      questions.forEach((q, idx) => {
-        if (q.currentStep === 0) {
-          prefetchQuestionAnalysis(idx)
-        }
-      })
-    }
-  }, [step0Completed])
-
-  const prefetchQuestionAnalysis = async (index: number) => {
+  const prefetchQuestionAnalysis = useCallback(async (index: number) => {
     try {
       const q = questions[index]
       const prompt = buildStep1to2Prompt(
@@ -61,7 +157,18 @@ export function WizardPage() {
     } catch {
       // prefetch 실패는 사용자에게 알리지 않고 넘어감 (수동 클릭 시 재시도됨)
     }
-  }
+  }, [questions, companyName, jobTitle, jobPosting, hrIntents, strategy, profile])
+
+  // [v2] 게이트 통과 시점에 prefetch 시작
+  const handleStep0GateConfirm = useCallback(() => {
+    setStep0GateConfirmed(true)
+    // 게이트 확인 후 백그라운드 병렬 prefetch 시작
+    questions.forEach((q, idx) => {
+      if (q.currentStep === 0 || !q.analysisResult) {
+        prefetchQuestionAnalysis(idx)
+      }
+    })
+  }, [questions, prefetchQuestionAnalysis])
 
   const activeQuestion = questions[activeQuestionIndex]
   if (!activeQuestion && questions.length > 0) return null
@@ -127,6 +234,8 @@ export function WizardPage() {
         <div className="flex-1 overflow-y-auto p-8">
           <Step0_Analysis />
         </div>
+      ) : step0Completed && !step0GateConfirmed ? (
+        <Step0GateScreen onConfirm={handleStep0GateConfirm} />
       ) : (
         <div className="flex h-full overflow-hidden">
           {/* Left Side: Question List & Global Stepper */}
