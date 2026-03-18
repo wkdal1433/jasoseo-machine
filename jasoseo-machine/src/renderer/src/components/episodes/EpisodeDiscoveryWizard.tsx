@@ -154,6 +154,7 @@ ${episode.rawContent.slice(0, 3000)}
     const userMsg = input.trim()
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setIsAiAiTyping(true)
 
     try {
