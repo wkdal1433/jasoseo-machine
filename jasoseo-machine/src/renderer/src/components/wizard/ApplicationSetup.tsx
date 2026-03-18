@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
 import { ModelPicker } from '../common/ModelPicker'
@@ -8,8 +9,8 @@ import {
   Zap,
   MousePointerClick,
   Puzzle,
-  ArrowLeft,
-  ClipboardList
+  ClipboardList,
+  BookOpen
 } from 'lucide-react'
 
 interface PatternRecord {
@@ -34,6 +35,7 @@ interface JobOption {
 
 export function ApplicationSetup() {
   const { initWizard, setPatternConfig, setupDraft, saveSetupDraft, clearSetupDraft } = useWizardStore()
+  const { episodes, loadEpisodes } = useEpisodeStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [mode, setMode] = useState<SetupMode>('select')
@@ -54,7 +56,11 @@ export function ApplicationSetup() {
   const [loadedPatterns, setLoadedPatterns] = useState<PatternRecord[]>([])
   const [patternSettings, setPatternSettings] = useState<PatternSettings>({ useDefaultPatterns: true })
   const [selectedPatternIds, setSelectedPatternIds] = useState<string[]>([])
+  const [showNoEpisodeWarning, setShowNoEpisodeWarning] = useState(false)
   const isRestored = useRef(false)
+
+  // 에피소드 로드 (0개 체크용)
+  useEffect(() => { loadEpisodes() }, [])
 
   // Layout 알림 배너에서 넘어온 문항 자동 적용
   useEffect(() => {
@@ -145,6 +151,18 @@ export function ApplicationSetup() {
 
   const handleSubmit = () => {
     if (!canSubmit) return
+    if (episodes.length === 0) {
+      setShowNoEpisodeWarning(true)
+      return
+    }
+    clearSetupDraft()
+    initWizard(companyName, jobTitle, jobPosting, questions, strategy)
+    setPatternConfig(selectedPatternIds, patternSettings.useDefaultPatterns)
+    navigate('/wizard')
+  }
+
+  const handleSubmitAnyway = () => {
+    setShowNoEpisodeWarning(false)
     clearSetupDraft()
     initWizard(companyName, jobTitle, jobPosting, questions, strategy)
     setPatternConfig(selectedPatternIds, patternSettings.useDefaultPatterns)
@@ -318,6 +336,7 @@ export function ApplicationSetup() {
   }
 
   return (
+    <>
     <div className="mx-auto max-w-2xl p-8">
       <div className="mb-6 flex items-center gap-3">
         <button onClick={() => setMode('select')} className="text-muted-foreground hover:text-foreground">
@@ -529,5 +548,36 @@ export function ApplicationSetup() {
         </div>
       </div>
     </div>
+
+    {/* 에피소드 0개 경고 모달 */}
+    {showNoEpisodeWarning && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="mx-4 w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl space-y-4">
+          <div className="flex items-center gap-2">
+            <BookOpen size={20} className="text-amber-500 shrink-0" />
+            <h3 className="font-bold text-base">에피소드가 없습니다</h3>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Step 2에서 AI가 에피소드를 추천하려면 최소 1개 이상의 에피소드가 필요합니다.<br />
+            <span className="text-xs mt-1 block">프로필 페이지에서 에피소드를 먼저 추가하거나, 없이 진행할 수 있습니다.</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowNoEpisodeWarning(false); navigate('/profile') }}
+              className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:opacity-90"
+            >
+              에피소드 추가하러 가기
+            </button>
+            <button
+              onClick={handleSubmitAnyway}
+              className="rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent"
+            >
+              그냥 진행
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
