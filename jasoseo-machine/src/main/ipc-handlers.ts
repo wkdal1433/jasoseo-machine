@@ -40,6 +40,7 @@ import {
   executeClaudePrompt,
   executeClaudeStream,
   cancelActiveProcess,
+  cancelProcessById,
   testClaudeConnection,
   testGeminiConnection
 } from './claude-bridge'
@@ -124,6 +125,7 @@ export function registerIpcHandlers(): void {
     if (window) executeClaudeStream(options, window)
   })
   ipcMain.handle(IPC.CLAUDE_CANCEL, () => cancelActiveProcess())
+  ipcMain.handle(IPC.CLAUDE_CANCEL_BY_ID, (_event, id: string) => cancelProcessById(id))
   ipcMain.handle(IPC.CLAUDE_CHECK_STATUS, async () => testClaudeConnection())
 
   ipcMain.handle(IPC.EPISODES_LOAD, () => {

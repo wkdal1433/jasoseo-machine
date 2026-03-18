@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Episode } from '@/types/episode'
 import { ClipboardList, Sparkles, CheckCircle2 } from 'lucide-react'
 
@@ -30,18 +30,31 @@ export function EpisodeDetailModal({ episode, onClose, onUpdated }: Props) {
   const [showGuide, setShowGuide] = useState(false)
   const [rawView, setRawView] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
+  const processIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
   }, [aiLog])
 
+  // 닫기 — AI 실행 중이면 해당 프로세스만 취소 후 닫기
+  const handleClose = useCallback(async () => {
+    if (editState === 'running' && processIdRef.current) {
+      if (!confirm('AI 수정이 진행 중입니다. 취소하고 닫을까요?')) return
+      await window.api.claudeCancelById(processIdRef.current)
+      processIdRef.current = null
+    }
+    onClose()
+  }, [editState, onClose])
+
   // 백드롭 클릭 시 닫기
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) handleClose()
   }
 
   const handleAiEdit = async () => {
     if (!instruction.trim() || editState === 'running') return
+    const pid = `proc_ep_edit_${Date.now()}`
+    processIdRef.current = pid
     setEditState('running')
     setAiLog('AI에게 요청 중...\n')
 
@@ -72,6 +85,7 @@ ${instruction.trim()}
         prompt,
         outputFormat: 'text',
         maxTurns: 3,
+        processId: pid,
       })
 
       if (!result || typeof result !== 'string') throw new Error('AI 응답이 비어있습니다.')
@@ -95,6 +109,8 @@ ${instruction.trim()}
       const msg = err instanceof Error ? err.message : String(err)
       setAiLog(prev => prev + `\n❌ 오류: ${msg}`)
       setEditState('error')
+    } finally {
+      processIdRef.current = null
     }
   }
 
@@ -126,7 +142,7 @@ ${instruction.trim()}
             </div>
             <h2 className="text-lg font-bold leading-tight">{episode.title}</h2>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5">
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
               <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/>
             </svg>

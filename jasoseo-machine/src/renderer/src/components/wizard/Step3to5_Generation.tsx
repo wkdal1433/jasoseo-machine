@@ -50,6 +50,7 @@ export function Step3to5Generation() {
   const [isShortening, setIsShortening] = useState(false)
   const [shortenMsg, setShortenMsg] = useState<string | null>(null)
   const textRef = useRef<HTMLDivElement>(null)
+  const streamProcessIdRef = useRef<string | null>(null)
 
   // Loading UX state
   const [logs, setLogs] = useState<string[]>([])
@@ -153,12 +154,15 @@ export function Step3to5Generation() {
     )
 
     const coverLetterModel = await window.api.settingsGet('model_ep_cover_letter') as string | null
+    const pid = `proc_stream_${Date.now()}`
+    streamProcessIdRef.current = pid
     window.api.claudeExecuteStream({
       prompt,
       outputFormat: 'stream-json',
       maxTurns: 5,
       appendSystemPrompt: GUI_SYSTEM_PROMPT,
-      modelOverride: coverLetterModel || undefined
+      modelOverride: coverLetterModel || undefined,
+      processId: pid
     })
   }
 
@@ -240,7 +244,10 @@ export function Step3to5Generation() {
   }, [logs])
 
   const cancelGeneration = async () => {
-    await window.api.claudeCancel()
+    if (streamProcessIdRef.current) {
+      await window.api.claudeCancelById(streamProcessIdRef.current)
+      streamProcessIdRef.current = null
+    }
     addLog('사용자가 생성을 중단했습니다.')
     setIsGenerating(false)
   }

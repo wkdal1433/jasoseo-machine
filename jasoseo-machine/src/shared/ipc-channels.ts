@@ -6,6 +6,7 @@ export const IPC = {
   CLAUDE_STREAM_END: 'claude:stream-end',
   CLAUDE_STREAM_ERROR: 'claude:stream-error',
   CLAUDE_CANCEL: 'claude:cancel',
+  CLAUDE_CANCEL_BY_ID: 'claude:cancel-by-id',
   CLAUDE_CHECK_STATUS: 'claude:check-status',
   CLAUDE_RAW_LOG: 'claude:raw-log',
 

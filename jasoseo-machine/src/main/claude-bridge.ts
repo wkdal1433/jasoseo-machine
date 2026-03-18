@@ -8,13 +8,25 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-const activeProcesses = new Set<ChildProcess>()
+const activeProcesses = new Map<string, ChildProcess>()
+
+function genProcessId(): string {
+  return `proc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
 
 export function stopAllProcesses(): void {
-  for (const proc of activeProcesses) {
+  for (const proc of activeProcesses.values()) {
     try { proc.kill('SIGKILL') } catch (err) { console.error('[Zombie Killer] Error:', err) }
   }
   activeProcesses.clear()
+}
+
+export function cancelProcessById(id: string): boolean {
+  const proc = activeProcesses.get(id)
+  if (!proc) return false
+  try { proc.kill('SIGKILL') } catch (err) { console.error('[Cancel By ID] Error:', err) }
+  activeProcesses.delete(id)
+  return true
 }
 
 function sendRawLog(data: string): void {
@@ -73,6 +85,7 @@ export interface ClaudeExecuteOptions {
   appendSystemPrompt?: string
   filePath?: string
   conversational?: boolean
+  processId?: string  // 개별 취소용 ID — 미제공 시 자동 생성
 }
 
 function sanitizePromptForGemini(prompt: string): string {
@@ -158,17 +171,18 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
   console.log(`[AI Spawn] ${cli} ${args.join(' ')}`)
   sendRawLog(`[CMD] ${cli} ${args.slice(0, 6).join(' ')} ...`)
 
+  const procId = options.processId || genProcessId()
   return new Promise((resolve, reject) => {
     const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
-    activeProcesses.add(child)
+    activeProcesses.set(procId, child)
     child.stdin?.end()
-    
+
     const decoder = new StringDecoder('utf8'); let output = '', stderrOutput = ''
     child.stdout?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); output += d; sendRawLog(d) })
     child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
-    
+
     child.on('close', (code) => {
-      activeProcesses.delete(child)
+      activeProcesses.delete(procId)
       if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
       if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
 
@@ -182,12 +196,12 @@ export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promis
       }
     })
     child.on('error', (err) => {
-      activeProcesses.delete(child)
+      activeProcesses.delete(procId)
       if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
       if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
       console.log(`[AI Spawn Error] ${err.message}`)
       sendRawLog(`[SPAWN ERROR] ${err.message}`)
-      reject(new Error(classifyError(err.message, -1).message)) 
+      reject(new Error(classifyError(err.message, -1).message))
     })
   })
 }
@@ -209,8 +223,9 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
     args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
   }
 
+  const procId = options.processId || genProcessId()
   const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
-  activeProcesses.add(child)
+  activeProcesses.set(procId, child)
   if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
   const decoder = new StringDecoder('utf8'); let buffer = '', geminiFullText = ''
   let lastPacketTime = Date.now()
@@ -242,13 +257,13 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   })
   child.on('error', (err) => {
     clearInterval(watchdog)
-    activeProcesses.delete(child)
+    activeProcesses.delete(procId)
     console.error(`[AI Stream Spawn Error] ${err.message}`)
     safeSend(IPC.CLAUDE_STREAM_ERROR, { message: err.message.includes('ENOENT') ? 'AI CLI 실행 파일을 찾을 수 없습니다. 설정에서 경로를 확인해주세요.' : err.message })
   })
   child.on('close', (code) => {
     clearInterval(watchdog)
-    activeProcesses.delete(child)
+    activeProcesses.delete(procId)
     // code=0: 정상 종료 / code=null: 시그널 종료 (Claude CLI 정상 완료 시 흔함) → 둘 다 성공으로 처리
     if (code !== null && code !== 0) {
       safeSend(IPC.CLAUDE_STREAM_ERROR, { message: `AI 프로세스 오류 (code ${code})` })
@@ -259,7 +274,7 @@ export function executeClaudeStream(options: ClaudeExecuteOptions, window: Brows
   return child
 }
 
-export function cancelActiveProcess(): boolean { stopAllProcesses(); return true }
+export function cancelActiveProcess(): boolean { stopAllProcesses(); return true }  // 앱 종료 등 전체 정리용
 
 function quickCliCheck(cli: string): Promise<{ success: boolean; message: string }> {
   return new Promise((resolve) => {

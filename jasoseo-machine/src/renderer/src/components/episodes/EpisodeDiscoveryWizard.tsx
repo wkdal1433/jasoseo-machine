@@ -27,6 +27,7 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
   const [input, setInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
   const [savedTitle, setSavedTitle] = useState<string | null>(null) // 저장 완료 상태
+  const [isResumed, setIsResumed] = useState(false) // 세션 자동 복원 여부
 
   const { profile } = useProfileStore()
 
@@ -66,22 +67,13 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
         if (savedSession) {
           try {
             const { idea, msgs, state } = JSON.parse(savedSession)
-            const filledMatch = (state as string).match(/FILLED=([^|]+)/)
-            const filledCount = filledMatch
-              ? filledMatch[1].split(',').filter(Boolean).length
-              : 0
-            const resumeLabel = filledCount > 0
-              ? `${filledCount}/6 섹션 진행 중`
-              : '이전 대화 기록'
-            if (confirm(`"${idea.title}" 에피소드의 ${resumeLabel}이 있습니다.\n이어서 진행할까요?\n\n(취소하면 처음부터 새로 시작합니다)`)) {
-              setSelectedIdea(idea)
-              setMessages(msgs)
-              setHiddenState(state || '')
-              setStep('interview')
-              return
-            } else {
-              localStorage.removeItem(SESSION_CACHE_KEY)
-            }
+            // 확인 없이 조용히 복원
+            setSelectedIdea(idea)
+            setMessages(msgs)
+            setHiddenState(state || '')
+            setIsResumed(true)
+            setStep('interview')
+            return
           } catch {
             localStorage.removeItem(SESSION_CACHE_KEY)
           }
@@ -426,6 +418,28 @@ ${allFilled
 
           {step === 'interview' && !savedTitle && (
             <div className="h-full flex flex-col space-y-4 animate-in slide-in-from-right-4 duration-500">
+              {/* 세션 자동 복원 배너 (비침습적) */}
+              {isResumed && (
+                <div className="flex items-center justify-between rounded-xl bg-blue-50 border border-blue-200 px-4 py-2 dark:bg-blue-950 dark:border-blue-800">
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                    이전 대화를 이어서 진행합니다 · {spaarlProgress.filled.length}/6 완성
+                  </p>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem(SESSION_CACHE_KEY)
+                      setIsResumed(false)
+                      setMessages([])
+                      setHiddenState('')
+                      setSelectedIdea(null)
+                      startRefineInterview(initialEpisode!)
+                    }}
+                    className="text-[11px] text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 underline shrink-0 ml-4"
+                  >
+                    처음부터 다시 시작
+                  </button>
+                </div>
+              )}
+
               {/* S-P-A-A-R-L 진행도 표시 (보강 모드 + 섹션 추적 정보 있을 때) */}
               {initialEpisode && spaarlProgress.hasTracking && (
                 <div className="flex items-center gap-2 rounded-2xl bg-muted/40 border border-border px-4 py-2.5">

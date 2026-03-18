@@ -6,6 +6,7 @@ const api = {
   claudeExecute: (options: unknown) => ipcRenderer.invoke(IPC.CLAUDE_EXECUTE, options),
   claudeExecuteStream: (options: unknown) => ipcRenderer.send(IPC.CLAUDE_EXECUTE_STREAM, options),
   claudeCancel: () => ipcRenderer.invoke(IPC.CLAUDE_CANCEL),
+  claudeCancelById: (id: string) => ipcRenderer.invoke(IPC.CLAUDE_CANCEL_BY_ID, id),
   claudeCheckStatus: () => ipcRenderer.invoke(IPC.CLAUDE_CHECK_STATUS),
   onClaudeRawLog: (callback: (data: string) => void) => {
     const handler = (_: unknown, data: string) => callback(data)
