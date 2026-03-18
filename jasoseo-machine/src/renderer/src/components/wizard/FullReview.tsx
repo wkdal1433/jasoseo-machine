@@ -6,6 +6,15 @@ import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { buildSurgicalEditPrompt } from '@/lib/prompt-builder'
 import { cn } from '@/lib/utils'
+import { 
+  Save, 
+  Globe, 
+  Stethoscope, 
+  Sparkles, 
+  Check, 
+  ArrowRight,
+  ChevronLeft
+} from 'lucide-react'
 
 export function FullReview() {
   const navigate = useNavigate()
@@ -126,13 +135,16 @@ export function FullReview() {
           <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest mt-1">Final Review & Hybrid Injection</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => navigate('/wizard')} className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all">뒤로가기</button>
+          <button onClick={() => navigate('/wizard')} className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all flex items-center gap-2">
+            <ChevronLeft size={16} />
+            뒤로가기
+          </button>
           {saveStatus === 'saved' ? (
             <button
               onClick={() => navigate('/')}
               className="rounded-xl bg-green-500 px-6 py-2.5 text-sm font-bold text-white transition-all flex items-center gap-2 animate-in zoom-in-95 duration-200"
             >
-              ✓ 저장 완료 — 대시보드로 →
+              <Check size={16} /> 저장 완료 — 대시보드로 <ArrowRight size={16} />
             </button>
           ) : (
             <button
@@ -140,11 +152,11 @@ export function FullReview() {
               disabled={isSaving}
               className="rounded-xl border border-border px-6 py-2.5 text-sm font-bold hover:bg-muted transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              {isSaving ? '저장 중...' : '💾 이력 저장'}
+              {isSaving ? '저장 중...' : <><Save size={16} /> 이력 저장</>}
             </button>
           )}
           <button onClick={handleSendToExtension} disabled={isSending} className="rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2">
-            {isSending ? '전송 중...' : '🌐 웹사이트에 넣기'}
+            {isSending ? '전송 중...' : <><Globe size={16} /> 웹사이트에 넣기</>}
           </button>
         </div>
       </div>
@@ -193,9 +205,9 @@ export function FullReview() {
                     <button 
                       onClick={runSurgicalEdit}
                       disabled={!surgicalInput.trim() || isSurgicalEditing}
-                      className="bg-primary text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                      className="bg-primary text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      {isSurgicalEditing ? '수술 중...' : '🩹 부분 수정'}
+                      {isSurgicalEditing ? '수술 중...' : <><Stethoscope size={12} /> 부분 수정</>}
                     </button>
                   </div>
                 )}
