@@ -1,10 +1,10 @@
-# 자소서 머신 사용 설명서 (Part 1 & 2: 설치 및 환경 설정)
+# <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/book-open.svg" width="32" height="32" valign="bottom" /> 자소서 머신 사용 설명서 (Part 1 & 2: 설치 및 환경 설정)
 
 본 가이드는 AI를 활용해 서류 합격률을 극대화하는 **자소서 머신**의 초기 설정 방법을 다룹니다. 가이드를 따라 차근차근 설정을 완료해 보세요!
 
 ---
 
-## ⚙️ Part 1. 시작하기 전에 (필수 환경 설정)
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/settings.svg" width="24" height="24" valign="bottom" /> Part 1. 시작하기 전에 (필수 환경 설정)
 
 자소서 머신은 똑똑한 두뇌(AI)를 빌려와 작동합니다. 이를 위해 내 컴퓨터에 AI 엔진을 설치하는 과정이 필요합니다.
 
