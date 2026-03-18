@@ -46,9 +46,12 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // 프로필 ID별 로컬 저장 키
-  const IDEAS_CACHE_KEY = `mined_ideas_${(profile as any).id || 'default'}`
-  const SESSION_CACHE_KEY = `interview_session_${(profile as any).id || 'default'}`
+  // 발굴 모드: 프로필 단위 / 보강 모드: 에피소드 파일 단위로 세션 키 분리
+  const profileId = (profile as any).id || 'default'
+  const IDEAS_CACHE_KEY = `mined_ideas_${profileId}`
+  const SESSION_CACHE_KEY = initialEpisode
+    ? `interview_session_${profileId}_${initialEpisode.fileName}`
+    : `interview_session_${profileId}`
 
   useEffect(() => {
     const unsubProgress = (window.api as any).onOnboardingProgress((data: any) => setProgress(data))
@@ -57,13 +60,37 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
     })
 
     const initWizard = async () => {
-      // [보강 모드] 기존 에피소드가 주어진 경우 → suggest 스킵, 바로 인터뷰 시작
+      // [보강 모드] 에피소드별 이전 세션 복원 시도 → 없으면 새 인터뷰 시작
       if (initialEpisode) {
+        const savedSession = localStorage.getItem(SESSION_CACHE_KEY)
+        if (savedSession) {
+          try {
+            const { idea, msgs, state } = JSON.parse(savedSession)
+            const filledMatch = (state as string).match(/FILLED=([^|]+)/)
+            const filledCount = filledMatch
+              ? filledMatch[1].split(',').filter(Boolean).length
+              : 0
+            const resumeLabel = filledCount > 0
+              ? `${filledCount}/6 섹션 진행 중`
+              : '이전 대화 기록'
+            if (confirm(`"${idea.title}" 에피소드의 ${resumeLabel}이 있습니다.\n이어서 진행할까요?\n\n(취소하면 처음부터 새로 시작합니다)`)) {
+              setSelectedIdea(idea)
+              setMessages(msgs)
+              setHiddenState(state || '')
+              setStep('interview')
+              return
+            } else {
+              localStorage.removeItem(SESSION_CACHE_KEY)
+            }
+          } catch {
+            localStorage.removeItem(SESSION_CACHE_KEY)
+          }
+        }
         await startRefineInterview(initialEpisode)
         return
       }
 
-      // 1. 진행 중인 인터뷰 세션 복구 시도
+      // 1. 진행 중인 인터뷰 세션 복구 시도 (발굴 모드)
       const savedSession = localStorage.getItem(SESSION_CACHE_KEY)
       if (savedSession) {
         const { idea, msgs, state } = JSON.parse(savedSession)
