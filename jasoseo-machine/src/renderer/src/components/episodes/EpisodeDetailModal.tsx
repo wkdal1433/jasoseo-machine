@@ -38,9 +38,15 @@ export function EpisodeDetailModal({ episode, onClose, onUpdated }: Props) {
 
   // 닫기 — AI 실행 중이면 해당 프로세스만 취소 후 닫기
   const handleClose = useCallback(async () => {
-    if (editState === 'running' && processIdRef.current) {
+    // pid를 confirm() 이전에 캡처 — confirm 블록 중 AI가 완료되어 ref가 null이 되는 경쟁 조건 방지
+    const pid = processIdRef.current
+    if (editState === 'running' && pid) {
       if (!confirm('AI 수정이 진행 중입니다. 취소하고 닫을까요?')) return
-      await window.api.claudeCancelById(processIdRef.current)
+      try {
+        await window.api.claudeCancelById(pid)
+      } catch {
+        // 취소 실패(이미 완료됐거나 IPC 오류)해도 닫기는 반드시 진행
+      }
       processIdRef.current = null
     }
     onClose()
