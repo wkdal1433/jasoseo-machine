@@ -4,6 +4,12 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
 import { ModelPicker } from '../common/ModelPicker'
+import { 
+  Zap, 
+  MousePointerClick, 
+  Puzzle, 
+  ArrowLeft 
+} from 'lucide-react'
 
 interface PatternRecord {
   id: string
@@ -280,7 +286,7 @@ export function ApplicationSetup() {
             onClick={() => setMode('smart')}
             className="group flex flex-col items-start rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 text-left transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg"
           >
-            <span className="mb-3 text-3xl">🚀</span>
+            <Zap size={32} className="mb-3 text-primary" />
             <span className="mb-1 text-base font-bold">스마트 자동완성</span>
             <span className="mb-4 text-[11px] font-medium text-primary">추천</span>
             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -295,7 +301,7 @@ export function ApplicationSetup() {
             onClick={() => setMode('manual')}
             className="group flex flex-col items-start rounded-2xl border-2 border-border bg-card p-6 text-left transition-all hover:border-foreground/30 hover:shadow-md"
           >
-            <span className="mb-3 text-3xl">✍️</span>
+            <MousePointerClick size={32} className="mb-3 text-muted-foreground" />
             <span className="mb-1 text-base font-bold">직접 입력</span>
             <span className="mb-4 text-[11px] font-medium text-muted-foreground">수동 모드</span>
             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -365,7 +371,7 @@ export function ApplicationSetup() {
               onClick={() => setIsWaitingExtraction(true)}
               className="flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 hover:bg-cyan-100 transition-colors dark:border-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
             >
-              🧩 확장 프로그램으로 가져오기
+              <Puzzle size={14} /> 확장 프로그램으로 가져오기
             </button>
           </div>
 
