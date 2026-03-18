@@ -5,6 +5,7 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { buildSurgicalEditPrompt } from '@/lib/prompt-builder'
+import { ConsistencyChecker } from './ConsistencyChecker'
 import { cn } from '@/lib/utils'
 import { 
   Save, 
@@ -216,25 +217,35 @@ export function FullReview() {
           ))}
         </div>
 
-        {/* Right: A4 Live Preview */}
-        <div className="w-[450px] bg-muted/30 overflow-y-auto p-10 hidden xl:block custom-scrollbar">
+        {/* Right: Consistency Check + A4 Live Preview */}
+        <div className="w-[450px] bg-muted/30 overflow-y-auto hidden xl:block custom-scrollbar">
+          {/* 일관성 체크 — 모든 문항 완료 시 자동 표시 */}
+          <div className="p-6 border-b border-border">
+            <ConsistencyChecker />
+          </div>
+          <div className="p-10">
           <div className="mb-6 flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">A4 Live Preview</span>
             <button onClick={() => window.print()} className="text-[10px] font-bold text-primary hover:underline">PDF 출력용 화면</button>
           </div>
-          <div className="bg-white p-12 shadow-2xl min-h-[1400px] text-gray-800 font-serif leading-relaxed">
-            <h1 className="text-center text-3xl font-bold border-b-4 border-gray-900 pb-6 mb-10 tracking-widest">자 기 소 개 서</h1>
-            <div className="space-y-12">
-              {questions.map((q, i) => (
-                <div key={i}>
-                  <h4 className="font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                    {i + 1}. {q.question.slice(0, 40)}...
-                  </h4>
-                  <p className="text-[13px] whitespace-pre-wrap text-justify">
-                    {localTexts[i] || '내용이 입력되지 않았습니다.'}
-                  </p>
-                </div>
-              ))}
+            <div className="mb-6 flex items-center justify-between">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">A4 Live Preview</span>
+              <button onClick={() => window.print()} className="text-[10px] font-bold text-primary hover:underline">PDF 출력용 화면</button>
+            </div>
+            <div className="bg-white p-12 shadow-2xl min-h-[1400px] text-gray-800 font-serif leading-relaxed">
+              <h1 className="text-center text-3xl font-bold border-b-4 border-gray-900 pb-6 mb-10 tracking-widest">자 기 소 개 서</h1>
+              <div className="space-y-12">
+                {questions.map((q, i) => (
+                  <div key={i}>
+                    <h4 className="font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                      {i + 1}. {q.question.slice(0, 40)}...
+                    </h4>
+                    <p className="text-[13px] whitespace-pre-wrap text-justify">
+                      {localTexts[i] || '내용이 입력되지 않았습니다.'}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

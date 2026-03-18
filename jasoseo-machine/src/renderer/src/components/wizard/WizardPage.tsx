@@ -11,7 +11,9 @@ import { Step6to8Verification as Step6to8_Verification } from './Step6to8_Verifi
 import { FinalResult } from './FinalResult'
 import { WizardStepper } from './WizardStepper'
 import { QuestionTab } from './QuestionTab'
+import { DecisionTimeline } from './DecisionTimeline'
 import { buildStep1to2Prompt } from '@/lib/prompt-builder'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { cn } from '@/lib/utils'
 
 import { ArrowLeft, PartyPopper, CheckCircle2, AlertTriangle, ChevronRight, Target, BarChart2 } from 'lucide-react'
@@ -132,15 +134,18 @@ export function WizardPage() {
     setQuestionAnalysis,
     setActiveQuestion,
     setQuestionStep,
-    reopenQuestion
+    reopenQuestion,
+    getState: getWizardState,
   } = useWizardStore()
   const { profile } = useProfileStore()
 
   const [step0GateConfirmed, setStep0GateConfirmed] = useState(false)
+  const { saveSnapshot, clearSnapshots } = useSnapshotStore()
 
-  // 지원서가 바뀌면 게이트 초기화 (이어쓰기 복원 시 이미 확인됐다고 간주)
+  // 지원서가 바뀌면 게이트·스냅샷 초기화 (이어쓰기 복원 시 이미 확인됐다고 간주)
   useEffect(() => {
     setStep0GateConfirmed(step0Completed)
+    if (!step0Completed) clearSnapshots()
   }, [applicationId])
 
   const allCompleted = questions.length > 0 && questions.every((q) => q.status === 'completed')
@@ -159,16 +164,18 @@ export function WizardPage() {
     }
   }, [questions, companyName, jobTitle, jobPosting, hrIntents, strategy, profile])
 
-  // [v2] 게이트 통과 시점에 prefetch 시작
+  // [v2] 게이트 통과 시점에 스냅샷 저장 + prefetch 시작
   const handleStep0GateConfirm = useCallback(() => {
     setStep0GateConfirmed(true)
+    // L3 게이트 통과 — Step 0 상태 스냅샷 저장
+    saveSnapshot('Step 0: 기업 분석 완료', getWizardState())
     // 게이트 확인 후 백그라운드 병렬 prefetch 시작
     questions.forEach((q, idx) => {
       if (q.currentStep === 0 || !q.analysisResult) {
         prefetchQuestionAnalysis(idx)
       }
     })
-  }, [questions, prefetchQuestionAnalysis])
+  }, [questions, prefetchQuestionAnalysis, saveSnapshot])
 
   const activeQuestion = questions[activeQuestionIndex]
   if (!activeQuestion && questions.length > 0) return null
@@ -250,7 +257,7 @@ export function WizardPage() {
                 />
               </div>
             </div>
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-6 overflow-y-auto space-y-4">
               <WizardStepper
                 currentStep={activeQuestion.currentStep}
                 step0Completed={step0Completed}
@@ -263,6 +270,7 @@ export function WizardPage() {
                   }
                 }}
               />
+              <DecisionTimeline />
             </div>
             {allCompleted && (
               <div className="p-4 border-t bg-card animate-in slide-in-from-bottom duration-500">
