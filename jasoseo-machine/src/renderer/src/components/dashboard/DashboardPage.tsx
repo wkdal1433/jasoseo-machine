@@ -5,6 +5,15 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { 
+  Rocket, 
+  Pause, 
+  Eraser, 
+  X, 
+  Puzzle, 
+  Wand2, 
+  Sparkles 
+} from 'lucide-react'
 
 import type { DraftItem } from '@/stores/historyStore'
 
@@ -120,7 +129,7 @@ export function DashboardPage() {
       {isLoaded && !projectDir && (
         <div className="mb-6 overflow-hidden rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-950 animate-in slide-in-from-top duration-500">
           <div className="flex items-start gap-4">
-            <span className="text-3xl">🚀</span>
+            <Rocket size={32} className="text-blue-600" />
             <div className="flex-1">
               <h3 className="text-base font-bold text-blue-800 dark:text-blue-200">처음 시작하는 분이시군요! 아래 순서로 진행해주세요.</h3>
               <ol className="mt-3 space-y-1.5 text-sm text-blue-700 dark:text-blue-300">
@@ -144,7 +153,7 @@ export function DashboardPage() {
         <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950 animate-in slide-in-from-top duration-500">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">⏸️</span>
+              <Pause size={24} className="text-amber-600" />
               <div>
                 <p className="text-sm font-bold text-amber-800 dark:text-amber-200">저장되지 않은 온보딩 결과가 있습니다</p>
                 <p className="text-xs text-amber-700 dark:text-amber-300">AI가 분석한 프로필과 에피소드를 이어서 검토하고 저장하세요.</p>
@@ -172,7 +181,7 @@ export function DashboardPage() {
       {(oldTrashCount > 0 && !hideTrashAlert) && (
         <div className="mb-6 flex items-center justify-between rounded-xl bg-orange-50 border border-orange-100 p-4 animate-in slide-in-from-right-4 duration-500">
           <div className="flex items-center gap-3 text-orange-800">
-            <span className="text-xl">🧹</span>
+            <Eraser size={20} className="text-orange-600" />
             <p className="text-sm font-medium">휴지통에 30일이 지난 오래된 파일 <strong>{oldTrashCount}개</strong>가 있습니다.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -187,7 +196,7 @@ export function DashboardPage() {
               className="text-orange-400 hover:text-orange-600 p-1 transition-colors"
               title="닫기"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -198,7 +207,7 @@ export function DashboardPage() {
         <div className="mb-6 overflow-hidden rounded-2xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-800 dark:bg-violet-950 animate-in slide-in-from-top duration-500">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🧩</span>
+              <Puzzle size={24} className="text-violet-600" />
               <div>
                 <p className="text-sm font-bold text-violet-800 dark:text-violet-200">확장 프로그램이 미완성 필드를 발견했습니다</p>
                 <p className="text-xs text-violet-700 dark:text-violet-300 mt-0.5">
@@ -223,7 +232,7 @@ export function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="max-w-2xl">
               <h3 className="text-2xl font-bold text-primary flex items-center gap-2">
-                <span>🧙‍♂️</span> 매직 온보딩으로 1분 만에 시작하기
+                <Wand2 size={24} /> 매직 온보딩으로 1분 만에 시작하기
               </h3>
               <p className="mt-2 text-muted-foreground leading-relaxed">
                 기존에 작성했던 자기소개서나 이력서 파일(PDF/MD)을 업로드해보세요.<br/>
@@ -237,7 +246,7 @@ export function DashboardPage() {
               </button>
             </div>
             <div className="hidden lg:block text-8xl opacity-20 select-none">
-              ✨
+              <Sparkles size={96} />
             </div>
           </div>
         </div>
@@ -383,7 +392,7 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-            작성 이력이 없습니다. 새 지원서를 작성해보세요.
+            작성 이력이 없습니다. 새 지원서 작성해보세요.
           </div>
         )}
       </div>
