@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { buildStep6to8Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { cn } from '@/lib/utils'
 import type { VerificationResult } from '@/types/application'
@@ -13,6 +14,7 @@ export function Step6to8Verification() {
     isVerifying, setIsVerifying,
     setVerificationResult, setQuestionStep, completeQuestion
   } = useWizardStore()
+  const { saveSnapshot } = useSnapshotStore()
 
   const [error, setError] = useState<string | null>(null)
 
@@ -41,6 +43,12 @@ export function Step6to8Verification() {
       }
 
       setVerificationResult(activeQuestionIndex, parsed)
+      // 검증 완료 스냅샷 저장
+      saveSnapshot(
+        `문항 ${activeQuestionIndex + 1}: 검증 완료`,
+        useWizardStore.getState(),
+        activeQuestionIndex
+      )
     } catch (err) {
       setError((err as Error).message)
     }
