@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { EpisodeIdea } from '../../../../main/automation/episode-interviewer'
+import type { EpisodeIdea } from '../../../../shared/types/automation'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
 import { ModelPicker } from '../common/ModelPicker'
@@ -345,7 +345,7 @@ ${episode.rawContent.slice(0, 3000)}
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="flex gap-2 bg-muted/30 p-3 rounded-3xl border border-border focus-within:border-primary/50 transition-colors items-end">
+              <div className="bg-muted/30 px-4 pt-3 pb-2 rounded-3xl border border-border focus-within:border-primary/50 transition-colors">
                 <textarea
                   ref={inputRef}
                   value={input}
@@ -362,10 +362,12 @@ ${episode.rawContent.slice(0, 3000)}
                     }
                   }}
                   placeholder="AI의 질문에 대답하세요... (Shift+Enter 줄바꿈)"
-                  className="flex-1 bg-transparent px-4 py-2 text-sm outline-none resize-none overflow-y-auto leading-relaxed"
+                  className="w-full bg-transparent py-1 text-sm outline-none resize-none overflow-y-auto leading-relaxed"
                   style={{ maxHeight: '160px' }}
                 />
-                <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-2xl bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50 shrink-0">전송</button>
+                <div className="flex justify-end pt-1">
+                  <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-2xl bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50">전송</button>
+                </div>
               </div>
             </div>
           )}

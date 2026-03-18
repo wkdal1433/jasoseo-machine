@@ -1,6 +1,13 @@
 import { UserProfile } from './profile';
 import { EpisodeStatus } from './episode';
 
+export interface EpisodeIdea {
+  title: string;
+  theme: string;
+  hookMessage: string;
+  suggestedAngle: string;
+}
+
 export interface OnboardingResult {
   profile: Partial<UserProfile>;
   episodes: Array<{

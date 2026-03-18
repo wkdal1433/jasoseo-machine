@@ -1,11 +1,5 @@
 import { UserProfile } from '../../renderer/src/types/profile';
-
-export interface EpisodeIdea {
-  title: string;
-  theme: string;
-  hookMessage: string;
-  suggestedAngle: string;
-}
+export { EpisodeIdea } from '../../shared/types/automation';
 
 export class EpisodeInterviewer {
   /**
