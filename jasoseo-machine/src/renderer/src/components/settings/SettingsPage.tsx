@@ -46,7 +46,7 @@ const MODEL_OPTIONS = [
 ]
 
 export function SettingsPage() {
-  const { claudePath, geminiPath, projectDir, model, theme, loadSettings, setSetting } = useSettingsStore()
+  const { claudePath, geminiPath, projectDir, model, theme, autoApproveEpisodes, loadSettings, setSetting } = useSettingsStore()
 
   const [claudeTestResult, setClaudeTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isClaudeTesting, setIsClaudeTesting] = useState(false)
@@ -369,6 +369,25 @@ export function SettingsPage() {
               <option value="dark">다크</option>
             </select>
           </div>
+        </div>
+
+        {/* 자동화 설정 */}
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <h3 className="text-sm font-semibold">자동화 설정</h3>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoApproveEpisodes}
+              onChange={(e) => setSetting('auto_approve_episodes', String(e.target.checked))}
+              className="mt-0.5 accent-primary"
+            />
+            <div>
+              <p className="text-sm font-medium">AI 추천 에피소드 자동 승인</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Step 2를 건너뛰고 AI가 최고 점수로 추천한 에피소드를 자동 선택합니다. 빠른 초안 작성 시 유용합니다.
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Dev Tools — 개발 환경에서만 표시 */}

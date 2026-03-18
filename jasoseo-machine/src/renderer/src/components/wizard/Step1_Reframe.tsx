@@ -4,6 +4,7 @@ import { useProfileStore } from '@/stores/profileStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useSnapshotStore } from '@/stores/snapshotStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { buildStep1to2Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { AnalysisResult } from '@/types/application'
 import { Lightbulb, FastForward } from 'lucide-react'
@@ -28,12 +29,14 @@ export function Step1Reframe() {
   const {
     companyName, jobTitle, jobPosting, hrIntents, strategy,
     questions, activeQuestionIndex, setQuestionAnalysis, setGeneratedText, setQuestionStep,
+    approveEpisode,
     getState: getWizardState,
   } = useWizardStore()
   const { profile } = useProfileStore()
   const { episodes } = useEpisodeStore()
   const { applications, loadApplications } = useHistoryStore()
   const { saveSnapshot } = useSnapshotStore()
+  const { autoApproveEpisodes } = useSettingsStore()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [similarDraft, setSimilarDraft] = useState<SimilarDraft | null>(null)
@@ -108,6 +111,11 @@ export function Step1Reframe() {
         suggestedEpisodes: parsed.suggestedEpisodes
       }
       setQuestionAnalysis(activeQuestionIndex, analysis)
+      // 자동 승인 모드: 첫 번째 추천 에피소드 자동 선택 후 Step 3으로 이동
+      if (autoApproveEpisodes && parsed.suggestedEpisodes.length > 0) {
+        approveEpisode(activeQuestionIndex, parsed.suggestedEpisodes[0].episodeId)
+        setQuestionStep(activeQuestionIndex, 3)
+      }
     } catch (err) {
       setError((err as Error).message)
     }
