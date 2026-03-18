@@ -24,18 +24,18 @@
 
 ---
 
-## ⚠️ Prerequisites & Disclaimers
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/alert-triangle.svg" width="24" height="24" valign="bottom" /> Prerequisites & Disclaimers
 
-### 🔒 Privacy & Security (개인정보 보호)
+### <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/lock.svg" width="20" height="20" valign="bottom" /> Privacy & Security (개인정보 보호)
 - **100% Local Execution**: 본 프로그램은 모든 작업을 유저의 로컬 환경에서 수행합니다. 업로드한 이력서와 입력한 개인정보는 **외부 서버로 전송되지 않으며**, 오직 유저 본인이 설치한 AI CLI(Gemini/Claude)로만 전달됩니다. 개발자를 포함한 그 누구도 귀하의 데이터에 접근할 수 없습니다.
 - **No API Key Storage**: 본 앱은 별도의 API 키를 요구하거나 서버에 저장하지 않으므로, 키 유출 위험으로부터 안전합니다.
 
-### ⚙️ Technical Requirements
+### <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/cpu.svg" width="20" height="20" valign="bottom" /> Technical Requirements
 1. **AI 서비스 구독 및 CLI 설치**: 로컬 환경에 **Gemini CLI** 및 **Claude Code CLI**가 설치되어 있어야 하며, 구동 가능한 토큰 할당량을 보유해야 합니다.
 2. **Gemini CLI 설정 충돌 주의**: Gemini CLI는 로컬 사용자 폴더(`C:\Users\[User]\.gemini`)의 설정값을 최우선으로 따릅니다. **유저가 설정한 개인 세팅값이 본 프로그램의 프롬프트보다 강제성이 높을 경우**, 정상적인 자소서 생성이 어려울 수 있습니다. (원활한 작동을 위해 기본 설정을 권장합니다.)
 3. **토큰 소진 및 모델 제한**: 자소서 생성 및 검증 시 상당량의 토큰이 소모될 수 있습니다. 또한 현재 개발 환경 제약으로 **GPT 엔진은 지원하지 않습니다.**
 
-### 💎 Pattern Accuracy
+### <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/target.svg" width="20" height="20" valign="bottom" /> Pattern Accuracy
 - **100% Success Rate**: 본 툴에 내장된 패턴은 실제 합격률 100%를 기록한 사례들을 분석한 결과입니다.
 - **Overfitting Risk**: 다만 분석 표본의 양적 한계로 인해 특정 패턴에 **과적합(Overfitting)**되어 있을 수 있습니다. 모든 기업과 직무에서의 결과를 보장하지 않으므로 최종 검토는 반드시 본인이 직접 수행하시기 바랍니다.
 ---
