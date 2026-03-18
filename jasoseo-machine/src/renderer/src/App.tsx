@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save } from 'lucide-react'
+import { Save, CheckCircle2, X } from 'lucide-react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/layout/Layout'
@@ -17,6 +17,32 @@ import { FullReview } from './components/wizard/FullReview'
 import { PatternPage } from './components/patterns/PatternPage'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAutoSave } from './hooks/useAutoSave'
+import { useWizardStore } from './stores/wizardStore'
+
+function GenerationToast() {
+  const { generationCompleteNotification, clearGenerationNotification } = useWizardStore()
+
+  useEffect(() => {
+    if (!generationCompleteNotification) return
+    const t = setTimeout(() => clearGenerationNotification(), 5000)
+    return () => clearTimeout(t)
+  }, [generationCompleteNotification])
+
+  if (!generationCompleteNotification) return null
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[300] flex items-center gap-3 rounded-2xl border border-green-200 bg-white/95 px-5 py-3.5 shadow-xl backdrop-blur-sm dark:border-green-800 dark:bg-card/95 animate-in slide-in-from-bottom-4 duration-300">
+      <CheckCircle2 size={18} className="shrink-0 text-green-600 dark:text-green-400" />
+      <span className="text-sm font-medium text-foreground">{generationCompleteNotification}</span>
+      <button
+        onClick={clearGenerationNotification}
+        className="ml-1 shrink-0 text-muted-foreground hover:text-foreground"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
 
 function App() {
   const { theme, loadSettings } = useSettingsStore()
@@ -106,6 +132,7 @@ function App() {
         </div>
       </div>
     )}
+    <GenerationToast />
     </ErrorBoundary>
   )
 }

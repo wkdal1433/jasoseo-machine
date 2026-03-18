@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid'
 import type { WizardState, WizardQuestion, WizardStep, SetupDraft } from '../types/wizard'
 import type { Strategy, HRIntentItem, AnalysisResult, VerificationResult, QuestionInput, RecruitmentContext } from '../types/application'
 
+// 모듈 레벨 스트림 리스너 — Zustand 상태에 함수를 넣지 않기 위해 분리
+let _streamCleanup: (() => void) | null = null
+
 interface WizardActions {
   initWizard: (companyName: string, jobTitle: string, jobPosting: string, questions: QuestionInput[], strategy?: Strategy) => void
   restoreFromDraft: (savedState: Partial<WizardState>) => void
@@ -26,6 +29,11 @@ interface WizardActions {
   reopenQuestion: (questionIndex: number) => void
   resetWizard: () => void
   getState: () => WizardState
+  // 스트림 전역 리스너 — 페이지 이동에도 유지
+  startStreamListening: (questionIndex: number) => void
+  stopStreamListening: () => void
+  clearGenerationNotification: () => void
+  clearStreamError: () => void
 }
 
 const initialState: WizardState = {
@@ -44,7 +52,10 @@ const initialState: WizardState = {
   isVerifying: false,
   activePatternIds: [],
   useDefaultPatterns: true,
-  setupDraft: null
+  setupDraft: null,
+  generatingQuestionIndex: null,
+  streamError: null,
+  generationCompleteNotification: null,
 }
 
 export const useWizardStore = create<WizardState & WizardActions>((set, get) => ({
@@ -215,6 +226,70 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
     set({ ...initialState, ...savedState })
   },
 
-  resetWizard: () => set({ ...initialState, setupDraft: null }),
-  getState: () => get()
+  resetWizard: () => {
+    if (_streamCleanup) { _streamCleanup(); _streamCleanup = null }
+    set({ ...initialState, setupDraft: null })
+  },
+  getState: () => get(),
+
+  startStreamListening: (questionIndex) => {
+    // 기존 리스너 정리
+    if (_streamCleanup) { _streamCleanup(); _streamCleanup = null }
+    set({ generatingQuestionIndex: questionIndex, streamError: null })
+
+    const cleanupChunk = window.api.onStreamChunk((event: unknown) => {
+      const e = event as {
+        type?: string
+        content_block?: { text?: string }
+        delta?: { type?: string; text?: string }
+        result?: { text?: string }
+      }
+      let text = ''
+      if (e.type === 'content_block_delta' && e.delta?.text) {
+        text = e.delta.text
+      } else if (e.type === 'content_block_start' && e.content_block?.text) {
+        text = e.content_block.text
+      } else if (e.type === 'result' && e.result?.text) {
+        get().setGeneratedText(questionIndex, e.result.text)
+        return
+      } else {
+        text = e.delta?.text || e.content_block?.text || ''
+      }
+      if (text) get().appendGeneratedText(questionIndex, text)
+    })
+
+    const cleanupEnd = window.api.onStreamEnd(() => {
+      const state = get()
+      const finalLen = state.questions[questionIndex]?.generatedText?.length ?? 0
+      const qNum = state.questions[questionIndex]?.questionNumber ?? (questionIndex + 1)
+      _streamCleanup = null
+      set({
+        isGenerating: false,
+        generatingQuestionIndex: null,
+        generationCompleteNotification: `${state.companyName} ${qNum}번 문항 초안 완성 (${finalLen}자)`,
+      })
+      cleanupChunk(); cleanupEnd(); cleanupError()
+    })
+
+    const cleanupError = window.api.onStreamError((data: unknown) => {
+      const d = data as { message?: string }
+      _streamCleanup = null
+      set({
+        isGenerating: false,
+        generatingQuestionIndex: null,
+        streamError: d.message || '스트리밍 오류',
+      })
+      cleanupChunk(); cleanupEnd(); cleanupError()
+    })
+
+    _streamCleanup = () => { cleanupChunk(); cleanupEnd(); cleanupError() }
+  },
+
+  stopStreamListening: () => {
+    if (_streamCleanup) { _streamCleanup(); _streamCleanup = null }
+    set({ generatingQuestionIndex: null })
+  },
+
+  clearGenerationNotification: () => set({ generationCompleteNotification: null }),
+  clearStreamError: () => set({ streamError: null }),
 }))

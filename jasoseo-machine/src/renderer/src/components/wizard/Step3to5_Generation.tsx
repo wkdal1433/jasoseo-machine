@@ -39,12 +39,13 @@ export function Step3to5Generation() {
     questions, activeQuestionIndex,
     isGenerating, setIsGenerating,
     setGeneratedText, appendGeneratedText, setQuestionStep,
-    activePatternIds, useDefaultPatterns
+    activePatternIds, useDefaultPatterns,
+    streamError, clearStreamError,
+    startStreamListening, stopStreamListening,
   } = useWizardStore()
 
   const { episodes } = useEpisodeStore()
 
-  const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState('')
   const [isShortening, setIsShortening] = useState(false)
@@ -91,7 +92,7 @@ export function Step3to5Generation() {
     clearTimers()
 
     setIsGenerating(true)
-    setError(null)
+    clearStreamError()
     setGeneratedText(activeQuestionIndex, '')
 
     // Elapsed counter (1s tick)
@@ -156,6 +157,8 @@ export function Step3to5Generation() {
     const coverLetterModel = await window.api.settingsGet('model_ep_cover_letter') as string | null
     const pid = `proc_stream_${Date.now()}`
     streamProcessIdRef.current = pid
+    // 스트림 리스너를 스토어 레벨에 등록 — 페이지 이동해도 청크가 유실되지 않음
+    startStreamListening(activeQuestionIndex)
     window.api.claudeExecuteStream({
       prompt,
       outputFormat: 'stream-json',
@@ -178,58 +181,23 @@ export function Step3to5Generation() {
     return () => clearTimers()
   }, [])
 
+  // 첫 번째 토큰 도착 감지 — generatedText가 비어있다가 채워질 때 타이머 정리
   useEffect(() => {
-    if (!isGenerating) return
-
-    const cleanupChunk = window.api.onStreamChunk((event: unknown) => {
-      const e = event as {
-        type?: string
-        content_block?: { text?: string }
-        delta?: { type?: string; text?: string }
-        result?: { text?: string }
-      }
-
-      let text = ''
-      if (e.type === 'content_block_delta' && e.delta?.text) {
-        text = e.delta.text
-      } else if (e.type === 'content_block_start' && e.content_block?.text) {
-        text = e.content_block.text
-      } else if (e.type === 'result' && e.result?.text) {
-        setGeneratedText(activeQuestionIndex, e.result.text)
-        return
-      } else {
-        text = e.delta?.text || e.content_block?.text || ''
-      }
-
-      if (text) {
-        if (!firstTokenRef.current) {
-          firstTokenRef.current = true
-          addLog('첫 번째 토큰 수신 ✓')
-          clearTimers()
-        }
-        appendGeneratedText(activeQuestionIndex, text)
-      }
-    })
-
-    const cleanupEnd = window.api.onStreamEnd(() => {
-      const finalLen = useWizardStore.getState().questions[activeQuestionIndex]?.generatedText?.length ?? 0
-      addLog(`생성 완료 (${finalLen}자)`)
-      setIsGenerating(false)
-    })
-
-    const cleanupError = window.api.onStreamError((data: unknown) => {
-      const d = data as { message?: string }
-      addLog(`오류: ${d.message || '스트리밍 오류'}`)
-      setError(d.message || '스트리밍 오류')
-      setIsGenerating(false)
-    })
-
-    return () => {
-      cleanupChunk()
-      cleanupEnd()
-      cleanupError()
+    if (isGenerating && q.generatedText.length > 0 && !firstTokenRef.current) {
+      firstTokenRef.current = true
+      addLog('첫 번째 토큰 수신 ✓')
+      clearTimers()
     }
-  }, [isGenerating, activeQuestionIndex])
+  }, [q.generatedText, isGenerating])
+
+  // 생성 종료 감지 (정상 완료 / 오류 모두)
+  useEffect(() => {
+    if (!isGenerating && firstTokenRef.current) {
+      const finalLen = q.generatedText.length
+      addLog(`생성 완료 (${finalLen}자)`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGenerating])
 
   useEffect(() => {
     if (textRef.current && isGenerating) {
@@ -244,6 +212,8 @@ export function Step3to5Generation() {
   }, [logs])
 
   const cancelGeneration = async () => {
+    // 먼저 스토어 리스너 해제 — 취소 완료 이벤트가 스토어에 도달하지 않도록
+    stopStreamListening()
     if (streamProcessIdRef.current) {
       await window.api.claudeCancelById(streamProcessIdRef.current)
       streamProcessIdRef.current = null
@@ -540,9 +510,9 @@ export function Step3to5Generation() {
         <CharacterCounter current={q.generatedText.length} limit={q.charLimit} />
       )}
 
-      {error && (
+      {streamError && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-          {error}
+          {streamError}
         </div>
       )}
 

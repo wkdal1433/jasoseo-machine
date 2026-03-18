@@ -56,4 +56,8 @@ export interface WizardState {
   activePatternIds: string[]
   useDefaultPatterns: boolean
   setupDraft: SetupDraft | null
+  // 스트림 전역 상태 — 페이지 이동해도 유지
+  generatingQuestionIndex: number | null
+  streamError: string | null
+  generationCompleteNotification: string | null
 }
