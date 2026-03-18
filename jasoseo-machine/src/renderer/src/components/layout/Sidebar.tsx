@@ -1,17 +1,28 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useProfileStore } from '@/stores/profileStore'
+import { 
+  Home, 
+  PenTool, 
+  Wand2, 
+  User, 
+  Library, 
+  History, 
+  Dna, 
+  BookOpen, 
+  Settings 
+} from 'lucide-react'
 
 const navItems = [
-  { path: '/', label: '대시보드', icon: '🏠' },
-  { path: '/wizard/setup', label: '새 지원서', icon: '✍️' },
-  { path: '/onboarding', label: '매직 온보딩', icon: '🧙‍♂️' },
-  { path: '/profile', label: '내 프로필', icon: '👤' },
-  { path: '/episodes', label: '에피소드', icon: '📋' },
-  { path: '/history', label: '작성 이력', icon: '📁' },
-  { path: '/patterns', label: '패턴 강화', icon: '🧬' },
-  { path: '/guide', label: '사용 가이드', icon: '📖' },
-  { path: '/settings', label: '설정', icon: '⚙️' }
+  { path: '/', label: '대시보드', icon: <Home size={18} /> },
+  { path: '/wizard/setup', label: '새 지원서', icon: <PenTool size={18} /> },
+  { path: '/onboarding', label: '매직 온보딩', icon: <Wand2 size={18} /> },
+  { path: '/profile', label: '내 프로필', icon: <User size={18} /> },
+  { path: '/episodes', label: '에피소드', icon: <Library size={18} /> },
+  { path: '/history', label: '작성 이력', icon: <History size={18} /> },
+  { path: '/patterns', label: '패턴 강화', icon: <Dna size={18} /> },
+  { path: '/guide', label: '사용 가이드', icon: <BookOpen size={18} /> },
+  { path: '/settings', label: '설정', icon: <Settings size={18} /> }
 ]
 
 export function Sidebar() {
