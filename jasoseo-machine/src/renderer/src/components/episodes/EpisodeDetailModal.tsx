@@ -31,6 +31,11 @@ export function EpisodeDetailModal({ episode, onClose, onUpdated }: Props) {
   const [rawView, setRawView] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const processIdRef = useRef<string | null>(null)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => { isMountedRef.current = false }  // 언마운트 시 저장 차단 플래그
+  }, [])
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -102,6 +107,9 @@ ${instruction.trim()}
       if (!cleaned.includes('#') || cleaned.length < 50) {
         throw new Error('AI 응답이 올바른 마크다운 형식이 아닙니다.')
       }
+
+      // 사용자가 취소하고 모달을 닫은 경우 파일 저장 차단
+      if (!isMountedRef.current) return
 
       setAiLog(prev => prev + '\n수정 완료! 파일 저장 중...')
       const success = await window.api.episodeSaveFile(episode.fileName, cleaned)
