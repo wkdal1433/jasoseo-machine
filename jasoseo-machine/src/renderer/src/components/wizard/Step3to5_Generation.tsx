@@ -4,7 +4,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep3to5Prompt, buildShortenPrompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { ModelPicker } from '@/components/common/ModelPicker'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Eye, Scissors } from 'lucide-react'
 
 const FUN_MESSAGES = [
   '식빵 굽는 중... 🍞',
@@ -316,7 +316,7 @@ export function Step3to5Generation() {
         onClick={() => setShowLog((v) => !v)}
         className="flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1.5 text-[10px] font-bold text-muted-foreground transition-colors hover:text-primary"
       >
-        {showLog ? '▲ 작업 로그 숨기기' : '▼ 👁️ 작업 로그 보기'}
+        {showLog ? '▲ 작업 로그 숨기기' : <><Eye size={10} className="inline mr-0.5" /> 작업 로그 보기</>}
       </button>
       {showLog && (
         <div className="mt-2 animate-in slide-in-from-top-2 duration-200">
@@ -564,7 +564,7 @@ export function Step3to5Generation() {
                 disabled={isShortening}
                 className="rounded-md border border-orange-300 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
               >
-                {isShortening ? '축약 중...' : `✂️ 글자수 줄이기`}
+                {isShortening ? '축약 중...' : <span className="flex items-center gap-1"><Scissors size={14} /> 글자수 줄이기</span>}
               </button>
             )}
             <button

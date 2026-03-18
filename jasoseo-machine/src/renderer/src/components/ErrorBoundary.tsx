@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 interface Props {
   children: ReactNode
@@ -33,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background p-8 text-center">
-          <div className="text-5xl">⚠️</div>
+          <AlertTriangle size={48} className="text-yellow-500" />
           <div>
             <h2 className="text-xl font-bold text-destructive">앱 오류가 발생했습니다</h2>
             <p className="mt-2 text-sm text-muted-foreground max-w-md">

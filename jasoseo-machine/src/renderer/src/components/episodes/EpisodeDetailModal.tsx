@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Episode } from '@/types/episode'
+import { ClipboardList, Sparkles, CheckCircle2 } from 'lucide-react'
 
 const STATUS_CONFIG = {
   ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
@@ -200,7 +201,7 @@ ${instruction.trim()}
 
             {showGuide && (
               <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-800 space-y-1.5">
-                <p className="font-semibold text-amber-900">📋 에피소드 무결성 보호 정책</p>
+                <p className="font-semibold text-amber-900 flex items-center gap-1"><ClipboardList size={16} /> 에피소드 무결성 보호 정책</p>
                 <p>이 시스템은 <strong>S급 합격 자소서</strong>를 만들기 위해 설계되었습니다. 에피소드는 자소서의 유일한 사실 원천이므로, 임의 편집 시 다음 문제가 발생합니다:</p>
                 <ul className="list-disc ml-4 space-y-1">
                   <li>수치·기간·성과를 실수로 바꾸면 면접에서 검증 불가능한 내용이 됩니다</li>
@@ -228,7 +229,7 @@ ${instruction.trim()}
                     disabled={!instruction.trim()}
                     className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity"
                   >
-                    ✨ AI에게 수정 요청
+                    <Sparkles size={14} className="inline mr-1" /> AI에게 수정 요청
                   </button>
                 </div>
                 {editState === 'error' && (
@@ -247,7 +248,7 @@ ${instruction.trim()}
               </div>
             ) : (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 flex items-center gap-2">
-                <span>✅</span>
+                <CheckCircle2 size={20} className="text-green-600 shrink-0" />
                 <span>수정이 완료되었습니다. 에피소드 목록이 자동으로 갱신됩니다.</span>
                 <button onClick={handleRetry} className="ml-auto text-xs text-green-700 underline">추가 수정</button>
               </div>

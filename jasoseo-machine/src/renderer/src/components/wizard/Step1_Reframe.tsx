@@ -5,6 +5,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { buildStep1to2Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { AnalysisResult } from '@/types/application'
+import { Lightbulb } from 'lucide-react'
 
 function questionSimilarity(a: string, b: string): number {
   const tokenize = (s: string) => s.replace(/[^가-힣a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean)
@@ -131,13 +132,13 @@ export function Step1Reframe() {
     <div className="space-y-4">
       <h3 className="text-lg font-bold">Step 1-2: 질문 재해석 + Episode 추천</h3>
 
-      {/* 🔄 이전 유사 문항 재활용 배너 */}
+      {/* 이전 유사 문항 재활용 배너 */}
       {similarDraft && showDraftBanner && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <p className="text-xs font-bold text-amber-700 dark:text-amber-300 mb-1">
-                💡 유사 문항 발견 — {similarDraft.company} ({similarDraft.date})
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-300 mb-1 flex items-center gap-1">
+                <Lightbulb size={14} /> 유사 문항 발견 — {similarDraft.company} ({similarDraft.date})
               </p>
               <p className="text-xs text-amber-800 dark:text-amber-200 line-clamp-2">
                 Q: {similarDraft.question}

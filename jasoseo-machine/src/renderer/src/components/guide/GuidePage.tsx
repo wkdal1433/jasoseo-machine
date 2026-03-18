@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Lightbulb } from 'lucide-react'
 
 type Section = 'overview' | 'profile' | 'analysis' | 'workflow' | 'automation' | 'episodes' | 'faq'
 
@@ -204,7 +205,7 @@ function AutomationSection() {
         <StepCard 
           step="STEP 3" 
           title="데이터 전송" 
-          description="위자드 최종 단계(Full Review)에서 [🧩 확장 프로그램으로 전송] 버튼을 클릭하세요." 
+          description="위자드 최종 단계(Full Review)에서 [확장 프로그램으로 전송] 버튼을 클릭하세요."
         />
         <StepCard 
           step="STEP 4" 
@@ -214,7 +215,7 @@ function AutomationSection() {
       </div>
 
       <div className="mt-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
-        <p className="text-xs font-bold text-primary mb-1 text-center">💡 하이브리드 방식의 강점</p>
+        <p className="text-xs font-bold text-primary mb-1 text-center flex items-center justify-center gap-1"><Lightbulb size={14} /> 하이브리드 방식의 강점</p>
         <p className="text-[10px] text-muted-foreground text-center">
           보안이 강력한 아이프레임(Iframe) 및 섀도우 돔(Shadow DOM) 영역까지 완벽하게 침투하여 주입합니다.
         </p>

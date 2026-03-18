@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { ClipboardList } from 'lucide-react'
 
 type PendingQuestion = { question: string; charLimit: number | null }
 
@@ -53,7 +54,7 @@ export function Layout() {
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 w-max max-w-[90%]
             flex items-center gap-4 rounded-2xl border border-primary/30 bg-primary/10
             px-5 py-3 shadow-xl backdrop-blur-sm animate-in slide-in-from-top-2 duration-300">
-            <span className="text-lg">📋</span>
+            <ClipboardList size={18} className="text-primary" />
             <div className="flex flex-col">
               <span className="text-sm font-bold text-primary">
                 문항 {pendingQuestions.length}개가 도착했습니다

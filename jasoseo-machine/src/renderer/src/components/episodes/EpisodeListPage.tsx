@@ -3,6 +3,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { EpisodeDiscoveryWizard } from './EpisodeDiscoveryWizard'
 import { EpisodeDetailModal } from './EpisodeDetailModal'
 import type { Episode, EpisodeStatus } from '@/types/episode'
+import { Sparkles, Calendar, User, Pencil } from 'lucide-react'
 
 const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }> = {
   ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
@@ -49,7 +50,7 @@ export function EpisodeListPage() {
           onClick={() => setIsWizardOpen(true)}
           className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95"
         >
-          ✨ 새 에피소드 발굴하기
+          <Sparkles size={16} className="inline mr-1" /> 새 에피소드 발굴하기
         </button>
       </div>
 
@@ -83,8 +84,8 @@ export function EpisodeListPage() {
                 </div>
                 <h3 className="mb-2 text-base font-bold line-clamp-1">{ep.title}</h3>
                 <div className="mb-4 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">📅 {ep.period || '기간 미입력'}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">👤 {ep.role || '역할 미입력'}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar size={12} /> {ep.period || '기간 미입력'}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><User size={12} /> {ep.role || '역할 미입력'}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 mb-4">
@@ -101,7 +102,7 @@ export function EpisodeListPage() {
                       onClick={(e) => { e.stopPropagation(); setRefineEpisode(ep) }}
                       className="rounded-lg border border-dashed border-yellow-400 px-3 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
                     >
-                      ✏️ 인터뷰로 완성하기 →
+                      <Pencil size={12} className="inline mr-1" /> 인터뷰로 완성하기 →
                     </button>
                   ) : (
                     <span />
@@ -115,7 +116,7 @@ export function EpisodeListPage() {
           {episodes.length === 0 && (
             <div className="rounded-2xl border-2 border-dashed border-border p-20 text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                ✨
+                <Sparkles size={24} className="mx-auto" />
               </div>
               <p className="text-base font-medium">아직 등록된 에피소드가 없습니다.</p>
               <p className="mt-1 text-sm text-muted-foreground">

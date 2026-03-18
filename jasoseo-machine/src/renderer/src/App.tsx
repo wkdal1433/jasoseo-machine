@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Save } from 'lucide-react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/layout/Layout'
@@ -78,8 +79,8 @@ function App() {
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
         <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-8 shadow-2xl animate-in zoom-in-95 duration-200">
           <div className="mb-5 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-3xl">
-              💾
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Save size={28} />
             </div>
             <h3 className="text-lg font-bold text-foreground">종료하기 전에</h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">

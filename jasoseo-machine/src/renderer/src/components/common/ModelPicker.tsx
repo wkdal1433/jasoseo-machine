@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Settings, Check, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const MODELS = [
@@ -64,9 +65,9 @@ export function ModelPicker({ endpointKey, className }: Props) {
         className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         title={`AI 모델 선택 (현재: ${currentLabel})`}
       >
-        <span className="text-[10px]">⚙</span>
+        <Settings size={10} />
         <span>{currentLabel}</span>
-        {isRecommended && <span className="text-yellow-500">⭐</span>}
+        {isRecommended && <Star size={10} className="text-yellow-500 fill-yellow-500" />}
         <span className="text-[8px] opacity-60">▾</span>
       </button>
 
@@ -87,8 +88,8 @@ export function ModelPicker({ endpointKey, className }: Props) {
             >
               <span>{m.label}</span>
               <span className="flex items-center gap-1">
-                {m.value === recommended && <span className="text-yellow-500 text-[10px]">⭐</span>}
-                {m.value === current && <span className="text-primary text-[10px]">✓</span>}
+                {m.value === recommended && <Star size={10} className="text-yellow-500 fill-yellow-500" />}
+                {m.value === current && <Check size={12} className="text-primary" />}
               </span>
             </button>
           ))}

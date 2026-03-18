@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
+import { AlertTriangle, BookOpen } from 'lucide-react'
 
 export function Step2EpisodeApproval() {
   const {
@@ -45,13 +46,13 @@ export function Step2EpisodeApproval() {
       {/* AI 추천 에피소드가 없을 때 수동 선택 탈출구 */}
       {suggestedEpisodes.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950">
-          <p className="mb-1 text-sm font-bold text-amber-800 dark:text-amber-200">⚠️ AI가 추천한 에피소드가 없습니다.</p>
+          <p className="mb-1 text-sm font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1"><AlertTriangle size={14} /> AI가 추천한 에피소드가 없습니다.</p>
           <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">에피소드 라이브러리에서 직접 선택하거나, Step 1로 돌아가 재분석할 수 있습니다.</p>
           <button
             onClick={() => setShowManualPicker((v) => !v)}
             className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors"
           >
-            {showManualPicker ? '닫기' : '📚 에피소드 라이브러리에서 직접 선택'}
+            {showManualPicker ? '닫기' : <span className="flex items-center gap-1"><BookOpen size={14} /> 에피소드 라이브러리에서 직접 선택</span>}
           </button>
         </div>
       )}

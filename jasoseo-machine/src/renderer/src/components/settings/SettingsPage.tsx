@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
-import { 
-  Puzzle, 
-  Wrench, 
-  Zap, 
-  Settings, 
-  Globe, 
-  Network, 
+import {
+  Puzzle,
+  Wrench,
+  Zap,
+  Settings,
+  Globe,
+  Network,
   RefreshCw,
-  Star
+  Star,
+  AlertTriangle
 } from 'lucide-react'
 
 const ENDPOINT_CONFIGS = [
@@ -211,7 +212,7 @@ export function SettingsPage() {
               <div className="pt-2">
                 <div className="rounded-lg bg-yellow-50 p-3 border border-yellow-100">
                   <p className="text-[10px] text-yellow-800 leading-tight">
-                    <strong>⚠️ 주의:</strong> 이 키는 확장 프로그램과의 보안 통신을 위한 비밀번호입니다. 
+                    <strong className="inline-flex items-center gap-1"><AlertTriangle size={14} className="inline" /> 주의:</strong> 이 키는 확장 프로그램과의 보안 통신을 위한 비밀번호입니다.
                     절대 타인에게 공개하지 마세요.
                   </p>
                 </div>
@@ -373,7 +374,7 @@ export function SettingsPage() {
         {/* Dev Tools — 개발 환경에서만 표시 */}
         {process.env.NODE_ENV === 'development' && (
           <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 dark:bg-orange-950 p-4">
-            <h3 className="mb-1 text-sm font-bold text-orange-700 dark:text-orange-300">🛠️ 개발용 도구 (Dev Only)</h3>
+            <h3 className="mb-1 text-sm font-bold text-orange-700 dark:text-orange-300 flex items-center gap-1"><Wrench size={14} /> 개발용 도구 (Dev Only)</h3>
             <p className="mb-3 text-xs text-orange-600 dark:text-orange-400">
               AI 호출 없이 테스트 프로필 + 에피소드 3개를 즉시 로드합니다.
             </p>
@@ -382,7 +383,7 @@ export function SettingsPage() {
               disabled={isLoadingFixtures}
               className="w-full rounded-lg bg-orange-500 py-2.5 text-sm font-bold text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
             >
-              {isLoadingFixtures ? '로딩 중...' : '⚡ 테스트 데이터 즉시 로드'}
+              {isLoadingFixtures ? '로딩 중...' : <span className="flex items-center gap-1"><Zap size={14} /> 테스트 데이터 즉시 로드</span>}
             </button>
             {fixtureMessage && (
               <p className={`mt-2 text-xs rounded-md p-2 ${fixtureMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

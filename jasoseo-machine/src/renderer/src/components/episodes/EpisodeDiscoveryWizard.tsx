@@ -4,6 +4,7 @@ import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
 import { ModelPicker } from '../common/ModelPicker'
 import type { Episode } from '@/types/episode'
+import { Search, Sparkles, RefreshCw, Eye, CheckCircle2, Download } from 'lucide-react'
 
 interface Props {
   onClose: () => void
@@ -197,7 +198,7 @@ ${episode.rawContent.slice(0, 3000)}
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{initialEpisode ? '🔍' : '✨'}</span>
+            {initialEpisode ? <Search size={24} /> : <Sparkles size={24} />}
             <div>
               <h2 className="text-xl font-bold">
                 {initialEpisode ? `에피소드 보강 인터뷰` : 'AI 에피소드 발굴 마법사'}
@@ -213,7 +214,7 @@ ${episode.rawContent.slice(0, 3000)}
             {step === 'suggest' && !initialEpisode && (
               <div className="flex items-center gap-2">
                 <button onClick={fetchNewIdeas} className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full">
-                  🔄 새로 분석하기
+                  <RefreshCw size={12} /> 새로 분석하기
                 </button>
                 <ModelPicker endpointKey="ep_suggest" />
               </div>
@@ -244,7 +245,7 @@ ${episode.rawContent.slice(0, 3000)}
                   <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress.percent}%` }}></div>
                 </div>
                 <div className="flex flex-col items-center">
-                  <button onClick={() => setShowTerminal(!showTerminal)} className="text-[10px] font-bold text-muted-foreground hover:text-primary bg-muted/50 px-3 py-1.5 rounded-full">{showTerminal ? '▲ 로그 숨기기' : '▼ 👁️ 실시간 작업 로그'}</button>
+                  <button onClick={() => setShowTerminal(!showTerminal)} className="text-[10px] font-bold text-muted-foreground hover:text-primary bg-muted/50 px-3 py-1.5 rounded-full flex items-center gap-1">{showTerminal ? '▲ 로그 숨기기' : <><Eye size={10} /> 실시간 작업 로그</>}</button>
                   {showTerminal && (
                     <div className="mt-4 w-full animate-in slide-in-from-top-2 duration-300">
                       <div className="rounded-xl bg-black/90 p-4 font-mono text-[10px] text-green-400/90 h-32 overflow-y-auto custom-scrollbar">
@@ -300,7 +301,9 @@ ${episode.rawContent.slice(0, 3000)}
 
           {step === 'interview' && savedTitle && (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-300">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl">✅</div>
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 size={64} className="text-green-500" />
+              </div>
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold text-foreground">에피소드 저장 완료!</h3>
                 <p className="text-muted-foreground text-sm">
@@ -336,7 +339,7 @@ ${episode.rawContent.slice(0, 3000)}
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       {msg.content.includes('```markdown') && (
                         <div className="mt-4 pt-4 border-t border-white/20">
-                          <button onClick={() => { const m = msg.content.match(/```markdown\n([\s\S]*)\n```/); if (m) handleSave(m[1]); }} className="w-full rounded-xl bg-green-500 py-3 text-xs font-bold text-white shadow-lg hover:bg-green-600 transition-all active:scale-95">📥 인터뷰 완료 및 에피소드 저장</button>
+                          <button onClick={() => { const m = msg.content.match(/```markdown\n([\s\S]*)\n```/); if (m) handleSave(m[1]); }} className="w-full rounded-xl bg-green-500 py-3 text-xs font-bold text-white shadow-lg hover:bg-green-600 transition-all active:scale-95 flex items-center justify-center gap-1.5"><Download size={14} /> 인터뷰 완료 및 에피소드 저장</button>
                         </div>
                       )}
                     </div>

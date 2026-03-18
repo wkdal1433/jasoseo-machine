@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
+import { Sparkles } from 'lucide-react'
 
 interface CoverLetterRecord {
   id: string
@@ -222,7 +223,7 @@ export function HistoryPage() {
       {passedModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="mx-4 w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl">
-            <h3 className="font-bold text-base mb-2">🎉 합격을 축하합니다!</h3>
+            <h3 className="font-bold text-base mb-2 flex items-center gap-1.5"><Sparkles size={18} className="text-yellow-500" /> 합격을 축하합니다!</h3>
             <p className="text-sm text-muted-foreground mb-4">
               <span className="font-semibold text-foreground">{passedModal.companyName}</span> 합격 자소서를
               패턴 강화 데이터로 추가하시겠습니까?<br />

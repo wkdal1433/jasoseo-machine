@@ -6,6 +6,7 @@ import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { cn } from '@/lib/utils'
 import type { WizardStep } from '@/types/wizard'
+import { Wrench, RefreshCw, Puzzle, Pencil } from 'lucide-react'
 
 interface CoverLetter {
   id: string
@@ -214,20 +215,20 @@ export function HistoryDetailPage() {
             onClick={handleRestoreToWizard}
             className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-bold text-amber-600 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950 transition-colors"
           >
-            🔧 위저드에서 이어 수정
+            <Wrench size={14} className="inline mr-1" /> 위저드에서 이어 수정
           </button>
           <button
             onClick={handleReuseAsNew}
             className="rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-colors"
           >
-            🔄 새 지원서로 재활용
+            <RefreshCw size={14} className="inline mr-1" /> 새 지원서로 재활용
           </button>
           <button
             onClick={handleSendToExtension}
             disabled={isSending}
             className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-50"
           >
-            {isSending ? '전송 중...' : '🧩 확장 프로그램으로 전송'}
+            {isSending ? '전송 중...' : <span className="flex items-center gap-1"><Puzzle size={14} /> 확장 프로그램으로 전송</span>}
           </button>
           <button onClick={handleDelete} className="rounded-lg border border-border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10">삭제</button>
         </div>
@@ -270,7 +271,7 @@ export function HistoryDetailPage() {
                     onClick={() => setEditingIndex(i)}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
                   >
-                    ✏️ 수정
+                    <Pencil size={14} className="inline mr-1" /> 수정
                   </button>
                 )}
               </div>

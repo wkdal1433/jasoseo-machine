@@ -4,11 +4,12 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { cn } from '@/lib/utils'
 import type { Strategy, QuestionInput } from '@/types/application'
 import { ModelPicker } from '../common/ModelPicker'
-import { 
-  Zap, 
-  MousePointerClick, 
-  Puzzle, 
-  ArrowLeft 
+import {
+  Zap,
+  MousePointerClick,
+  Puzzle,
+  ArrowLeft,
+  ClipboardList
 } from 'lucide-react'
 
 interface PatternRecord {
@@ -384,7 +385,7 @@ export function ApplicationSetup() {
                   <p className="text-sm font-bold text-cyan-700 dark:text-cyan-300">확장 프로그램 연결 대기 중...</p>
                   <ol className="mt-1.5 space-y-0.5 text-xs text-cyan-600 dark:text-cyan-400">
                     <li>1. 브라우저에서 지원서 작성 페이지를 열어주세요</li>
-                    <li>2. 화면 우측 하단의 <strong>📋 문항 추출</strong> 버튼을 클릭하세요</li>
+                    <li>2. 화면 우측 하단의 <strong><ClipboardList size={14} className="inline" /> 문항 추출</strong> 버튼을 클릭하세요</li>
                     <li>3. 문항이 자동으로 채워지고 프로필도 함께 입력됩니다</li>
                   </ol>
                   <button

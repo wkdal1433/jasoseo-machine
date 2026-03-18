@@ -192,7 +192,7 @@ export function FullReview() {
                   className="w-full rounded-2xl border-2 border-border bg-card p-6 text-sm leading-relaxed outline-none focus:border-primary/30 transition-all min-h-[300px] shadow-sm resize-none"
                 />
                 
-                {/* 🩹 Surgical Edit Floating UI */}
+                {/* Surgical Edit Floating UI */}
                 {selectedRange?.qIdx === i && (
                   <div className="absolute top-[-50px] right-0 flex items-center gap-2 animate-in zoom-in-95 duration-200 bg-card border border-primary/20 p-2 rounded-xl shadow-2xl z-20">
                     <input 

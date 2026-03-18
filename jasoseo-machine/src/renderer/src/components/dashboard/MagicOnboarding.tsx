@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 import { EngineSwapModal } from '../common/EngineSwapModal'
 import { ModelPicker } from '../common/ModelPicker'
+import { Wand2, FileText, Sparkles, AlertTriangle, Eye, FolderOpen } from 'lucide-react'
 
 interface Props {
   onClose: () => void
@@ -230,7 +231,7 @@ export function MagicOnboarding({ onClose }: Props) {
       <div className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg flex-1">
         <div className="flex items-center justify-between border-b border-border p-6 bg-primary/5">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">🧙‍♂️</span>
+            <Wand2 size={40} className="text-primary" />
             <div><h2 className="text-xl font-bold">매직 온보딩 에이전트</h2><p className="text-xs text-muted-foreground">PDF/MD 파일을 던져주세요.</p></div>
           </div>
           <button onClick={onClose} className="rounded-full p-2 hover:bg-muted transition-colors text-muted-foreground">뒤로가기</button>
@@ -241,7 +242,9 @@ export function MagicOnboarding({ onClose }: Props) {
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={onDrop}
                 className={cn("relative flex h-80 w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 border-dashed transition-all", isDragging ? "border-primary bg-primary/5 scale-105" : "border-border bg-muted/20")}>
-                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-4xl">📄</div>
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <FileText size={48} />
+                </div>
                 <h3 className="mb-2 text-2xl font-bold text-foreground">이력서나 자소서를 던져주세요</h3>
                 <p className="mb-8 text-muted-foreground px-10">AI가 직접 파일을 읽고 12개 섹션 프로필과 에피소드를 구성합니다.</p>
                 
@@ -276,7 +279,7 @@ export function MagicOnboarding({ onClose }: Props) {
                 </div>
                 <div className="pt-4 flex flex-col items-center">
                   <button onClick={() => setShowTerminal(!showTerminal)} className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors bg-muted/50 px-3 py-1.5 rounded-full">
-                    {showTerminal ? '▲ AI 작업 로그 숨기기' : '▼ 👁️ AI 작업 로그 확인하기'}
+                    {showTerminal ? '▲ AI 작업 로그 숨기기' : <><Eye size={12} /> AI 작업 로그 확인하기</>}
                   </button>
                   {showTerminal && (
                     <div className="mt-4 w-full max-w-2xl animate-in slide-in-from-top-2 duration-300">
@@ -293,18 +296,18 @@ export function MagicOnboarding({ onClose }: Props) {
 
           {step === 'result' && result && (
             <div className="space-y-10 animate-in fade-in duration-500">
-              <div className="text-center"><h3 className="text-3xl font-bold">🎉 분석 완료!</h3><p className="mt-2 text-muted-foreground">추출된 데이터를 확인해주세요.</p></div>
+              <div className="text-center"><h3 className="text-3xl font-bold flex items-center justify-center gap-2"><Sparkles size={36} className="text-primary" /> 분석 완료!</h3><p className="mt-2 text-muted-foreground">추출된 데이터를 확인해주세요.</p></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <h4 className="text-lg font-bold">📂 프로필 결과</h4>
+                  <h4 className="text-lg font-bold flex items-center gap-2"><FolderOpen size={18} /> 프로필 결과</h4>
                   <div className="rounded-2xl border border-border bg-muted/30 p-5 text-sm space-y-1">
                     <p><strong>성함:</strong> {result.profile.personal?.name || '미확인'}</p>
                     <p><strong>학력:</strong> {result.profile.education?.[0]?.name || '미확인'}</p>
-                    {result.missingFields.length > 0 && <p className="text-xs text-orange-600 mt-2">⚠️ 누락: {result.missingFields.join(', ')}</p>}
+                    {result.missingFields.length > 0 && <p className="text-xs text-orange-600 mt-2 flex items-center gap-1"><AlertTriangle size={14} /> 누락: {result.missingFields.join(', ')}</p>}
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-lg font-bold">✨ 에피소드 결과</h4>
+                  <h4 className="text-lg font-bold flex items-center gap-2"><Sparkles size={16} /> 에피소드 결과</h4>
                   <div className="space-y-3">
                     {result.episodes.map((ep, i) => (
                       <button key={i} onClick={() => activeInterviewIndex === i ? setActiveInterviewIndex(null) : startInterview(i)}
@@ -322,8 +325,8 @@ export function MagicOnboarding({ onClose }: Props) {
               <div className="flex justify-center gap-4">
                 <button onClick={() => setStep('welcome')} className="rounded-xl border px-6 py-3 font-bold text-sm">다시 업로드</button>
                 <div className="flex gap-2">
-                  <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold text-sm">🤝 기존 데이터와 병합</button>
-                  <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-8 py-3 font-bold text-sm shadow-xl">🚀 새 데이터로 덮어쓰기</button>
+                  <button onClick={() => handleSaveAll('merge')} className="rounded-xl border-2 border-primary text-primary px-6 py-3 font-bold text-sm">기존 데이터와 병합</button>
+                  <button onClick={() => handleSaveAll('overwrite')} className="rounded-xl bg-primary text-white px-8 py-3 font-bold text-sm shadow-xl">새 데이터로 덮어쓰기</button>
                 </div>
               </div>
             </div>
@@ -331,7 +334,9 @@ export function MagicOnboarding({ onClose }: Props) {
 
           {step === 'done' && (
             <div className="flex h-full flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 text-5xl">🎊</div>
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 text-primary">
+                <Sparkles size={64} />
+              </div>
               <div className="space-y-3">
                 <h3 className="text-3xl font-bold text-foreground">온보딩 완료!</h3>
                 <p className="text-muted-foreground leading-relaxed">

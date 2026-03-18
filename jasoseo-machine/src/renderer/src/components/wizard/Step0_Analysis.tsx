@@ -4,6 +4,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep0Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
 import type { HRIntentItem, Strategy, RecruitmentContext } from '@/types/application'
 import { cn } from '@/lib/utils'
+import { CheckCircle2, Globe, Search, Link, Lightbulb, AlertTriangle, Target } from 'lucide-react'
 
 const INTENT_LABELS: Record<string, string> = {
   Execution: '실행력',
@@ -121,7 +122,7 @@ export function Step0Analysis() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-green-600">
-          <span className="text-xl">✅</span>
+          <CheckCircle2 size={20} className="text-green-500" />
           <h3 className="text-lg font-bold">Step 0: 기업 분석 및 전략 수립 완료</h3>
         </div>
 
@@ -178,7 +179,7 @@ export function Step0Analysis() {
                 disabled={isResearching}
                 className="rounded-lg bg-primary/10 px-4 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all"
               >
-                {isResearching ? '검색 중...' : '🌐 실시간 정보 사냥 시작'}
+                {isResearching ? '검색 중...' : <span className="flex items-center gap-1.5"><Globe size={14} /> 실시간 정보 사냥 시작</span>}
               </button>
             )}
           </div>
@@ -209,7 +210,7 @@ export function Step0Analysis() {
                   onClick={() => runResearch(researchContext.trim() || undefined)}
                   className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground"
                 >
-                  🔍 다시 검색
+                  <Search size={14} className="inline mr-1" /> 다시 검색
                 </button>
                 <button
                   onClick={() => { setShowResearchInput(false); setResearchContext('') }}
@@ -236,8 +237,8 @@ export function Step0Analysis() {
                   <p className="text-xs font-bold text-primary mb-2">확인된 참고 링크 (클릭하여 확인)</p>
                   <div className="space-y-1">
                     {tempContext.foundLinks.map((link, i) => (
-                      <a key={i} href={link.url} target="_blank" rel="noreferrer" className="block text-xs text-blue-600 hover:underline truncate">
-                        🔗 {link.title}
+                      <a key={i} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate">
+                        <Link size={14} /> {link.title}
                       </a>
                     ))}
                   </div>
@@ -269,7 +270,7 @@ export function Step0Analysis() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-green-200 bg-green-50/50 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-lg">✅</span>
+              <CheckCircle2 size={18} className="text-green-500 shrink-0" />
               <div className="text-sm">
                 <span className="font-bold text-green-700">기업 리서치 완료:</span>{' '}
                 {recruitmentContext.hiringValues.slice(0, 3).join(', ')}
@@ -287,8 +288,8 @@ export function Step0Analysis() {
           {/* 에피소드 매칭도 */}
           {episodeMatches.length > 0 && (
             <div className="rounded-2xl border border-border bg-muted/10 p-4 space-y-3">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                💡 내 에피소드 매칭도
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Lightbulb size={14} /> 내 에피소드 매칭도
               </p>
               <p className="text-[11px] text-muted-foreground/70">
                 기업 인재상과 내 에피소드 간 겹치는 역량입니다. 참고용 표시입니다.
@@ -331,8 +332,8 @@ export function Step0Analysis() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 border border-red-100 italic">
-            ⚠️ {error}
+          <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700 border border-red-100 italic flex items-center gap-1.5">
+            <AlertTriangle size={14} /> {error}
           </div>
         )}
 
@@ -347,7 +348,7 @@ export function Step0Analysis() {
               최적의 합격 전략 수립 중...
             </span>
           ) : (
-            '합격 전략 수립 시작 🎯'
+            <span className="flex items-center justify-center gap-1.5">합격 전략 수립 시작 <Target size={14} /></span>
           )}
         </button>
       </section>

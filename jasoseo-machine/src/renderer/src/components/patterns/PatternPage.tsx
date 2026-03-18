@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ModelPicker } from '@/components/common/ModelPicker'
 
@@ -221,7 +222,7 @@ export function PatternPage() {
                         <span className="text-[10px] text-red-500">분석 실패</span>
                       )}
                       {p.analysisStatus === 'ready' && (
-                        <span className="text-[10px] text-green-600">✓ 분석 완료</span>
+                        <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Check size={10} /> 분석 완료</span>
                       )}
                     </div>
                   </div>
@@ -254,7 +255,7 @@ export function PatternPage() {
           <div className="mx-4 w-full max-w-lg rounded-2xl bg-card border border-border p-6 shadow-2xl overflow-y-auto max-h-[80vh]">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-bold text-base">패턴 분석 결과 — {previewPattern.name}</h3>
-              <button onClick={() => setPreviewPattern(null)} className="text-muted-foreground hover:text-foreground text-lg">✕</button>
+              <button onClick={() => setPreviewPattern(null)} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
             </div>
             <div className="space-y-4 text-sm">
               <div>

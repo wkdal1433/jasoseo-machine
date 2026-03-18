@@ -1,5 +1,6 @@
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 
 interface Props {
   failedModel: string
@@ -37,8 +38,8 @@ export function EngineSwapModal({ failedModel, errorType, onClose, onSwapped }: 
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-2xl border border-border animate-in zoom-in-95 duration-300">
         <div className="text-center mb-6">
-          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl mb-4">
-            ⚠️
+          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-500 mb-4">
+            <AlertTriangle size={48} />
           </div>
           <h3 className="text-xl font-bold text-foreground">엔진 교체가 필요합니다</h3>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">

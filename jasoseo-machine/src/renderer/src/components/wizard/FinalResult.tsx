@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
+import { Pencil } from 'lucide-react'
 
 export function FinalResult() {
   const { questions, activeQuestionIndex, setQuestionStep, setGeneratedText, reopenQuestion, setActiveQuestion } = useWizardStore()
@@ -41,7 +42,7 @@ export function FinalResult() {
             onClick={handleStartEdit}
             className="rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-colors"
           >
-            ✏️ 직접 수정
+            <Pencil size={14} className="inline mr-1" /> 직접 수정
           </button>
         )}
       </div>

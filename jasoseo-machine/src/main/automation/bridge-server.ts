@@ -246,7 +246,7 @@ RULES:
 
         const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', filePath: tmpFile, modelOverride: getSetting('model_ep_form_extract') || undefined });
 
-        // ★ 디버그: Gemini 응답 원문을 파일로 저장 (확인 후 삭제 예정)
+        // [디버그] Gemini 응답 원문을 파일로 저장 (확인 후 삭제 예정)
         const debugFile = path.join(os.tmpdir(), `gemini_raw_${Date.now()}.txt`);
         fs.writeFileSync(debugFile, raw, 'utf-8');
         console.log(`\n========== RAW GEMINI RESPONSE (${raw.length} chars) ==========`);

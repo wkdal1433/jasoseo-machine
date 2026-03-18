@@ -17,6 +17,7 @@ import {
   DEFAULT_PROFILE
 } from '../../types/profile'
 import { cn } from '@/lib/utils'
+import { Pencil, Trash2, Save } from 'lucide-react'
 
 export function ProfilePage() {
   const {
@@ -235,7 +236,7 @@ export function ProfilePage() {
                   {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <button onClick={handleStartRename} title="이름 변경"
-                  className="text-muted-foreground hover:text-primary transition-colors text-xs">✏️</button>
+                  className="text-muted-foreground hover:text-primary transition-colors"><Pencil size={12} /></button>
               </div>
             )}
           </div>
@@ -273,8 +274,8 @@ export function ProfilePage() {
             ↺ 되돌리기
           </button>
           <button onClick={handleResetProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-orange-50 hover:text-orange-600 transition-all">
-            🗑 초기화
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-orange-50 hover:text-orange-600 transition-all flex items-center gap-1">
+            <Trash2 size={14} /> 초기화
           </button>
           <button onClick={handleDuplicateProfile}
             className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-blue-50 hover:text-blue-600 transition-all">
@@ -287,7 +288,7 @@ export function ProfilePage() {
           </button>
           <button onClick={handleSave} disabled={isSaving}
             className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all disabled:opacity-50">
-            {isSaving ? '저장 중...' : '💾 프로필 전체 저장'}
+            {isSaving ? '저장 중...' : <span className="flex items-center gap-1.5"><Save size={14} /> 프로필 전체 저장</span>}
           </button>
         </div>
       </div>
