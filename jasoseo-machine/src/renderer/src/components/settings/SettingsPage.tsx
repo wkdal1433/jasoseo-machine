@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { 
+  Puzzle, 
+  Wrench, 
+  Zap, 
+  Settings, 
+  Globe, 
+  Network, 
+  RefreshCw,
+  Star
+} from 'lucide-react'
 
 const ENDPOINT_CONFIGS = [
   { key: 'cover_letter',     label: '자소서 작성 (실시간)',    recommended: 'opus',                  reason: '최고 품질 글쓰기' },
@@ -148,7 +158,7 @@ export function SettingsPage() {
         {/* v20.0 Chrome Extension Connection */}
         <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-xl">🧩</span>
+            <Puzzle size={24} className="text-primary" />
             <h3 className="text-lg font-bold text-primary">하이브리드 확장 프로그램 연동</h3>
           </div>
           <p className="mb-6 text-xs text-muted-foreground leading-relaxed">
