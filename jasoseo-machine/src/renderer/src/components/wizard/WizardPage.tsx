@@ -13,6 +13,8 @@ import { WizardStepper } from './WizardStepper'
 import { QuestionTab } from './QuestionTab'
 import { buildStep1to2Prompt } from '@/lib/prompt-builder'
 
+import { ArrowLeft, PartyPopper } from 'lucide-react'
+
 export function WizardPage() {
   const navigate = useNavigate()
   const {
@@ -116,9 +118,7 @@ export function WizardPage() {
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           title="임시저장 후 대시보드로 이동"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
-            <path d="M228,128a12,12,0,0,1-12,12H69l51.52,51.51a12,12,0,0,1-16.97,16.98l-72-72a12,12,0,0,1,0-16.98l72-72a12,12,0,0,1,16.97,16.98L69,116H216A12,12,0,0,1,228,128Z"/>
-          </svg>
+          <ArrowLeft size={14} />
           임시저장 후 나가기
         </button>
       </div>
@@ -161,7 +161,8 @@ export function WizardPage() {
                   onClick={() => navigate('/review')}
                   className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
-                  🎉 전체 검토 화면으로 →
+                  <PartyPopper size={18} />
+                  전체 검토 화면으로 →
                 </button>
                 <p className="mt-2 text-center text-[10px] text-muted-foreground">모든 문항 완료!</p>
               </div>
