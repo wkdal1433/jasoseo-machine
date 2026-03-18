@@ -61,6 +61,18 @@ interface PatternSettings {
   useDefaultPatterns: boolean
 }
 
+// v2: 실행 시간 히스토리 — 예측 시스템에 사용
+export interface ExecutionHistoryRecord {
+  id: string
+  step: string          // 'step0_analysis' | 'step3to5_generation' 등
+  model: string         // 'gemini-2.0-pro' 등
+  durationSecs: number
+  charLimit?: number    // 생성 단계에서 목표 글자수
+  createdAt: string
+}
+
+const MAX_HISTORY_PER_STEP = 50  // 단계당 최대 보관 수
+
 interface DbData {
   applications: ApplicationRecord[]
   coverLetters: CoverLetterRecord[]
@@ -70,6 +82,7 @@ interface DbData {
   currentProfileId: string | null
   patterns: PatternRecord[]
   patternSettings: PatternSettings
+  executionHistory: ExecutionHistoryRecord[]  // v2 추가
 }
 
 let data: DbData = {
@@ -80,7 +93,8 @@ let data: DbData = {
   profiles: [],
   currentProfileId: null,
   patterns: [],
-  patternSettings: { useDefaultPatterns: true }
+  patternSettings: { useDefaultPatterns: true },
+  executionHistory: []  // v2 추가 — 기존 DB 로드 시 없으면 빈 배열로 초기화됨
 }
 
 let dbPath = ''
@@ -158,6 +172,9 @@ export function initDatabase(): void {
     }
     save()
   }
+
+  // v2 마이그레이션: executionHistory 필드 없는 기존 DB 보호 (R1-2)
+  if (!data.executionHistory) data.executionHistory = []
 
   // 마이그레이션: profileId 없는 기존 applications/drafts를 첫 번째 프로필에 배정
   if (data.profiles.length > 0) {
@@ -478,4 +495,30 @@ export function getPatternSettings(): PatternSettings {
 export function savePatternSettings(settings: PatternSettings): void {
   data.patternSettings = settings
   save()
+}
+
+// === Execution History (v2) ===
+export function saveExecutionHistory(record: Omit<ExecutionHistoryRecord, 'id' | 'createdAt'>): void {
+  if (!data.executionHistory) data.executionHistory = []
+  const entry: ExecutionHistoryRecord = {
+    ...record,
+    id: `eh_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    createdAt: new Date().toISOString(),
+  }
+  data.executionHistory.push(entry)
+
+  // 단계별 최대 보관 수 초과 시 오래된 항목 제거
+  const stepRecords = data.executionHistory.filter(r => r.step === record.step)
+  if (stepRecords.length > MAX_HISTORY_PER_STEP) {
+    const oldest = stepRecords[0]
+    data.executionHistory = data.executionHistory.filter(r => r.id !== oldest.id)
+  }
+  save()
+}
+
+export function getExecutionHistoryByStep(step: string, limit = 20): ExecutionHistoryRecord[] {
+  if (!data.executionHistory) return []
+  return data.executionHistory
+    .filter(r => r.step === step)
+    .slice(-limit)  // 최근 N개
 }

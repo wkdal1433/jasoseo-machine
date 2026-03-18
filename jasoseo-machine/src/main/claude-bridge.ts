@@ -1,32 +1,23 @@
+/**
+ * claude-bridge.ts — AI 실행 진입점
+ *
+ * v2: ClaudeProvider / GeminiProvider 클래스로 분리.
+ * ipc-handlers.ts의 import 시그니처는 변경 없음 (R1-3 준수).
+ */
 import { ChildProcess } from 'child_process'
 import spawn from 'cross-spawn'
-import { StringDecoder } from 'string_decoder'
 import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import { getSetting } from './db'
-import path from 'path'
-import fs from 'fs'
-import os from 'os'
+import { ClaudeProvider } from './providers/claude-provider'
+import { GeminiProvider } from './providers/gemini-provider'
+import type { ExecuteOptions as ProviderExecuteOptions } from './providers/ai-provider'
 
+// ─── 프로세스 레지스트리 ────────────────────────────────────────────
 const activeProcesses = new Map<string, ChildProcess>()
 
 function genProcessId(): string {
   return `proc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-}
-
-export function stopAllProcesses(): void {
-  for (const proc of activeProcesses.values()) {
-    try { proc.kill('SIGKILL') } catch (err) { console.error('[Zombie Killer] Error:', err) }
-  }
-  activeProcesses.clear()
-}
-
-export function cancelProcessById(id: string): boolean {
-  const proc = activeProcesses.get(id)
-  if (!proc) return false
-  try { proc.kill('SIGKILL') } catch (err) { console.error('[Cancel By ID] Error:', err) }
-  activeProcesses.delete(id)
-  return true
 }
 
 function sendRawLog(data: string): void {
@@ -35,46 +26,55 @@ function sendRawLog(data: string): void {
   })
 }
 
-type AIProvider = 'claude' | 'gemini'
+export function stopAllProcesses(): void {
+  for (const proc of activeProcesses.values()) {
+    try { proc.kill('SIGKILL') } catch { }
+  }
+  activeProcesses.clear()
+}
 
-function getModel(): string { return getSetting('model') || 'gemini-3.0-pro' }
-function getProvider(): AIProvider {
-  const model = getModel()
+export function cancelProcessById(id: string): boolean {
+  const proc = activeProcesses.get(id)
+  if (!proc) return false
+  try { proc.kill('SIGKILL') } catch { }
+  activeProcesses.delete(id)
+  return true
+}
+
+// ─── Provider 팩토리 ────────────────────────────────────────────────
+function getModel(override?: string): string {
+  return override || getSetting('model') || 'gemini-3.0-pro'
+}
+
+function getProvider(model: string): 'claude' | 'gemini' {
   return model.startsWith('gemini') ? 'gemini' : 'claude'
 }
-function getCliPath(provider: AIProvider): string {
-  return provider === 'gemini' ? (getSetting('gemini_path') || 'gemini') : (getSetting('claude_path') || 'claude')
-}
-function getProjectDir(): string { return getSetting('project_dir') || '' }
 
-interface ClassifiedError {
-  type: 'rate_limit' | 'quota_exhausted' | 'auth' | 'not_found' | 'timeout' | 'unknown'
-  message: string
+function getCliPath(provider: 'claude' | 'gemini'): string {
+  return provider === 'gemini'
+    ? (getSetting('gemini_path') || 'gemini')
+    : (getSetting('claude_path') || 'claude')
 }
 
-function classifyError(stderr: string, exitCode: number): ClassifiedError {
-  const lower = stderr.toLowerCase()
-  if (lower.includes('credit limit reached') || lower.includes('insufficient_quota') || lower.includes('billing_error') || lower.includes('out of credits')) {
-    return { type: 'quota_exhausted', message: '계정 한도 초과' }
-  }
-  if (lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')) {
-    return { type: 'rate_limit', message: '요청 한도 초과 (429). 다른 터미널에서 Gemini를 사용 중이라면 모두 종료 후 재시도해주세요.' }
-  }
-  return { type: 'unknown', message: `AI 오류 (${exitCode}): ${stderr.trim().slice(0, 100)}` }
-}
-
-function buildSpawnEnv(provider?: string): NodeJS.ProcessEnv {
-  const env = { ...process.env }
+function makeProvider(model: string) {
+  const provider = getProvider(model)
   if (provider === 'gemini') {
-    env.NO_COLOR = '1'
-    env.GEMINI_DISABLE_MCP = '1'
-    env.GEMINI_INCLUDE_THOUGHTS = '0'
-    env.PYTHONIOENCODING = 'utf-8'
-    env.LANG = 'ko_KR.UTF-8'
+    return new GeminiProvider(
+      () => getCliPath('gemini'),
+      sendRawLog,
+      activeProcesses,
+      genProcessId,
+    )
   }
-  return env
+  return new ClaudeProvider(
+    () => getCliPath('claude'),
+    sendRawLog,
+    activeProcesses,
+    genProcessId,
+  )
 }
 
+// ─── 기존 export 시그니처 (ipc-handlers.ts 변경 없음) ───────────────
 export interface ClaudeExecuteOptions {
   prompt: string
   outputFormat: 'json' | 'stream-json' | 'text'
@@ -85,219 +85,41 @@ export interface ClaudeExecuteOptions {
   appendSystemPrompt?: string
   filePath?: string
   conversational?: boolean
-  processId?: string  // 개별 취소용 ID — 미제공 시 자동 생성
-}
-
-function sanitizePromptForGemini(prompt: string): string {
-  return prompt.replace(/먼저 MASTER_INDEX\.md를 읽어서[^\n]*\n?\n?/g, '').replace(/먼저 다음 파일들을 읽어주세요:\n(?:- [^\n]+\n)*/g, '')
-}
-
-function unwrapGeminiResponse(raw: string): string {
-  const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
-  const firstBrace = cleaned.indexOf('{')
-  const lastBrace = cleaned.lastIndexOf('}')
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    const candidate = cleaned.slice(firstBrace, lastBrace + 1)
-    try {
-      const parsed = JSON.parse(candidate)
-      if (typeof parsed.response === 'string') {
-        const inner = parsed.response
-        // 배열 응답 처리: "[{...}, {...}]" — { 보다 [ 가 먼저 나오면 배열 전체 반환
-        const ia = inner.indexOf('['); const il = inner.lastIndexOf(']')
-        const ib = inner.indexOf('{'); const ij = inner.lastIndexOf('}')
-        if (ia !== -1 && il > ia && (ib === -1 || ia < ib)) return inner.slice(ia, il + 1)
-        if (ib !== -1 && ij > ib) return inner.slice(ib, ij + 1)
-        return inner
-      }
-      return candidate
-    } catch { return candidate }
-  }
-  return cleaned.trim()
+  processId?: string
 }
 
 export async function executeClaudePrompt(options: ClaudeExecuteOptions): Promise<string> {
-  const model = options.modelOverride || getModel(); const provider = model.startsWith('gemini') ? 'gemini' : 'claude'; const projectDir = getProjectDir(); const cli = getCliPath(provider)
+  const model = getModel(options.modelOverride)
+  const projectDir = getSetting('project_dir') || ''
+  const provider = makeProvider(model)
 
-  let finalFilePath = options.filePath
-  let cleanupTempFile: string | null = null
-
-  // [Phase 1: Path Neutralization] Gemini CLI만 해당 — 한글/특수문자 경로를 ASCII 임시 경로로 복사
-  // Claude Code CLI는 한글 경로를 직접 처리 가능하므로 불필요
-  if (provider === 'gemini' && finalFilePath && fs.existsSync(finalFilePath)) {
-    try {
-      const tempDir = os.tmpdir()
-      const ext = path.extname(finalFilePath)
-      const safeName = `analyze_${Date.now()}${ext}`
-      const safePath = path.join(tempDir, safeName)
-      fs.copyFileSync(finalFilePath, safePath)
-      finalFilePath = safePath
-      cleanupTempFile = safePath
-    } catch (e) { console.error('[Path Fix] Failed to copy to temp:', e) }
-  }
-
-  // [핵심 조치 2] os.tmpdir() 포함 보장: 임시 파일이 항상 워크스페이스에 포함되도록
-  const tempDir = os.tmpdir()
-  const includeDirs: string[] = options.skipProjectDir ? [tempDir] : [projectDir, tempDir]
-  if (finalFilePath) includeDirs.push(path.dirname(finalFilePath))
-  // [핵심 조치 3] 역슬래시 → 슬래시 변환: Windows 경로 인식 오류 방지
-  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir.replace(/\\/g, '/')])
-
-  let args: string[], prompt: string, tempPromptFile: string | null = null
-  if (provider === 'gemini') {
-    prompt = sanitizePromptForGemini(options.prompt)
-    if (options.outputFormat === 'json') {
-      prompt = 'IMPORTANT: Output ONLY a single JSON object. No other text.\n\n' + prompt
-    }
-    if (finalFilePath) {
-      // [핵심 조치 3] @filepath는 반드시 프롬프트 파일의 맨 첫 줄이어야 함
-      // Gemini CLI는 @filepath가 중간에 있으면 파일 사전 로딩을 건너뛰고
-      // YOLO 모드에서 shell 도구로 직접 PDF 파싱 시도 → 인코딩 오류/무한 루프 유발
-      const forwardSlashPath = finalFilePath.replace(/\\/g, '/')
-      prompt = `@"${forwardSlashPath}"\n\nNOTE: The file above has been pre-loaded into your context. Do NOT use shell tools or scripts to read the file. Analyze the pre-loaded content directly.\n\n${prompt}`
-    }
-
-    tempPromptFile = path.join(tempDir, `g_p_${Date.now()}.txt`)
-    fs.writeFileSync(tempPromptFile, prompt, 'utf8')
-
-    // --allowed-mcp-server-names __none__: 등록된 MCP 서버 10개 시작 차단
-    args = ['--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags, '-p', `@${tempPromptFile}`]
-  } else {
-    // Claude CLI: --include-directories 없음, 파일 경로는 프롬프트에 포함
-    prompt = options.prompt
-    args = ['--output-format', options.outputFormat, '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, '-p', prompt]
-  }
-
-  // 디버그: 실제 실행 커맨드 콘솔에 출력
-  console.log(`[AI Spawn] ${cli} ${args.join(' ')}`)
-  sendRawLog(`[CMD] ${cli} ${args.slice(0, 6).join(' ')} ...`)
-
-  const procId = options.processId || genProcessId()
-  return new Promise((resolve, reject) => {
-    const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
-    activeProcesses.set(procId, child)
-    child.stdin?.end()
-
-    const decoder = new StringDecoder('utf8'); let output = '', stderrOutput = ''
-    child.stdout?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); output += d; sendRawLog(d) })
-    child.stderr?.on('data', (chunk: Buffer) => { const d = decoder.write(chunk); stderrOutput += d; sendRawLog(d) })
-
-    child.on('close', (code) => {
-      activeProcesses.delete(procId)
-      if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
-      if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
-
-      console.log(`[AI Exit] code=${code} stderr=${stderrOutput.slice(0, 200)}`)
-      if (code === 0) {
-        resolve(provider === 'gemini' ? unwrapGeminiResponse(output) : output)
-      } else {
-        const err = classifyError(stderrOutput, code || 1)
-        sendRawLog(`[ERROR] exit=${code} | ${stderrOutput}`)
-        reject(new Error(err.message))
-      }
-    })
-    child.on('error', (err) => {
-      activeProcesses.delete(procId)
-      if (tempPromptFile) try { fs.unlinkSync(tempPromptFile) } catch {}
-      if (cleanupTempFile) try { fs.unlinkSync(cleanupTempFile) } catch {}
-      console.log(`[AI Spawn Error] ${err.message}`)
-      sendRawLog(`[SPAWN ERROR] ${err.message}`)
-      reject(new Error(classifyError(err.message, -1).message))
-    })
-  })
+  const providerOptions: ProviderExecuteOptions = { ...options, modelOverride: model }
+  console.log(`[AI Spawn] provider=${provider.name} model=${model}`)
+  return provider.execute(providerOptions, projectDir)
 }
 
 export function executeClaudeStream(options: ClaudeExecuteOptions, window: BrowserWindow): ChildProcess {
-  const model = options.modelOverride || getModel()
-  const provider: AIProvider = model.startsWith('gemini') ? 'gemini' : 'claude'
-  const projectDir = getProjectDir(); const cli = getCliPath(provider)
-  const includeDirs: string[] = [projectDir]
-  if (options.filePath && path.isAbsolute(options.filePath)) includeDirs.push(path.dirname(options.filePath))
-  const includeFlags = includeDirs.filter(Boolean).flatMap(dir => ['--include-directories', dir])
+  const model = getModel(options.modelOverride)
+  const projectDir = getSetting('project_dir') || ''
+  const provider = makeProvider(model)
 
-  let args: string[], prompt: string
-  if (provider === 'gemini') {
-    prompt = sanitizePromptForGemini(options.prompt)
-    args = ['--output-format', 'stream-json', '--yolo', '-m', model, '--allowed-mcp-server-names', '__none__', ...includeFlags]
-  } else {
-    prompt = options.prompt
-    args = ['--output-format', 'stream-json', '--allowedTools', 'Read', '--max-turns', String(options.maxTurns || 5), '--model', model, ...includeFlags, '-p', prompt]
-  }
-
-  const procId = options.processId || genProcessId()
-  const child = spawn(cli, args, { cwd: projectDir || undefined, env: buildSpawnEnv(provider), stdio: ['pipe', 'pipe', 'pipe'] })
-  activeProcesses.set(procId, child)
-  if (provider === 'gemini') { child.stdin?.write(prompt); child.stdin?.end() }
-  const decoder = new StringDecoder('utf8'); let buffer = '', geminiFullText = ''
-  let lastPacketTime = Date.now()
-  const safeSend = (channel: string, data: unknown) => {
-    if (!window.isDestroyed()) window.webContents.send(channel, data)
-  }
-  const watchdog = setInterval(() => {
-    if (Date.now() - lastPacketTime > 60000) {
-      child.kill('SIGKILL'); safeSend(IPC.CLAUDE_STREAM_ERROR, { message: 'AI 타임아웃' }); clearInterval(watchdog)
-    }
-  }, 5000)
-
-  child.stdout?.on('data', (chunk: Buffer) => {
-    lastPacketTime = Date.now(); buffer += decoder.write(chunk)
-    const lines = buffer.split('\n'); buffer = lines.pop() || ''
-    for (const line of lines) {
-      const trimmed = line.trim(); if (!trimmed) continue
-      try {
-        const event = JSON.parse(trimmed)
-        if (provider === 'gemini') {
-          if (event.type === 'message' && event.delta) {
-            geminiFullText += event.content || ''; safeSend(IPC.CLAUDE_STREAM_CHUNK, { type: 'content_block_delta', delta: { text: event.content || '' } })
-          } else if (event.type === 'result') {
-            safeSend(IPC.CLAUDE_STREAM_CHUNK, { type: 'result', result: { text: geminiFullText } })
-          }
-        } else { safeSend(IPC.CLAUDE_STREAM_CHUNK, event) }
-      } catch { }
-    }
-  })
-  child.on('error', (err) => {
-    clearInterval(watchdog)
-    activeProcesses.delete(procId)
-    console.error(`[AI Stream Spawn Error] ${err.message}`)
-    safeSend(IPC.CLAUDE_STREAM_ERROR, { message: err.message.includes('ENOENT') ? 'AI CLI 실행 파일을 찾을 수 없습니다. 설정에서 경로를 확인해주세요.' : err.message })
-  })
-  child.on('close', (code) => {
-    clearInterval(watchdog)
-    activeProcesses.delete(procId)
-    // code=0: 정상 종료 / code=null: 시그널 종료 (Claude CLI 정상 완료 시 흔함) → 둘 다 성공으로 처리
-    if (code !== null && code !== 0) {
-      safeSend(IPC.CLAUDE_STREAM_ERROR, { message: `AI 프로세스 오류 (code ${code})` })
-    } else {
-      safeSend(IPC.CLAUDE_STREAM_END, {})
-    }
-  })
-  return child
+  const providerOptions: ProviderExecuteOptions = { ...options, modelOverride: model }
+  return provider.executeStream(providerOptions, projectDir, window)
 }
 
-export function cancelActiveProcess(): boolean { stopAllProcesses(); return true }  // 앱 종료 등 전체 정리용
-
-function quickCliCheck(cli: string): Promise<{ success: boolean; message: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(cli, ['--version'], { stdio: ['pipe', 'pipe', 'pipe'] })
-    child.stdin?.end()
-    let out = ''
-    child.stdout?.on('data', (d: Buffer) => { out += d.toString() })
-    child.stderr?.on('data', (d: Buffer) => { out += d.toString() })
-    child.on('close', (code) => {
-      const msg = out.trim().slice(0, 80)
-      sendRawLog(`[CLI Check] ${cli} --version → exit=${code} | ${msg}`)
-      resolve(code === 0 ? { success: true, message: msg || '연결 성공' } : { success: false, message: msg || `exit ${code}` })
-    })
-    child.on('error', (err) => {
-      sendRawLog(`[CLI Check Error] ${cli}: ${err.message}`)
-      resolve({ success: false, message: err.message })
-    })
-  })
+export function cancelActiveProcess(): boolean {
+  stopAllProcesses()
+  return true
 }
 
 export async function testClaudeConnection(): Promise<{ success: boolean; message: string }> {
-  return quickCliCheck(getSetting('claude_path') || 'claude')
+  return new ClaudeProvider(
+    () => getCliPath('claude'), sendRawLog, activeProcesses, genProcessId
+  ).testConnection()
 }
+
 export async function testGeminiConnection(): Promise<{ success: boolean; message: string }> {
-  return quickCliCheck(getSetting('gemini_path') || 'gemini')
+  return new GeminiProvider(
+    () => getCliPath('gemini'), sendRawLog, activeProcesses, genProcessId
+  ).testConnection()
 }

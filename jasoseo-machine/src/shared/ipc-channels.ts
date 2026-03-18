@@ -94,7 +94,11 @@ export const IPC = {
   PATTERN_TOGGLE: 'pattern:toggle',
   PATTERN_ANALYZE: 'pattern:analyze',
   PATTERN_SETTINGS_GET: 'pattern:settings-get',
-  PATTERN_SETTINGS_SAVE: 'pattern:settings-save'
+  PATTERN_SETTINGS_SAVE: 'pattern:settings-save',
+
+  // Execution History (v2 — 시간 예측 시스템)
+  EXECUTION_HISTORY_SAVE: 'execution-history:save',
+  EXECUTION_HISTORY_GET: 'execution-history:get',
 } as const
 
 export type IPCChannel = (typeof IPC)[keyof typeof IPC]

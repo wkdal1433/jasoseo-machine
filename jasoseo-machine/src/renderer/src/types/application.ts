@@ -6,6 +6,10 @@ export type CLStatus = 'pending' | 'in_progress' | 'completed'
 export interface HRIntentItem {
   intent: HRIntent
   reason: string
+  // v2 확장 — 옵셔널 (기존 데이터 호환)
+  confidence?: number          // 0-100: AI 분석 신뢰도
+  reasoning?: string           // 신뢰도 근거 설명
+  evidenceKeywords?: string[]  // 채용공고 근거 키워드
 }
 
 export interface Application {
@@ -51,6 +55,9 @@ export interface AnalysisResult {
   strategyReason: string
   questionReframe: string
   suggestedEpisodes: SuggestedEpisode[]
+  // v2 확장 — 옵셔널
+  alternativeIntents?: HRIntentItem[]  // 탈락한 의도들 (근거 포함)
+  strategyConfidence?: number          // 전략 선택 신뢰도 (0-100)
 }
 
 export interface SuggestedEpisode {
@@ -73,6 +80,18 @@ export interface VerificationResult {
     items: VerificationItem[]
     overallPassed: boolean
   }
+  // v2 확장 — 옵셔널 점수 기반 검증
+  scores?: {
+    hallucination: number  // 0-100 (높을수록 안전)
+    failPattern: number    // 0-100 (높을수록 안전)
+    dualCoding: number     // 0-100
+    overall: number        // 가중평균 (50/30/20)
+  }
+  actionItems?: Array<{    // 구체적 수정 위치 + 방법
+    location: string       // "3번째 단락 2번째 문장"
+    issue: string          // 문제 설명
+    suggestion: string     // 구체적 수정 방향
+  }>
 }
 
 export interface VerificationItem {

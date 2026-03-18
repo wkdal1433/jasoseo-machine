@@ -34,7 +34,9 @@ import {
   togglePattern,
   updatePatternAnalysis,
   getPatternSettings,
-  savePatternSettings
+  savePatternSettings,
+  saveExecutionHistory,
+  getExecutionHistoryByStep
 } from './db'
 import {
   executeClaudePrompt,
@@ -563,5 +565,15 @@ ${coverLetterText}
       updatePatternAnalysis(id, 'failed', null)
       return { success: false, error: err.message }
     }
+  })
+
+  // === Execution History (v2) ===
+  ipcMain.handle(IPC.EXECUTION_HISTORY_SAVE, (_e, record: { step: string; model: string; durationSecs: number; charLimit?: number }) => {
+    saveExecutionHistory(record)
+    return { success: true }
+  })
+
+  ipcMain.handle(IPC.EXECUTION_HISTORY_GET, (_e, step: string, limit?: number) => {
+    return getExecutionHistoryByStep(step, limit)
   })
 }

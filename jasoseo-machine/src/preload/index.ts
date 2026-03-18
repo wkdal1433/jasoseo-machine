@@ -116,6 +116,12 @@ const api = {
     return () => ipcRenderer.removeListener('questions-extracted', handler)
   },
 
+  // Execution History (v2 — 시간 예측)
+  executionHistorySave: (record: { step: string; model: string; durationSecs: number; charLimit?: number }) =>
+    ipcRenderer.invoke(IPC.EXECUTION_HISTORY_SAVE, record),
+  executionHistoryGet: (step: string, limit?: number) =>
+    ipcRenderer.invoke(IPC.EXECUTION_HISTORY_GET, step, limit),
+
   // Stream events
   onStreamChunk: (callback: (data: unknown) => void) => {
     const handler = (_: unknown, data: unknown) => callback(data)
