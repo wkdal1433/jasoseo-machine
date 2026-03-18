@@ -16,16 +16,29 @@ import { buildStep1to2Prompt } from '@/lib/prompt-builder'
 import { useSnapshotStore } from '@/stores/snapshotStore'
 import { cn } from '@/lib/utils'
 
-import { ArrowLeft, PartyPopper, CheckCircle2, AlertTriangle, ChevronRight, Target, BarChart2 } from 'lucide-react'
+import { ArrowLeft, PartyPopper, CheckCircle2, AlertTriangle, ChevronRight, Target, BarChart2, BookOpen } from 'lucide-react'
+import { useEpisodeStore } from '@/stores/episodeStore'
+import type { HRIntent } from '@/types/application'
 
 const INTENT_LABELS: Record<string, string> = {
   Execution: '실행력', Growth: '성장', Stability: '안정성', Communication: '협업',
 }
 
+const ALL_INTENTS: HRIntent[] = ['Execution', 'Growth', 'Stability', 'Communication']
+
 // ── Gate Confirmation Screen (L3 필수 확인) ──────────────────────────────────
 function Step0GateScreen({ onConfirm }: { onConfirm: () => void }) {
   const { hrIntents, strategy, strategyConfidence, companyName, questions } = useWizardStore()
+  const { episodes } = useEpisodeStore()
   if (!hrIntents || !strategy) return null
+
+  // 에피소드 HR 의도별 커버리지 계산
+  const coverageMap: Record<HRIntent, number> = { Execution: 0, Growth: 0, Stability: 0, Communication: 0 }
+  episodes.forEach((ep) => {
+    ep.hrIntents.forEach((intent) => {
+      if (intent in coverageMap) coverageMap[intent]++
+    })
+  })
 
   return (
     <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center justify-center min-h-0">
@@ -92,6 +105,44 @@ function Step0GateScreen({ onConfirm }: { onConfirm: () => void }) {
             </div>
           </div>
         </div>
+
+        {/* 에피소드 적합도 커버리지 */}
+        {episodes.length > 0 && (
+          <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen size={12} /> 에피소드 커버리지 ({episodes.length}개)
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_INTENTS.map((intent) => {
+                const count = coverageMap[intent]
+                const isRequired = hrIntents.some((h) => h.intent === intent)
+                return (
+                  <div key={intent} className={cn(
+                    'flex items-center justify-between rounded-lg px-3 py-2 text-xs',
+                    isRequired
+                      ? count > 0 ? 'bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800'
+                        : 'bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800'
+                      : 'bg-muted/30 border border-border'
+                  )}>
+                    <span className={cn('font-medium', isRequired && count === 0 && 'text-red-600 dark:text-red-400')}>
+                      {INTENT_LABELS[intent]}
+                      {isRequired && <span className="ml-1 text-[9px] font-bold text-primary">필요</span>}
+                    </span>
+                    <span className={cn(
+                      'font-bold',
+                      count > 0 ? 'text-green-700 dark:text-green-300' : 'text-red-500'
+                    )}>{count}개</span>
+                  </div>
+                )
+              })}
+            </div>
+            {hrIntents.some((h) => coverageMap[h.intent] === 0) && (
+              <p className="text-[10px] text-red-600 dark:text-red-400 flex items-center gap-1">
+                <AlertTriangle size={10} /> 필요한 HR 의도에 해당하는 에피소드가 없습니다. 계속 진행할 수 있지만 AI 추천 품질이 낮을 수 있습니다.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* L3 게이트 경고 */}
         <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 flex items-start gap-2">
