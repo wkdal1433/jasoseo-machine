@@ -206,6 +206,47 @@ export function ConsistencyChecker() {
         ))}
       </div>
 
+      {/* HR 의도 커버리지 체크 (#6) */}
+      {hrIntents && hrIntents.length > 0 && (
+        <div className="rounded-2xl border border-border p-5 space-y-3">
+          <p className="text-sm font-bold">HR 의도 커버리지</p>
+          <p className="text-xs text-muted-foreground">이 지원서 HR 의도 4가지 중 자소서에 실제로 반영된 비율입니다.</p>
+          {(['Execution', 'Growth', 'Stability', 'Communication'] as const).map((intent) => {
+            const intentLabel: Record<string, string> = { Execution: '실행력', Growth: '성장', Stability: '안정성', Communication: '협업' }
+            const isRequired = hrIntents.some((h) => h.intent === intent)
+            // 해당 의도를 가진 에피소드가 실제로 사용됐는지 확인
+            const usedEpIds = questions.flatMap((q) => q.approvedEpisodes)
+            const usedEps = [...new Set(usedEpIds)]
+            const covered = usedEps.some((epId) => {
+              const ep = episodes.find((e) => e.id === epId)
+              return ep?.hrIntents.includes(intent)
+            })
+            return (
+              <div key={intent} className={cn(
+                'flex items-center justify-between rounded-lg px-3 py-2 text-xs',
+                isRequired
+                  ? covered ? 'bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800'
+                    : 'bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800'
+                  : 'bg-muted/30 border border-transparent opacity-50'
+              )}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{intentLabel[intent]}</span>
+                  {isRequired && <span className="text-[9px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">필요</span>}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {isRequired
+                    ? covered
+                      ? <><CheckCircle2 size={12} className="text-green-500" /><span className="text-green-700 dark:text-green-300 font-bold">커버됨</span></>
+                      : <><XCircle size={12} className="text-red-500" /><span className="text-red-600 dark:text-red-400 font-bold">미커버</span></>
+                    : <span className="text-muted-foreground">해당 없음</span>
+                  }
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* AI 캐릭터 일관성 체크 */}
       <div className="rounded-2xl border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
