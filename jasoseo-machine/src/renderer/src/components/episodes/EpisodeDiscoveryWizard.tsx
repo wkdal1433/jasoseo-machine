@@ -172,8 +172,16 @@ ${episode.rawContent.slice(0, 3000)}
   }
 
   const handleSave = async (content: string) => {
-    if (await window.api.episodeSaveFile(`ep_auto_${Date.now()}.md`, content)) {
-      alert('저장 완료!'); localStorage.removeItem(SESSION_CACHE_KEY); setStep('suggest')
+    // 보강 모드: 기존 파일 덮어쓰기 / 발굴 모드: 새 파일 생성
+    const fileName = initialEpisode ? initialEpisode.fileName : `ep_auto_${Date.now()}.md`
+    if (await window.api.episodeSaveFile(fileName, content)) {
+      localStorage.removeItem(SESSION_CACHE_KEY)
+      alert(initialEpisode ? '에피소드가 업데이트되었습니다.' : '저장 완료!')
+      if (initialEpisode) {
+        onClose() // 보강 모드: 저장 후 닫기
+      } else {
+        setStep('suggest') // 발굴 모드: 창고로 복귀
+      }
     }
   }
 
