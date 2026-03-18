@@ -19,16 +19,18 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
   const [progress, setProgress] = useState({ step: '', percent: 0 })
   const [rawLogs, setRawLogs] = useState<string[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
-  
+
   const [selectedIdea, setSelectedIdea] = useState<EpisodeIdea | null>(null)
   const [messages, setMessages] = useState<{ role: 'ai' | 'user'; content: string }[]>([])
   const [hiddenState, setHiddenState] = useState<string>('')
   const [input, setInput] = useState('')
   const [isAiTyping, setIsAiAiTyping] = useState(false)
-  
+  const [savedTitle, setSavedTitle] = useState<string | null>(null) // 저장 완료 상태
+
   const { profile } = useProfileStore()
   const chatEndRef = useRef<HTMLDivElement>(null)
   const terminalEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // 프로필 ID별 로컬 저장 키
   const IDEAS_CACHE_KEY = `mined_ideas_${(profile as any).id || 'default'}`
@@ -176,12 +178,7 @@ ${episode.rawContent.slice(0, 3000)}
     const fileName = initialEpisode ? initialEpisode.fileName : `ep_auto_${Date.now()}.md`
     if (await window.api.episodeSaveFile(fileName, content)) {
       localStorage.removeItem(SESSION_CACHE_KEY)
-      alert(initialEpisode ? '에피소드가 업데이트되었습니다.' : '저장 완료!')
-      if (initialEpisode) {
-        onClose() // 보강 모드: 저장 후 닫기
-      } else {
-        setStep('suggest') // 발굴 모드: 창고로 복귀
-      }
+      setSavedTitle(selectedIdea?.title || initialEpisode?.title || '에피소드')
     }
   }
 
@@ -300,7 +297,36 @@ ${episode.rawContent.slice(0, 3000)}
             </div>
           )}
 
-          {step === 'interview' && (
+          {step === 'interview' && savedTitle && (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-300">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl">✅</div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-foreground">에피소드 저장 완료!</h3>
+                <p className="text-muted-foreground text-sm">
+                  <span className="font-semibold text-foreground">"{savedTitle}"</span>이(가)<br />
+                  에피소드 관리 페이지에 저장되었습니다.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                <button
+                  onClick={onClose}
+                  className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:opacity-90 transition-all"
+                >
+                  에피소드 관리에서 확인하기 →
+                </button>
+                {!initialEpisode && (
+                  <button
+                    onClick={() => { setSavedTitle(null); setStep('suggest') }}
+                    className="w-full rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                  >
+                    다른 에피소드도 발굴하기
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 'interview' && !savedTitle && (
             <div className="h-full flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-500">
               <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 {messages.map((msg, i) => (
@@ -319,9 +345,27 @@ ${episode.rawContent.slice(0, 3000)}
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="flex gap-2 bg-muted/30 p-3 rounded-3xl border border-border focus-within:border-primary/50 transition-colors">
-                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="AI의 질문에 대답하세요..." className="flex-1 bg-transparent px-4 py-2 text-sm outline-none" />
-                <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-2xl bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50">전송</button>
+              <div className="flex gap-2 bg-muted/30 p-3 rounded-3xl border border-border focus-within:border-primary/50 transition-colors items-end">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  rows={1}
+                  onChange={(e) => {
+                    setInput(e.target.value)
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendMessage()
+                    }
+                  }}
+                  placeholder="AI의 질문에 대답하세요... (Shift+Enter 줄바꿈)"
+                  className="flex-1 bg-transparent px-4 py-2 text-sm outline-none resize-none overflow-y-auto leading-relaxed"
+                  style={{ maxHeight: '160px' }}
+                />
+                <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-2xl bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50 shrink-0">전송</button>
               </div>
             </div>
           )}
