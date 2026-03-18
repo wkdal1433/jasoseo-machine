@@ -1,5 +1,4 @@
 import { UserProfile } from '../../renderer/src/types/profile';
-export { EpisodeIdea } from '../../shared/types/automation';
 
 export class EpisodeInterviewer {
   /**
