@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/AI--Engine-Gemini%20%26%20Claude-orange?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Platform-Electron-lightgrey?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge" />
 </p>
 
 ---
@@ -59,11 +59,13 @@
 
 ---
 
+## 📜 License
+본 프로젝트는 **비영리 목적(Non-Commercial)**의 개인적 사용 및 학습용으로만 배포됩니다. 저작권자의 서면 동의 없는 상업적 이용, 유료 서비스화, 코드 도용 및 재배포를 엄격히 금지합니다. 상세 내용은 [LICENSE](./LICENSE) 파일을 확인해 주세요.
+
+---
+
 ## 🤝 How to Contribute
-1. 이 레포지토리를 Fork 합니다.
-2. `feature/your-feature-name` 브랜치를 생성합니다.
-3. 변경 사항을 Commit 합니다.
-4. 해당 브랜치로 Pull Request를 보냅니다.
+여러분의 기여는 환영하지만, 본 프로젝트의 라이선스 정책을 준수해야 합니다. 자세한 절차는 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참조해 주세요.
 
 ---
 
