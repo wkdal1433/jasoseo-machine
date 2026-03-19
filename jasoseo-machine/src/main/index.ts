@@ -11,6 +11,20 @@ import { IPC } from '../shared/ipc-channels'
 let mainWindow: BrowserWindow | null = null
 let allowClose = false
 
+// 단일 인스턴스 잠금 (P0#22: 중복 실행 방지)
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // 두 번째 실행 시 기존 창 포커스
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
