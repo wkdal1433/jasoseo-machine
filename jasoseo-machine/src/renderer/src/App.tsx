@@ -15,6 +15,7 @@ import { GuidePage } from './components/guide/GuidePage'
 import { MagicOnboarding } from './components/dashboard/MagicOnboarding'
 import { FullReview } from './components/wizard/FullReview'
 import { PatternPage } from './components/patterns/PatternPage'
+import { LibraryPage } from './components/library/LibraryPage'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useWizardStore } from './stores/wizardStore'
@@ -89,6 +90,7 @@ function App() {
           <Route path="/wizard/setup" element={<ApplicationSetup />} />
           <Route path="/onboarding" element={<MagicOnboarding onClose={() => window.location.hash = '#/'} />} />
           <Route path="/review" element={<FullReview />} />
+          <Route path="/library" element={<LibraryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/episodes" element={<EpisodeListPage />} />
           <Route path="/history" element={<HistoryPage />} />
