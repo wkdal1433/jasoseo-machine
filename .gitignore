@@ -64,3 +64,24 @@ parse_html.py
 
 # Docs with personal content
 jasoseo-machine/docs/
+
+# Personal directories
+제출용서류/
+참고용-s급합격자소서-rawdata/
+raw/
+protocols/
+appendix/
+analysis/
+docs/
+
+# Personal standalone files
+이력서용_사진.jpg
+재학증명서.pdf
+최종.docx
+AK_IS_Strategy.md
+AK_IS_전략.md
+Dreamline_CoverLetter.md
+raw_experience.md
+extract_docx.py
+episodes.zip
+start-app.bat
