@@ -122,12 +122,20 @@ export function EpisodeListPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 AI와 함께 당신의 숨겨진 보석 같은 경험을 찾아보세요.
               </p>
-              <button
-                onClick={() => setIsWizardOpen(true)}
-                className="mt-6 text-sm font-bold text-primary hover:underline"
-              >
-                첫 에피소드 발굴하기 →
-              </button>
+              <div className="mt-6 flex flex-col items-center gap-3">
+                <button
+                  onClick={() => setIsWizardOpen(true)}
+                  className="text-sm font-bold text-primary hover:underline"
+                >
+                  첫 에피소드 발굴하기 →
+                </button>
+                <button
+                  onClick={() => window.location.hash = '#/onboarding'}
+                  className="rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                >
+                  ✨ 매직 온보딩으로 에피소드 추가
+                </button>
+              </div>
             </div>
           )}
         </>
