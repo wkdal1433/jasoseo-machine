@@ -369,13 +369,21 @@ export function DashboardPage() {
 
       {/* Recent History */}
       <div>
-        <h3 className="mb-4 text-lg font-semibold">최근 작성 이력</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">최근 작성 이력</h3>
+          {applications.length > 5 && (
+            <button onClick={() => navigate('/history')} className="text-xs font-bold text-primary hover:underline">
+              전체 보기 →
+            </button>
+          )}
+        </div>
         {recentApps.length > 0 ? (
           <div className="space-y-2">
             {recentApps.map((app) => (
-              <div
+              <button
                 key={app.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
+                onClick={() => navigate(`/history/${app.id}`)}
+                className="w-full flex items-center justify-between rounded-lg border border-border bg-card p-3 hover:border-primary/40 hover:bg-muted/30 transition-all text-left"
               >
                 <div>
                   <span className="font-medium">{app.companyName}</span>
@@ -391,8 +399,9 @@ export function DashboardPage() {
                     {new Date(app.updatedAt).toLocaleDateString('ko-KR')}
                   </span>
                   {statusBadge(app.status)}
+                  <span className="text-xs text-muted-foreground">→</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
