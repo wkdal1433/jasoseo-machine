@@ -17,7 +17,7 @@ import {
   DEFAULT_PROFILE
 } from '../../types/profile'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Save } from 'lucide-react'
+import { Pencil, Trash2, Save, Download, Upload, RotateCcw, Copy, UserMinus } from 'lucide-react'
 
 export function ProfilePage() {
   const {
@@ -215,80 +215,89 @@ export function ProfilePage() {
   return (
     <div className="flex h-full flex-col p-6">
       {/* Profile Selector */}
-      <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Active Profile</span>
-            {isRenamingProfile ? (
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <input ref={renameInputRef} type="text" value={renameValue}
-                  onChange={e => setRenameValue(e.target.value)}
-                  onClick={e => (e.target as HTMLInputElement).focus()}
-                  onKeyDown={e => { if (e.key === 'Enter') handleConfirmRename(); if (e.key === 'Escape') setIsRenamingProfile(false) }}
-                  className="rounded-md border border-primary/50 bg-background px-2 py-1 text-sm font-bold outline-none focus:ring-1 focus:ring-primary w-32" />
-                <button onClick={handleConfirmRename} className="rounded px-2 py-1 bg-primary text-[10px] font-bold text-primary-foreground">확인</button>
-                <button onClick={() => setIsRenamingProfile(false)} className="rounded px-2 py-1 border text-[10px] text-muted-foreground">취소</button>
+      <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm">
+        {/* Row 1: Active profile selector + Save CTA */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Left: profile name + new profile */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] font-bold text-primary uppercase tracking-wider">Active Profile</span>
+              {isRenamingProfile ? (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <input ref={renameInputRef} type="text" value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onClick={e => (e.target as HTMLInputElement).focus()}
+                    onKeyDown={e => { if (e.key === 'Enter') handleConfirmRename(); if (e.key === 'Escape') setIsRenamingProfile(false) }}
+                    className="rounded-md border border-primary/50 bg-background px-2 py-1 text-sm font-bold outline-none focus:ring-1 focus:ring-primary w-32" />
+                  <button onClick={handleConfirmRename} className="rounded px-2 py-1 bg-primary text-[10px] font-bold text-primary-foreground">확인</button>
+                  <button onClick={() => setIsRenamingProfile(false)} className="rounded px-2 py-1 border text-[10px] text-muted-foreground">취소</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <select value={(profile as any).id} onChange={(e) => handleSwitch(e.target.value)}
+                    className="bg-transparent font-bold text-base outline-none cursor-pointer hover:text-primary transition-colors truncate max-w-[140px]">
+                    {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <button onClick={handleStartRename} title="이름 변경"
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors"><Pencil size={12} /></button>
+                </div>
+              )}
+            </div>
+            <div className="h-8 w-px bg-primary/20 shrink-0" />
+            {isCreatingProfile ? (
+              <div className="flex items-center gap-1.5">
+                <input ref={nameInputRef} type="text" value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  onClick={(e) => (e.target as HTMLInputElement).focus()}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProfile(); if (e.key === 'Escape') { setIsCreatingProfile(false); setNewProfileName('') } }}
+                  placeholder="프로필 이름"
+                  className="rounded-lg border border-primary/50 bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary w-28" />
+                <button onClick={handleCreateProfile} className="rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">생성</button>
+                <button onClick={() => { setIsCreatingProfile(false); setNewProfileName('') }} className="rounded-lg border px-2.5 py-1 text-xs text-muted-foreground">취소</button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <select value={(profile as any).id} onChange={(e) => handleSwitch(e.target.value)}
-                  className="bg-transparent font-bold text-lg outline-none cursor-pointer hover:text-primary transition-colors">
-                  {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-                <button onClick={handleStartRename} title="이름 변경"
-                  className="text-muted-foreground hover:text-primary transition-colors"><Pencil size={12} /></button>
-              </div>
+              <button onClick={() => setIsCreatingProfile(true)}
+                className="shrink-0 flex items-center gap-1 rounded-lg border border-primary/30 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all">
+                + 새 프로필
+              </button>
             )}
           </div>
-          <div className="h-8 w-px bg-primary/20 mx-2" />
-          {isCreatingProfile ? (
-            <div className="flex items-center gap-2">
-              <input ref={nameInputRef} type="text" value={newProfileName}
-                onChange={(e) => setNewProfileName(e.target.value)}
-                onClick={(e) => (e.target as HTMLInputElement).focus()}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateProfile(); if (e.key === 'Escape') { setIsCreatingProfile(false); setNewProfileName('') } }}
-                placeholder="프로필 이름"
-                className="rounded-lg border border-primary/50 bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary w-32" />
-              <button onClick={handleCreateProfile} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">생성</button>
-              <button onClick={() => { setIsCreatingProfile(false); setNewProfileName('') }} className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground">취소</button>
-            </div>
-          ) : (
-            <button onClick={() => setIsCreatingProfile(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 transition-all">
-              <span>+</span> 새 프로필 추가
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleExportProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-green-50 hover:text-green-700 transition-all">
-            ⬇ 내보내기
-          </button>
-          <button onClick={handleImportProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-green-50 hover:text-green-700 transition-all">
-            ⬆ 가져오기
-          </button>
-          <div className="h-5 w-px bg-border mx-1" />
-          <button onClick={handleRevertProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-yellow-50 hover:text-yellow-700 transition-all">
-            ↺ 되돌리기
-          </button>
-          <button onClick={handleResetProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-orange-50 hover:text-orange-600 transition-all flex items-center gap-1">
-            <Trash2 size={14} /> 초기화
-          </button>
-          <button onClick={handleDuplicateProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-blue-50 hover:text-blue-600 transition-all">
-            ⎘ 복제
-          </button>
-          <div className="h-5 w-px bg-border mx-1" />
-          <button onClick={handleDeleteProfile}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all">
-            현재 프로필 삭제
-          </button>
+
+          {/* Right: Save button */}
           <button onClick={handleSave} disabled={isSaving}
-            className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-lg hover:scale-105 transition-all disabled:opacity-50">
-            {isSaving ? '저장 중...' : <span className="flex items-center gap-1.5"><Save size={14} /> 프로필 전체 저장</span>}
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1.5">
+            <Save size={14} />
+            {isSaving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+
+        {/* Row 2: Action buttons (icon + label, compact) */}
+        <div className="mt-3 pt-3 border-t border-primary/10 flex items-center gap-1 flex-wrap">
+          <button onClick={handleExportProfile} title="JSON으로 내보내기"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950 transition-all">
+            <Download size={12} /> 내보내기
+          </button>
+          <button onClick={handleImportProfile} title="JSON에서 가져오기"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950 transition-all">
+            <Upload size={12} /> 가져오기
+          </button>
+          <div className="h-4 w-px bg-border mx-0.5" />
+          <button onClick={handleRevertProfile} title="마지막 저장 상태로 되돌리기"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-yellow-50 hover:text-yellow-700 dark:hover:bg-yellow-950 transition-all">
+            <RotateCcw size={12} /> 되돌리기
+          </button>
+          <button onClick={handleResetProfile} title="모든 데이터 초기화"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950 transition-all">
+            <Trash2 size={12} /> 초기화
+          </button>
+          <button onClick={handleDuplicateProfile} title="현재 프로필 복제"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950 transition-all">
+            <Copy size={12} /> 복제
+          </button>
+          <div className="h-4 w-px bg-border mx-0.5" />
+          <button onClick={handleDeleteProfile} title="현재 프로필 삭제"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all">
+            <UserMinus size={12} /> 프로필 삭제
           </button>
         </div>
       </div>
