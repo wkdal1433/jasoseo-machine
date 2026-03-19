@@ -169,11 +169,25 @@ export function HistoryPage() {
             <div
               key={app.id}
               onClick={() => navigate(`/history/${app.id}`)}
-              className="group rounded-xl border border-border bg-card p-4 cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+              className={cn(
+                'group rounded-xl border p-4 cursor-pointer hover:shadow-md transition-all',
+                app.status === 'completed'
+                  ? 'border-green-200 bg-green-50/40 hover:border-green-400 dark:border-green-800 dark:bg-green-950/20 dark:hover:border-green-600'
+                  : app.status === 'passed'
+                  ? 'border-green-300 bg-green-50/60 hover:border-green-500 dark:border-green-700 dark:bg-green-950/30 dark:hover:border-green-500'
+                  : app.status === 'failed'
+                  ? 'border-red-200 bg-red-50/30 hover:border-red-300 dark:border-red-900 dark:bg-red-950/20'
+                  : 'border-border bg-card hover:border-primary/40'
+              )}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-base font-semibold group-hover:text-primary transition-colors">{app.companyName}</span>
+                  <span className={cn(
+                    'text-base font-semibold transition-colors',
+                    app.status === 'completed' ? 'group-hover:text-green-700 dark:group-hover:text-green-400'
+                    : app.status === 'passed' ? 'group-hover:text-green-700 dark:group-hover:text-green-400'
+                    : 'group-hover:text-primary'
+                  )}>{app.companyName}</span>
                   <span className="mx-2 text-muted-foreground">·</span>
                   <span className="text-sm text-muted-foreground">{app.jobTitle}</span>
                   <span className="mx-2 text-muted-foreground">·</span>
@@ -191,7 +205,12 @@ export function HistoryPage() {
                   >
                     {statusLabels[app.status] || app.status}
                   </span>
-                  <span className="text-xs text-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity">내용 보기 →</span>
+                  <span className={cn(
+                    'text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity',
+                    app.status === 'completed' || app.status === 'passed'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-primary'
+                  )}>내용 보기 →</span>
                 </div>
               </div>
 
