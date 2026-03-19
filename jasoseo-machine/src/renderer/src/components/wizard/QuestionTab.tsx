@@ -12,7 +12,9 @@ export function QuestionTab({ questions, activeIndex, onTabClick }: QuestionTabP
     <div className="flex gap-1 border-b border-border">
       {questions.map((q, i) => {
         const hasApproved = q.approvedEpisodes.length > 0
+        const hasDraft = q.generatedText.length > 0
         const needsApproval = q.currentStep === 2 && !hasApproved
+        const inApprovalStage = q.currentStep <= 2
 
         return (
           <button
@@ -26,18 +28,19 @@ export function QuestionTab({ questions, activeIndex, onTabClick }: QuestionTabP
             )}
           >
             <span>문항 {q.questionNumber}</span>
-            {q.status === 'completed' && (
+            {q.status === 'completed' ? (
+              // 완료: 초록 체크
               <span className="text-green-600">&#10003;</span>
-            )}
-            {q.status !== 'completed' && hasApproved && (
-              <span className="flex h-2 w-2 rounded-full bg-green-500" title="에피소드 승인 완료" />
-            )}
-            {needsApproval && (
+            ) : needsApproval ? (
+              // 에피소드 승인 필요: 주황 pulse
               <span className="flex h-2 w-2 animate-pulse rounded-full bg-amber-500" title="에피소드 승인 필요" />
-            )}
-            {q.status === 'in_progress' && !hasApproved && q.currentStep !== 2 && (
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-            )}
+            ) : inApprovalStage && hasApproved ? (
+              // 에피소드 승인 완료, 아직 초안 단계 진입 전: 초록 점
+              <span className="flex h-2 w-2 rounded-full bg-green-500" title="에피소드 승인 완료" />
+            ) : !inApprovalStage && hasDraft ? (
+              // 초안 있음 (생성 완료, 검증 대기 중): 파란 점
+              <span className="flex h-2 w-2 rounded-full bg-blue-500" title="초안 작성 완료" />
+            ) : null}
           </button>
         )
       })}
