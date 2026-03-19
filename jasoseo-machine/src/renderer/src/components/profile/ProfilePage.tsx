@@ -17,7 +17,7 @@ import {
   DEFAULT_PROFILE
 } from '../../types/profile'
 import { cn } from '@/lib/utils'
-import { Pencil, Trash2, Save, Download, Upload, RotateCcw, Copy, UserMinus } from 'lucide-react'
+import { Pencil, Trash2, Save, Download, Upload, RotateCcw, Copy, UserMinus, ChevronDown, Check } from 'lucide-react'
 
 export function ProfilePage() {
   const {
@@ -43,6 +43,8 @@ export function ProfilePage() {
   const [isRenamingProfile, setIsRenamingProfile] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef<HTMLInputElement>(null)
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
+  const profileDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { loadProfile() }, [])
 
@@ -62,6 +64,16 @@ export function ProfilePage() {
   useEffect(() => {
     if (isRenamingProfile) setTimeout(() => renameInputRef.current?.focus(), 150)
   }, [isRenamingProfile])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target as Node)) {
+        setIsProfileDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   useEffect(() => {
     if (isLoaded && profile) {
@@ -233,13 +245,39 @@ export function ProfilePage() {
                   <button onClick={() => setIsRenamingProfile(false)} className="rounded px-2 py-1 border text-[10px] text-muted-foreground">취소</button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <select value={(profile as any).id} onChange={(e) => handleSwitch(e.target.value)}
-                    className="bg-transparent font-bold text-base outline-none cursor-pointer hover:text-primary transition-colors truncate max-w-[140px]">
-                    {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                <div ref={profileDropdownRef} className="relative flex items-center gap-1.5 min-w-0">
+                  {/* 커스텀 드롭다운 트리거 */}
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(o => !o)}
+                    className="flex items-center gap-1 font-bold text-base hover:text-primary transition-colors max-w-[160px]"
+                  >
+                    <span className="truncate">{profiles.find(p => p.id === (profile as any).id)?.name ?? ''}</span>
+                    <ChevronDown size={14} className={cn('shrink-0 transition-transform', isProfileDropdownOpen && 'rotate-180')} />
+                  </button>
                   <button onClick={handleStartRename} title="이름 변경"
                     className="shrink-0 text-muted-foreground hover:text-primary transition-colors"><Pencil size={12} /></button>
+
+                  {/* 커스텀 드롭다운 목록 — 앱 내부에서만 렌더링 */}
+                  {isProfileDropdownOpen && (
+                    <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-xl animate-in zoom-in-95 duration-150">
+                      <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">
+                        프로필 선택
+                      </p>
+                      {profiles.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setIsProfileDropdownOpen(false); if (p.id !== (profile as any).id) handleSwitch(p.id) }}
+                          className={cn(
+                            'flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-muted',
+                            p.id === (profile as any).id ? 'font-bold text-primary' : 'text-foreground'
+                          )}
+                        >
+                          <span className="truncate">{p.name}</span>
+                          {p.id === (profile as any).id && <Check size={13} className="text-primary shrink-0 ml-2" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
