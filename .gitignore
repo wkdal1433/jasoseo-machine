@@ -53,3 +53,14 @@ jasoseo-machine/*.sqlite
 .env.local
 *.key
 *.secret
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Personal work scripts / temp outputs
+output.json
+parse_html.py
+*.py
+
+# Docs with personal content
+jasoseo-machine/docs/
