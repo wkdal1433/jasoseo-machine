@@ -14,6 +14,8 @@ const RECOMMENDED: Record<string, string> = {
   cover_letter:    'opus',
   company_analyze: 'gemini-2.5-pro',
   onboarding_parse:'gemini-2.5-pro',
+  step1_reframe:   'gemini-2.5-pro',
+  verification:    'gemini-2.5-flash',
   ep_suggest:      'gemini-2.5-flash',
   web_fetch:       'gemini-2.5-flash',
   pattern_analyze: 'gemini-2.5-flash',

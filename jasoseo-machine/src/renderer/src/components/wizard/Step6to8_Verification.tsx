@@ -6,13 +6,14 @@ import { cn } from '@/lib/utils'
 import type { VerificationResult } from '@/types/application'
 import { calcOverallVerificationScore, evaluateVerificationScore } from '@/lib/confidence-gate'
 import { AlertTriangle, CheckCircle2, XCircle, MapPin } from 'lucide-react'
+import { ModelPicker } from '@/components/common/ModelPicker'
 
 export function Step6to8Verification() {
   const {
     companyName, jobTitle, hrIntents, strategy,
     questions, activeQuestionIndex,
     isVerifying, setIsVerifying,
-    setVerificationResult, setQuestionStep, completeQuestion
+    setVerificationResult, setAutoRegenerate, setQuestionStep, completeQuestion
   } = useWizardStore()
   const { saveSnapshot } = useSnapshotStore()
 
@@ -26,11 +27,13 @@ export function Step6to8Verification() {
     setError(null)
     try {
       const prompt = buildStep6to8Prompt(q.generatedText, q.approvedEpisodes, companyName, jobTitle, hrIntents, strategy)
+      const verifyModel = await window.api.settingsGet('model_ep_verification') as string | null
       const raw = await window.api.claudeExecute({
         prompt,
         outputFormat: 'json',
         maxTurns: 5,
-        appendSystemPrompt: GUI_SYSTEM_PROMPT
+        appendSystemPrompt: GUI_SYSTEM_PROMPT,
+        modelOverride: verifyModel || undefined
       })
 
       let parsed: VerificationResult
@@ -56,6 +59,11 @@ export function Step6to8Verification() {
   }
 
   const goBackToGeneration = () => {
+    setQuestionStep(activeQuestionIndex, 3)
+  }
+
+  const regenerateWithFeedback = () => {
+    setAutoRegenerate(activeQuestionIndex, true)
     setQuestionStep(activeQuestionIndex, 3)
   }
 
@@ -168,24 +176,31 @@ export function Step6to8Verification() {
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!allPassed && (
             <>
               <button
                 onClick={goBackToGeneration}
-                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent whitespace-nowrap"
               >
-                이전 단계로 (편집/재생성)
+                이전 단계로 (편집)
+              </button>
+              <button
+                onClick={regenerateWithFeedback}
+                className="rounded-md border border-blue-300 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950 whitespace-nowrap"
+              >
+                피드백 반영 재생성
               </button>
               <button
                 onClick={() => {
                   setVerificationResult(activeQuestionIndex, null as unknown as VerificationResult)
                   runVerification()
                 }}
-                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent whitespace-nowrap"
               >
                 재검증
               </button>
+              <ModelPicker endpointKey="verification" />
             </>
           )}
           <button
@@ -216,27 +231,32 @@ export function Step6to8Verification() {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <button
-          onClick={goBackToGeneration}
-          className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-        >
-          이전 단계로
-        </button>
-        <button
-          onClick={runVerification}
-          disabled={isVerifying}
-          className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
-        >
-          {isVerifying ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              검증 중...
-            </span>
-          ) : (
-            '검증 시작'
-          )}
-        </button>
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <button
+            onClick={goBackToGeneration}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            이전 단계로
+          </button>
+          <button
+            onClick={runVerification}
+            disabled={isVerifying}
+            className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+          >
+            {isVerifying ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                검증 중...
+              </span>
+            ) : (
+              '검증 시작'
+            )}
+          </button>
+        </div>
+        <div className="flex justify-end">
+          <ModelPicker endpointKey="verification" />
+        </div>
       </div>
     </div>
   )

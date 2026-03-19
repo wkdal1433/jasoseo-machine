@@ -25,6 +25,7 @@ export interface WizardQuestion {
   }
   verificationResult: VerificationResult | null
   status: 'pending' | 'in_progress' | 'completed'
+  autoRegenerate?: boolean  // 검증 화면에서 "피드백 반영 재생성" 클릭 시 Step3 마운트 시 자동 실행
 }
 
 export interface SetupDraft {

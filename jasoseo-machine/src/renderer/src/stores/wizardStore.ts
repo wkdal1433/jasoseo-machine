@@ -18,6 +18,7 @@ interface WizardActions {
   appendGeneratedText: (questionIndex: number, chunk: string) => void
   setGeneratedSections: (questionIndex: number, sections: { opening: string; body: string; closing: string }) => void
   setVerificationResult: (questionIndex: number, result: VerificationResult) => void
+  setAutoRegenerate: (questionIndex: number, val: boolean) => void
   setQuestionStep: (questionIndex: number, step: WizardStep) => void
   setActiveQuestion: (index: number) => void
   setIsGenerating: (val: boolean) => void
@@ -191,6 +192,14 @@ export const useWizardStore = create<WizardState & WizardActions>((set, get) => 
         verificationResult: result,
         currentStep: 8
       }
+      return { questions }
+    })
+  },
+
+  setAutoRegenerate: (questionIndex, val) => {
+    set((state) => {
+      const questions = [...state.questions]
+      questions[questionIndex] = { ...questions[questionIndex], autoRegenerate: val }
       return { questions }
     })
   },

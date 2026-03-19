@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 
 import { ArrowLeft, PartyPopper, CheckCircle2, AlertTriangle, ChevronRight, Target, BarChart2, BookOpen } from 'lucide-react'
 import { useEpisodeStore } from '@/stores/episodeStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import type { HRIntent } from '@/types/application'
 
 const INTENT_LABELS: Record<string, string> = {
@@ -185,10 +186,13 @@ export function WizardPage() {
     setQuestionAnalysis,
     setActiveQuestion,
     setQuestionStep,
+    approveEpisode,
     reopenQuestion,
     getState: getWizardState,
   } = useWizardStore()
   const { profile } = useProfileStore()
+  const { episodes } = useEpisodeStore()
+  const { autoApproveEpisodes } = useSettingsStore()
 
   const [step0GateConfirmed, setStep0GateConfirmed] = useState(false)
   const { saveSnapshot, clearSnapshots } = useSnapshotStore()
@@ -205,24 +209,30 @@ export function WizardPage() {
     try {
       const q = questions[index]
       const prompt = buildStep1to2Prompt(
-        companyName, jobTitle, jobPosting, hrIntents!, strategy!, q.question, q.charLimit, profile
+        companyName, jobTitle, jobPosting, hrIntents!, strategy!, q.question, q.charLimit, profile, episodes
       )
       const response = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1 })
       const data = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || '{}')
-      setQuestionAnalysis(index, data)
+      setQuestionAnalysis(index, data) // advances currentStep to 2
+      // 자동 승인 모드: 첫 번째 추천 에피소드 자동 선택 후 Step 3으로 이동
+      if (autoApproveEpisodes && data.suggestedEpisodes?.length > 0) {
+        approveEpisode(index, data.suggestedEpisodes[0].episodeId)
+        setQuestionStep(index, 3)
+      }
     } catch {
       // prefetch 실패는 사용자에게 알리지 않고 넘어감 (수동 클릭 시 재시도됨)
     }
-  }, [questions, companyName, jobTitle, jobPosting, hrIntents, strategy, profile])
+  }, [questions, companyName, jobTitle, jobPosting, hrIntents, strategy, profile, episodes, autoApproveEpisodes, approveEpisode, setQuestionStep])
 
   // [v2] 게이트 통과 시점에 스냅샷 저장 + prefetch 시작
   const handleStep0GateConfirm = useCallback(() => {
     setStep0GateConfirmed(true)
     // L3 게이트 통과 — Step 0 상태 스냅샷 저장
     saveSnapshot('Step 0: 기업 분석 완료', getWizardState())
-    // 게이트 확인 후 백그라운드 병렬 prefetch 시작
+    // 게이트 확인 후 백그라운드 병렬 prefetch 시작 (Q0 제외: 사용자가 직접 진행)
     questions.forEach((q, idx) => {
-      if (q.currentStep === 0 || !q.analysisResult) {
+      if (idx === 0) return // Q0는 Step1_Reframe에서 사용자가 직접 실행
+      if (!q.analysisResult) {
         prefetchQuestionAnalysis(idx)
       }
     })

@@ -41,6 +41,7 @@ export function Step3to5Generation() {
     questions, activeQuestionIndex,
     isGenerating, setIsGenerating,
     setGeneratedText, appendGeneratedText, setQuestionStep,
+    setAutoRegenerate,
     activePatternIds, useDefaultPatterns,
     streamError, clearStreamError,
     startStreamListening, stopStreamListening,
@@ -158,12 +159,30 @@ export function Step3to5Generation() {
       }
     } catch { /* 패턴 로드 실패해도 생성 계속 */ }
 
+    // 이전 검증 실패 피드백 수집 — 재생성 시 AI에게 전달
+    let verificationFeedback: string | undefined
+    if (q.verificationResult) {
+      const failedItems: string[] = []
+      const vr = q.verificationResult
+      ;[
+        ...(vr.hallucinationCheck?.items ?? []),
+        ...(vr.failPatternCheck?.items ?? []),
+        ...(vr.dualCodingCheck?.items ?? []),
+      ]
+        .filter((item) => !item.passed)
+        .forEach((item) => failedItems.push(`- ${item.check}: ${item.detail || ''}`))
+      if (failedItems.length > 0) {
+        verificationFeedback = failedItems.join('\n')
+      }
+    }
+
     const prompt = buildStep3to5Prompt(
       companyName, jobTitle, jobPosting,
       hrIntents, strategy,
       q.analysisResult!.questionReframe,
       q.question, q.charLimit,
-      q.approvedEpisodes, angles, episodeContents, patternContext
+      q.approvedEpisodes, angles, episodeContents, patternContext,
+      verificationFeedback
     )
 
     const coverLetterModel = await window.api.settingsGet('model_ep_cover_letter') as string | null
@@ -180,6 +199,15 @@ export function Step3to5Generation() {
       processId: pid
     })
   }
+
+  // 검증 화면에서 "피드백 반영 재생성" 클릭 시 자동 실행
+  useEffect(() => {
+    if (q.autoRegenerate && !isGenerating) {
+      setAutoRegenerate(activeQuestionIndex, false)
+      startGeneration()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Cleanup timers when generation ends
   useEffect(() => {
@@ -220,6 +248,11 @@ export function Step3to5Generation() {
       // 생성 완료 시 스냅샷 저장
       const wizardState = useWizardStore.getState()
       saveSnapshot(`문항 ${activeQuestionIndex + 1}: 초안 생성 완료 (${finalLen}자)`, wizardState, activeQuestionIndex)
+      // 글자수 초과 시 자동 축약 실행
+      if (q.charLimit > 0 && finalLen > q.charLimit) {
+        addLog(`글자수 초과 (${finalLen}자 > ${q.charLimit}자) → 자동 축약 시작`)
+        runShorten()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating])
@@ -265,11 +298,13 @@ export function Step3to5Generation() {
         const result = await window.api.claudeExecute({ prompt, outputFormat: 'text', maxTurns: 1, modelOverride: shortenModel || undefined })
         const trimmed = result.trim()
         if (!trimmed || trimmed.length < 50) break // 비정상 응답 방어
+        // 저장 전 길이 검증 — 원문보다 길거나 거의 안 줄었으면 채택하지 않고 중단
+        if (trimmed.length >= currentLen) break // 텍스트가 늘었거나 동일함 → 거부
+        if (trimmed.length > currentLen * 0.98) break // 2% 미만 감소 → 더 이상 줄이기 불가
         currentText = trimmed
         setGeneratedText(activeQuestionIndex, currentText)
 
         if (currentText.length <= q.charLimit) break
-        if (currentText.length > currentLen * 0.98) break // 거의 줄지 않으면 중단
       } catch {
         break
       }
@@ -281,6 +316,13 @@ export function Step3to5Generation() {
       withinLimit
         ? `✓ ${finalLen}자로 축약 완료`
         : `최대한 줄였습니다 (${finalLen}자 / 목표 ${q.charLimit}자)`
+    )
+    // 축약 완료 스냅샷 저장 (되돌리기 가능)
+    const wizardState = useWizardStore.getState()
+    saveSnapshot(
+      `문항 ${activeQuestionIndex + 1}: 글자수 축약 완료 (${finalLen}자)`,
+      wizardState,
+      activeQuestionIndex
     )
     setIsShortening(false)
     setTimeout(() => setShortenMsg(null), 5000)
@@ -554,47 +596,49 @@ export function Step3to5Generation() {
       {isGenerating && <LogPanel />}
 
       {/* Action Buttons */}
-      <div className="flex gap-2">
-        {!isGenerating && !isEditing && hasText && (
-          <>
-            <button
-              onClick={startEdit}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-            >
-              편집
-            </button>
-            <button
-              onClick={startGeneration}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-            >
-              재생성
-            </button>
-            {q.charLimit > 0 && q.generatedText.length > q.charLimit && (
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          {!isGenerating && !isEditing && hasText && (
+            <>
               <button
-                onClick={runShorten}
-                disabled={isShortening}
-                className="rounded-md border border-orange-300 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+                onClick={startEdit}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
               >
-                {isShortening ? '축약 중...' : <span className="flex items-center gap-1"><Scissors size={14} /> 글자수 줄이기</span>}
+                편집
               </button>
-            )}
-            <button
-              onClick={proceedToVerification}
-              className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
-            >
-              검증 시작
-            </button>
-          </>
-        )}
-        {!isGenerating && !isEditing && hasText && shortenMsg && (
-          <div className={`w-full rounded-lg px-3 py-2 text-xs font-medium ${
-            shortenMsg.startsWith('✓')
-              ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
-              : 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
-          }`}>
-            {shortenMsg}
-          </div>
-        )}
+              <button
+                onClick={startGeneration}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
+              >
+                재생성
+              </button>
+              <ModelPicker endpointKey="cover_letter" />
+              {q.charLimit > 0 && (
+                <button
+                  onClick={runShorten}
+                  disabled={isShortening}
+                  className={
+                    q.generatedText.length > q.charLimit
+                      ? 'rounded-md border border-orange-300 px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950'
+                      : 'rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent disabled:opacity-50'
+                  }
+                >
+                  {isShortening
+                    ? '축약 중...'
+                    : q.generatedText.length > q.charLimit
+                      ? <span className="flex items-center gap-1"><Scissors size={14} /> 글자수 줄이기</span>
+                      : <span className="flex items-center gap-1"><Scissors size={14} /> 추가 축약</span>
+                  }
+                </button>
+              )}
+              <button
+                onClick={proceedToVerification}
+                className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
+              >
+                검증 시작
+              </button>
+            </>
+          )}
         {isGenerating && (
           <button
             onClick={cancelGeneration}
@@ -604,6 +648,12 @@ export function Step3to5Generation() {
           </button>
         )}
       </div>
+      {shortenMsg && (
+        <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground text-center">
+          {shortenMsg}
+        </div>
+      )}
     </div>
+  </div>
   )
 }

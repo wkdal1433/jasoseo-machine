@@ -23,6 +23,7 @@ interface SnapshotStoreActions {
   saveSnapshot: (label: string, state: WizardState, questionIndex?: number | null) => void
   deleteSnapshot: (id: string) => void
   clearSnapshots: () => void
+  restoreSnapshots: (snapshots: WizardSnapshot[]) => void
   getLatestSnapshot: () => WizardSnapshot | null
   getSnapshotById: (id: string) => WizardSnapshot | null
 }
@@ -51,6 +52,8 @@ export const useSnapshotStore = create<SnapshotStoreState & SnapshotStoreActions
   },
 
   clearSnapshots: () => set({ snapshots: [] }),
+
+  restoreSnapshots: (snapshots) => set({ snapshots }),
 
   getLatestSnapshot: () => get().snapshots[0] ?? null,
 

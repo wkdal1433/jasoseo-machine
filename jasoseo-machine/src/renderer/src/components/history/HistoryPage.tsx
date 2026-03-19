@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { cn } from '@/lib/utils'
 import { Sparkles } from 'lucide-react'
 
@@ -82,6 +83,10 @@ export function HistoryPage() {
     try {
       const state = JSON.parse(raw.wizardState)
       restoreFromDraft(state)
+      // 저장된 타임라인 스냅샷 복원
+      if (Array.isArray(state.snapshots) && state.snapshots.length > 0) {
+        useSnapshotStore.getState().restoreSnapshots(state.snapshots)
+      }
       navigate('/wizard')
     } catch { /* ignore */ }
   }

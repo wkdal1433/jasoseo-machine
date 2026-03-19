@@ -32,10 +32,21 @@ export function Step2EpisodeApproval() {
 
   const hasApprovedEpisodes = q.approvedEpisodes.length > 0
 
+  // 모든 문항이 에피소드를 최소 1개 이상 승인해야 초안 작성 진행 가능
+  const pendingQuestions = questions
+    .map((qItem, idx) => ({ idx, qItem }))
+    .filter(({ idx, qItem }) => idx !== activeQuestionIndex && qItem.currentStep <= 2 && qItem.approvedEpisodes.length === 0)
+
+  const allQuestionsReady = hasApprovedEpisodes && pendingQuestions.length === 0
+
   const proceedToGeneration = () => {
-    if (hasApprovedEpisodes) {
-      setQuestionStep(activeQuestionIndex, 3)
-    }
+    if (!allQuestionsReady) return
+    // 현재 문항 + Step 2에 머물러있는 다른 승인 완료 문항 모두 Step 3으로 전진
+    questions.forEach((qItem, idx) => {
+      if (qItem.currentStep === 2 && qItem.approvedEpisodes.length > 0) {
+        setQuestionStep(idx, 3)
+      }
+    })
   }
 
   return (
@@ -162,14 +173,40 @@ export function Step2EpisodeApproval() {
         })}
       </div>
 
+      {/* 다른 문항 미승인 경고 */}
+      {hasApprovedEpisodes && pendingQuestions.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 space-y-2">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+            <AlertTriangle size={13} />
+            아직 에피소드 승인이 필요한 문항이 있습니다
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {pendingQuestions.map(({ idx, qItem }) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  const { setActiveQuestion } = useWizardStore.getState()
+                  setActiveQuestion(idx)
+                }}
+                className="rounded-full bg-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-800 hover:bg-amber-300 transition-colors dark:bg-amber-800 dark:text-amber-200 dark:hover:bg-amber-700"
+              >
+                문항 {qItem.questionNumber} →
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <button
         onClick={proceedToGeneration}
-        disabled={!hasApprovedEpisodes}
+        disabled={!allQuestionsReady}
         className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {hasApprovedEpisodes
-          ? `승인 완료 — 자소서 작성 시작 (${q.approvedEpisodes.length}개 Episode)`
-          : 'Episode를 하나 이상 승인해주세요'
+        {!hasApprovedEpisodes
+          ? 'Episode를 하나 이상 승인해주세요'
+          : pendingQuestions.length > 0
+            ? `다른 문항 ${pendingQuestions.length}개 승인 후 시작 가능`
+            : `전체 승인 완료 — 초안 작성 시작`
         }
       </button>
     </div>

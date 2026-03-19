@@ -276,21 +276,38 @@
       const lbl = document.querySelector(`label[for="${el.id}"]`);
       if (lbl) return lbl.textContent.trim();
     }
-    // 2) 부모 중 <label>
+    // 2) 부모 중 <label> — form 요소 제외 후 텍스트 추출
     let p = el.parentElement;
     while (p) {
-      if (p.tagName === 'LABEL') return p.textContent.replace(el.value || '', '').trim();
+      if (p.tagName === 'LABEL') {
+        const clone = p.cloneNode(true);
+        clone.querySelectorAll('input, textarea, select, button').forEach(n => n.remove());
+        return clone.textContent.trim();
+      }
       p = p.parentElement;
     }
-    // 3) el → 부모 → 조부모 순으로 이전 형제 탐색 (최대 6레벨)
-    // 안내문/글자수 제한 텍스트는 건너뜀
-    const instructionPattern = /최소|최대|자 이내|자 이상|글자.*입력|입력.*글자|서술.*해주세요|작성.*해주세요|\d+자.*내로|\d+자.*이내/;
+    // 3) 조상 컨테이너 내 제목 요소(h1~h6, dt, th, legend, strong, b) 우선 탐색
+    //    placeholder-hint div보다 제목 요소를 먼저 찾아야 오류 방지
+    const headingSelector = 'h1, h2, h3, h4, h5, h6, dt, th, legend';
+    let ancestor = el.parentElement;
+    for (let i = 0; i < 6 && ancestor; i++) {
+      const headings = Array.from(ancestor.querySelectorAll(headingSelector));
+      for (const h of headings) {
+        if (h.contains(el)) continue; // textarea를 포함하는 요소 제외
+        const t = h.textContent.trim();
+        if (t.length >= 8 && t.length <= 300) return t;
+      }
+      ancestor = ancestor.parentElement;
+    }
+    // 4) el → 부모 → 조부모 순으로 이전 형제 탐색 (최대 6레벨)
+    // 안내문/placeholder 텍스트는 건너뜀
+    const skipPattern = /최소|최대|자 이내|자 이상|글자.*입력|입력.*글자|\d+자.*내로|\d+자.*이내|입력해\s*주세요|작성해\s*주세요|입력하세요|작성하세요|여기에\s*입력/;
     let node = el;
     for (let depth = 0; depth < 6; depth++) {
       let prev = node.previousElementSibling;
       while (prev) {
         const t = prev.textContent.trim();
-        if (t.length >= 15 && t.length <= 600 && !instructionPattern.test(t)) return t;
+        if (t.length >= 15 && t.length <= 600 && !skipPattern.test(t)) return t;
         prev = prev.previousElementSibling;
       }
       if (!node.parentElement) break;
@@ -330,6 +347,20 @@
       if (!labelText) return;
       // placeholder 폴백이면 실제 질문을 못 찾은 것 → 건너뜀
       if (labelText === ta.placeholder) return;
+      // 글자수 안내문이 질문으로 오인된 경우 최종 차단
+      // 전략: 괄호 안의 글자수 안내 "(최소 N자 ~ 최대 N자)" 를 먼저 제거한 후 남은 텍스트로 판단
+      // → "현대오토에버의... 바랍니다. (최소 500자 ~ 최대 1000자)" 는 통과
+      // → "최소 500 최대 1000자 내로 서술 해주세요" 는 차단
+      const strippedLabel = labelText
+        .replace(/[\(\（][^\)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '') // (최소 N자 ~ 최대 N자) 제거
+        .trim();
+      // ^(최소|최대): 글자수 범위 안내로 시작 → 안내문
+      // ^\d+\s*(자|~\s*\d|\/\s*\d): "500자", "500~1000", "0/1000" 등 순수 글자수 표시 → 안내문
+      // "1. 지원동기", "2024년 경험" 처럼 번호·연도로 시작하는 실제 문항은 통과
+      const isInstructionOnly = strippedLabel.length < 10 ||
+        /^(최소|최대)/.test(strippedLabel) ||
+        /^\d+\s*(자($|\s)|~\s*\d|\/\s*\d)/.test(strippedLabel);
+      if (isInstructionOnly) return;
 
       // 글자수 제한 추출: "지원동기 (800자 이내)" → 800  (카운터 우선, 없으면 레이블에서)
       const charLimitMatch = labelText.match(/(\d{3,4})\s*자/);

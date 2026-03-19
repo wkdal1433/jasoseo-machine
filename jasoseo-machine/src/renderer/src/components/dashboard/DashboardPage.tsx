@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 import { 
@@ -84,6 +85,10 @@ export function DashboardPage() {
         isGenerating: false,
         isVerifying: false
       })
+      // 저장된 타임라인 스냅샷 복원
+      if (Array.isArray(state.snapshots) && state.snapshots.length > 0) {
+        useSnapshotStore.getState().restoreSnapshots(state.snapshots)
+      }
       navigate('/wizard')
     } catch { /* ignore */ }
   }

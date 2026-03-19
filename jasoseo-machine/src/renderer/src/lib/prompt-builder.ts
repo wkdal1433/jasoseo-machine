@@ -154,7 +154,8 @@ export function buildStep3to5Prompt(
   approvedEpisodes: string[],
   angles: Record<string, string>,
   episodeContents: Record<string, string> = {},
-  patternContext?: string
+  patternContext?: string,
+  verificationFeedback?: string
 ): string {
   const strategyAnchor = buildGlobalStrategyAnchor(companyName, jobTitle, hrIntents, strategy);
 
@@ -175,8 +176,12 @@ export function buildStep3to5Prompt(
     ? `\n[합격 자소서 패턴 참조] (문체·구조만 참조, 내용 복사 금지):\n${patternContext}\n`
     : ''
 
+  const feedbackSection = verificationFeedback
+    ? `\n⚠️ [이전 검증 실패 피드백 — 반드시 반영]\n이전에 생성된 초안이 검증을 통과하지 못했습니다. 아래 문제점을 해결하여 재작성하세요:\n${verificationFeedback}\n`
+    : ''
+
   return `${strategyAnchor}
-${patternSection}
+${patternSection}${feedbackSection}
 [Step 3-5: 자소서 생성]
 
 [질문 재해석]: """${questionReframe}"""
@@ -261,7 +266,11 @@ export function buildShortenPrompt(text: string, currentLen: number, targetLen: 
 ${text}
 """
 
-수정된 자소서 전문만 출력하세요. 설명·주석 없이 텍스트만.`
+⚠️ 출력 규칙 (반드시 준수):
+- 수정된 자소서 본문 텍스트만 출력
+- 설명, 주석, "수정 내용:", "변경 사항:" 등 일체 금지
+- 원문을 다시 인용하거나 비교표 작성 금지
+- 출력 길이는 반드시 ${upper}자 이하여야 함`
 }
 
 // [v21.4] 부분 수술(Surgical Edit) 프롬프트

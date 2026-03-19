@@ -6,6 +6,7 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { useSnapshotStore } from '@/stores/snapshotStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { buildStep1to2Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
+import { ModelPicker } from '@/components/common/ModelPicker'
 import type { AnalysisResult } from '@/types/application'
 import { Lightbulb, FastForward } from 'lucide-react'
 
@@ -87,11 +88,13 @@ export function Step1Reframe() {
         hrIntents, strategy,
         q.question, q.charLimit, profile, episodes
       )
+      const step1Model = await window.api.settingsGet('model_ep_step1_reframe') as string | null
       const raw = await window.api.claudeExecute({
         prompt,
         outputFormat: 'json',
         maxTurns: 5,
-        appendSystemPrompt: GUI_SYSTEM_PROMPT
+        appendSystemPrompt: GUI_SYSTEM_PROMPT,
+        modelOverride: step1Model || undefined
       })
 
       let parsed: { questionReframe: string; suggestedEpisodes: { episodeId: string; reason: string; angle: string }[] }
@@ -111,6 +114,12 @@ export function Step1Reframe() {
         suggestedEpisodes: parsed.suggestedEpisodes
       }
       setQuestionAnalysis(activeQuestionIndex, analysis)
+      // 분석 완료 스냅샷 저장
+      saveSnapshot(
+        `문항 ${activeQuestionIndex + 1}: 질문 재해석 + 에피소드 매칭 완료`,
+        getWizardState(),
+        activeQuestionIndex
+      )
       // 자동 승인 모드: 첫 번째 추천 에피소드 자동 선택 후 Step 3으로 이동
       if (autoApproveEpisodes && parsed.suggestedEpisodes.length > 0) {
         approveEpisode(activeQuestionIndex, parsed.suggestedEpisodes[0].episodeId)
@@ -209,6 +218,9 @@ export function Step1Reframe() {
           '질문 재해석 + Episode 추천'
         )}
       </button>
+      <div className="flex justify-end">
+        <ModelPicker endpointKey="step1_reframe" />
+      </div>
     </div>
   )
 }

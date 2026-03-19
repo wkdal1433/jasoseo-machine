@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
+import { useSnapshotStore } from '@/stores/snapshotStore'
 
 const AUTO_SAVE_INTERVAL = 30000 // 30 seconds
 
@@ -21,7 +22,8 @@ export function useAutoSave() {
         recruitmentContext: store.recruitmentContext,
         questions: store.questions,
         activeQuestionIndex: store.activeQuestionIndex,
-        step0Completed: store.step0Completed
+        step0Completed: store.step0Completed,
+        snapshots: useSnapshotStore.getState().snapshots,
       }
       window.api.draftSave(store.applicationId, state)
     }
