@@ -310,6 +310,7 @@ export function WizardPage() {
             </div>
             <div className="flex-1 p-6 overflow-y-auto space-y-4">
               <WizardStepper
+                vertical
                 currentStep={activeQuestion.currentStep}
                 step0Completed={step0Completed}
                 maxUnlockedStep={maxUnlockedStep}
