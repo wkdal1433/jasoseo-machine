@@ -487,7 +487,7 @@
   // 1-b 클릭: Gemini로 문항 분석 → 앱으로 전송 + 프로필 자동 입력
   extractBtn.onclick = async () => {
     extractBtn.disabled = true;
-    extractBtn.innerText = '⏳ AI 분석 중...';
+    extractBtn.innerText = '⏳ 분석 중...';
 
     try {
       const config = await chrome.storage.local.get(['bridgePort', 'bridgeSecret']);
@@ -620,20 +620,15 @@
         });
       });
 
-      // AI 폼 분석 + 프로필 매핑 분석 병렬 실행
-      // 프로필 매핑은 최대 40초 — 초과 시 그냥 건너뜀
-      const withTimeout = (promise, ms) => Promise.race([
-        promise,
-        new Promise(resolve => setTimeout(() => resolve({ success: false, error: 'timeout' }), ms))
-      ]);
+      // 문항 추출: DOM 룰 기반 (AI 없음 — 즉시 실행, 할루시네이션 없음)
+      const questions = extractCoverLetterQuestions();
 
-      const html = captureFormHtml();
-      const [profileRes, profileFillResult, analyzeResult] = await Promise.allSettled([
+      // 프로필 매핑 분석 (AI) + 프로필 조회 병렬 실행
+      const [profileRes, profileFillResult] = await Promise.allSettled([
         bridgePost(port, secret, '/get-profile').catch(() => null),
         formInputs.length > 0
           ? bridgePost(port, secret, '/analyze-profile-fill', { inputs: formInputs })
           : Promise.resolve({ success: false }),
-        bridgePost(port, secret, '/analyze-form', { html })
       ]);
 
       const profile = (profileRes.status === 'fulfilled' && profileRes.value?.success)
@@ -733,35 +728,19 @@
         }, 600);
       }
 
-      if (analyzeResult.status !== 'fulfilled' || !analyzeResult.value?.success) {
-        // AI 분석 실패 시 rule-based 폴백
-        console.warn('⚠️ AI 분석 실패, rule-based 폴백:', analyzeResult);
-        const questions = extractCoverLetterQuestions();
-        if (questions.length === 0) {
-          alert('자소서 입력창을 찾지 못했습니다.\n지원서 작성 페이지에서 눌러주세요.');
-          return;
-        }
-        const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions });
-        if (!result?.success) throw new Error(result?.error || '전송 실패');
-        extractBtn.innerText = `✅ ${questions.length}개 전송! (폴백)`;
-        return;
-      }
-
-      const questions = analyzeResult.value.questions; // [{question, charLimit, order}]
-      if (!questions || questions.length === 0) {
-        alert('자소서 문항을 찾지 못했습니다.\n지원서 작성 페이지에서 눌러주세요.');
-        return;
-      }
-
-      console.log('📋 AI 추출 문항:', questions);
-
-      // 앱으로 전송 (charLimit만 있으면 됨)
-      const toSend = questions.map(q => ({ question: q.question, charLimit: q.charLimit ?? null }));
-      const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
-      if (result?.success) {
-        extractBtn.innerText = `✅ ${questions.length}개 전송!`;
+      // 문항 전송
+      if (questions.length === 0) {
+        alert('자소서 입력창을 찾지 못했습니다.\n지원서 작성 페이지에서 눌러주세요.\n\n문항은 앱에서 직접 입력할 수 있습니다.');
+        // 프로필 채우기는 이미 진행됐으므로 중단하지 않음
       } else {
-        throw new Error(result?.error || '전송 실패');
+        console.log('📋 룰 기반 추출 문항:', questions);
+        const toSend = questions.map(q => ({ question: q.question, charLimit: q.charLimit ?? null }));
+        const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
+        if (result?.success) {
+          extractBtn.innerText = `✅ ${questions.length}개 전송!`;
+        } else {
+          throw new Error(result?.error || '전송 실패');
+        }
       }
     } catch (err) {
       const msg = err.message?.includes('Extension context invalidated')
