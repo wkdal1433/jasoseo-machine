@@ -3,6 +3,7 @@ jasoseo-machine/node_modules/
 
 # Build output
 jasoseo-machine/out/
+jasoseo-machine/dist-electron/
 
 # OS files
 .DS_Store
@@ -22,3 +23,33 @@ jasoseo-machine/dist/
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/
+
+# Personal documents (resumes, cover letters, etc.)
+*.pdf
+*.docx
+*.doc
+*.hwp
+*.pptx
+*.xlsx
+
+# Personal episode files
+episodes/
+ep_fixture_*.md
+ep0*.md
+MASTER_INDEX.md
+raw_experience.md
+
+# Session context (personal)
+docs/SESSION_CONTEXT.md
+
+# User data (generated at runtime)
+jasoseo-machine/data/
+jasoseo-machine/*.db
+jasoseo-machine/*.sqlite
+
+# Environment / secrets
+.env
+.env.local
+*.key
+*.secret

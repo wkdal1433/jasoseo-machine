@@ -66,7 +66,7 @@ ${cleanForm}
     { 
       "fieldName": "Name", 
       "selectors": ["#name", "input[name='user_name']"], 
-      "value": "장준수", 
+      "value": "홍길동",
       "type": "text", 
       "reason": "Direct match" 
     }

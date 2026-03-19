@@ -1,7 +1,9 @@
 {
   "name": "jasoseo-machine",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "자소서 머신 - AI 기반 자기소개서 생성 도구",
+  "author": "장준수 <wkdal1433@gmail.com>",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

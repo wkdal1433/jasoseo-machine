@@ -199,7 +199,7 @@ export function getUserProfile(): any | null {
 }
 
 export function saveUserProfile(profile: any): void {
-  // id가 없으면 생성 (기존 장준수 프로필 등 대응)
+  // id가 없으면 생성 (레거시 프로필 대응)
   if (!profile.id) {
     profile.id = profile.personal?.name || 'profile-' + Date.now()
   }

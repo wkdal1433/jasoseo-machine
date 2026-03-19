@@ -97,7 +97,15 @@ export function Sidebar() {
       {/* Utility nav — bottom */}
       <div className="border-t border-border p-3 space-y-0.5">
         {utilNavItems.map((item) => makeNavLink(item, true))}
-        <p className="pt-2 text-[10px] text-muted-foreground/50 text-center">v20.0.0 Stable</p>
+        <a
+          href="https://github.com/wkdal1433/jasoseo-machine"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block pt-2 text-[10px] text-muted-foreground/50 text-center hover:text-muted-foreground transition-colors"
+          onClick={(e) => { e.stopPropagation(); window.open('https://github.com/wkdal1433/jasoseo-machine', '_blank') }}
+        >
+          v2.0.0 · GitHub ↗
+        </a>
       </div>
     </aside>
   )
