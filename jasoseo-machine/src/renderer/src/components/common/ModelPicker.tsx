@@ -37,11 +37,14 @@ const RECOMMENDED: Record<string, string> = {
 interface Props {
   endpointKey: string
   className?: string
+  isRunning?: boolean
+  onCancelAndRestart?: () => void
 }
 
-export function ModelPicker({ endpointKey, className }: Props) {
+export function ModelPicker({ endpointKey, className, isRunning, onCancelAndRestart }: Props) {
   const [current, setCurrent] = useState<string>('')
   const [open, setOpen] = useState(false)
+  const [pendingRestart, setPendingRestart] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const recommended = RECOMMENDED[endpointKey] ?? 'gemini-2.5-flash'
 
@@ -61,9 +64,14 @@ export function ModelPicker({ endpointKey, className }: Props) {
   }, [])
 
   const handleSelect = async (value: string) => {
+    if (value === current) { setOpen(false); return }
     setCurrent(value)
     setOpen(false)
     await window.api.settingsSet(`model_ep_${endpointKey}`, value)
+    // 실행 중이고 재시작 콜백이 있으면 confirm 팝업 표시
+    if (isRunning && onCancelAndRestart) {
+      setPendingRestart(true)
+    }
   }
 
   const currentLabel = MODELS.find((m) => m.value === current)?.short ?? current
@@ -82,6 +90,29 @@ export function ModelPicker({ endpointKey, className }: Props) {
         {isRecommended && <Star size={10} className="text-yellow-500 fill-yellow-500" />}
         <span className="text-[8px] opacity-60">▾</span>
       </button>
+
+      {pendingRestart && (
+        <div className="absolute bottom-full left-0 z-50 mb-1 w-52 overflow-hidden rounded-xl border border-amber-300 bg-card shadow-xl animate-in zoom-in-95 duration-150 dark:border-amber-700">
+          <p className="px-3 py-2 text-[11px] text-foreground leading-relaxed">
+            AI 실행 중입니다.<br />
+            <span className="font-bold">{MODELS.find(m => m.value === current)?.short ?? current}</span>으로 중단 후 재시작할까요?
+          </p>
+          <div className="flex border-t border-border">
+            <button
+              onClick={() => { onCancelAndRestart?.(); setPendingRestart(false) }}
+              className="flex-1 px-3 py-2 text-[11px] font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950 transition-colors"
+            >
+              중단 후 재시작
+            </button>
+            <button
+              onClick={() => setPendingRestart(false)}
+              className="flex-1 px-3 py-2 text-[11px] text-muted-foreground hover:bg-muted border-l border-border transition-colors"
+            >
+              다음 실행에 적용
+            </button>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="absolute bottom-full left-0 z-50 mb-1 w-48 overflow-hidden rounded-xl border border-border bg-card shadow-xl animate-in zoom-in-95 duration-150">

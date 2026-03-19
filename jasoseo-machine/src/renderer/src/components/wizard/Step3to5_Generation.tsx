@@ -434,7 +434,11 @@ export function Step3to5Generation() {
             초안 생성하기
           </button>
           <div className="flex justify-end">
-            <ModelPicker endpointKey="cover_letter" />
+            <ModelPicker
+              endpointKey="cover_letter"
+              isRunning={isGenerating}
+              onCancelAndRestart={async () => { await cancelGeneration(); startGeneration() }}
+            />
           </div>
         </div>
       </div>
@@ -612,7 +616,11 @@ export function Step3to5Generation() {
               >
                 재생성
               </button>
-              <ModelPicker endpointKey="cover_letter" />
+              <ModelPicker
+                endpointKey="cover_letter"
+                isRunning={isGenerating}
+                onCancelAndRestart={async () => { await cancelGeneration(); startGeneration() }}
+              />
               {q.charLimit > 0 && (
                 <button
                   onClick={runShorten}

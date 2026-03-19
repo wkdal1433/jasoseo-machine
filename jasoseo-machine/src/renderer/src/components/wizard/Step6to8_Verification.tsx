@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useSnapshotStore } from '@/stores/snapshotStore'
 import { buildStep6to8Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
@@ -18,13 +18,24 @@ export function Step6to8Verification() {
   const { saveSnapshot } = useSnapshotStore()
 
   const [error, setError] = useState<string | null>(null)
+  const verifyProcessIdRef = useRef<string | null>(null)
 
   const q = questions[activeQuestionIndex]
   if (!q || !hrIntents || !strategy) return null
 
+  const cancelVerification = async () => {
+    if (verifyProcessIdRef.current) {
+      await window.api.claudeCancelById(verifyProcessIdRef.current)
+      verifyProcessIdRef.current = null
+    }
+    setIsVerifying(false)
+  }
+
   const runVerification = async () => {
     setIsVerifying(true)
     setError(null)
+    const pid = `proc_verify_${Date.now()}`
+    verifyProcessIdRef.current = pid
     try {
       const prompt = buildStep6to8Prompt(q.generatedText, q.approvedEpisodes, companyName, jobTitle, hrIntents, strategy)
       const verifyModel = await window.api.settingsGet('model_ep_verification') as string | null
@@ -33,7 +44,8 @@ export function Step6to8Verification() {
         outputFormat: 'json',
         maxTurns: 5,
         appendSystemPrompt: GUI_SYSTEM_PROMPT,
-        modelOverride: verifyModel || undefined
+        modelOverride: verifyModel || undefined,
+        processId: pid
       })
 
       let parsed: VerificationResult
@@ -54,6 +66,8 @@ export function Step6to8Verification() {
       )
     } catch (err) {
       setError((err as Error).message)
+    } finally {
+      verifyProcessIdRef.current = null
     }
     setIsVerifying(false)
   }
@@ -200,7 +214,11 @@ export function Step6to8Verification() {
               >
                 재검증
               </button>
-              <ModelPicker endpointKey="verification" />
+              <ModelPicker
+                endpointKey="verification"
+                isRunning={isVerifying}
+                onCancelAndRestart={async () => { await cancelVerification(); runVerification() }}
+              />
             </>
           )}
           <button
@@ -239,23 +257,28 @@ export function Step6to8Verification() {
           >
             이전 단계로
           </button>
-          <button
-            onClick={runVerification}
-            disabled={isVerifying}
-            className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
-          >
-            {isVerifying ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                검증 중...
-              </span>
-            ) : (
-              '검증 시작'
-            )}
-          </button>
+          {isVerifying ? (
+            <button
+              onClick={cancelVerification}
+              className="flex-1 rounded-xl border-2 border-red-300 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+            >
+              검증 중단
+            </button>
+          ) : (
+            <button
+              onClick={runVerification}
+              className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-all hover:opacity-90"
+            >
+              검증 시작
+            </button>
+          )}
         </div>
         <div className="flex justify-end">
-          <ModelPicker endpointKey="verification" />
+          <ModelPicker
+            endpointKey="verification"
+            isRunning={isVerifying}
+            onCancelAndRestart={async () => { await cancelVerification(); runVerification() }}
+          />
         </div>
       </div>
     </div>

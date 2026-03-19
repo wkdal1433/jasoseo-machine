@@ -6,7 +6,7 @@
  *
  * R3-4: 모든 문항 completed 상태일 때만 렌더링
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
@@ -99,6 +99,15 @@ export function ConsistencyChecker() {
   const [aiResult, setAiResult] = useState<AIConsistencyResult | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const checkProcessIdRef = useRef<string | null>(null)
+
+  const cancelAICheck = async () => {
+    if (checkProcessIdRef.current) {
+      await window.api.claudeCancelById(checkProcessIdRef.current)
+      checkProcessIdRef.current = null
+    }
+    setIsChecking(false)
+  }
 
   // R3-4: 모든 문항 completed여야 함
   const allCompleted = questions.every((q) => q.status === 'completed')
@@ -126,13 +135,15 @@ export function ConsistencyChecker() {
   const runAICheck = async () => {
     setIsChecking(true)
     setAiError(null)
+    const pid = `proc_consistency_${Date.now()}`
+    checkProcessIdRef.current = pid
     try {
       const prompt = buildConsistencyPrompt(
         companyName,
         questions.map((q) => ({ question: q.question, generatedText: q.generatedText }))
       )
       const consistencyModel = await window.api.settingsGet('model_ep_consistency_check') as string | null
-      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: consistencyModel || undefined })
+      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: consistencyModel || undefined, processId: pid })
       let parsed: AIConsistencyResult
       try {
         parsed = JSON.parse(raw)
@@ -144,6 +155,8 @@ export function ConsistencyChecker() {
       setAiResult(parsed)
     } catch (err) {
       setAiError((err as Error).message)
+    } finally {
+      checkProcessIdRef.current = null
     }
     setIsChecking(false)
   }
@@ -258,16 +271,21 @@ export function ConsistencyChecker() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ModelPicker endpointKey="consistency_check" />
-            <button
-              onClick={runAICheck}
-              disabled={isChecking}
-              className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
-            >
-              {isChecking
-                ? <><span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> 분석 중...</>
-                : <><Sparkles size={12} /> AI 분석 시작</>
-              }
-            </button>
+            {isChecking ? (
+              <button
+                onClick={cancelAICheck}
+                className="flex items-center gap-1.5 rounded-xl border-2 border-red-300 px-4 py-2 text-xs font-bold text-red-600 transition-all hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+              >
+                분석 중단
+              </button>
+            ) : (
+              <button
+                onClick={runAICheck}
+                className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-all hover:opacity-90"
+              >
+                <Sparkles size={12} /> AI 분석 시작
+              </button>
+            )}
           </div>
         </div>
 
