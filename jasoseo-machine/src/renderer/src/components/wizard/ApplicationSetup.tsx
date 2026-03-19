@@ -10,8 +10,17 @@ import {
   MousePointerClick,
   Puzzle,
   ClipboardList,
-  BookOpen
+  BookOpen,
+  Undo2
 } from 'lucide-react'
+
+interface FormSnapshot {
+  label: string
+  companyName: string
+  jobTitle: string
+  jobPosting: string
+  questions: QuestionInput[]
+}
 
 interface PatternRecord {
   id: string
@@ -58,6 +67,7 @@ export function ApplicationSetup() {
   const [selectedPatternIds, setSelectedPatternIds] = useState<string[]>([])
   const [showNoEpisodeWarning, setShowNoEpisodeWarning] = useState(false)
   const isRestored = useRef(false)
+  const [undoStack, setUndoStack] = useState<FormSnapshot[]>([])
 
   // 에피소드 로드 (0개 체크용)
   useEffect(() => { loadEpisodes() }, [])
@@ -113,6 +123,7 @@ export function ApplicationSetup() {
     if (!isWaitingExtraction) return
     const unsub = window.api.onQuestionsExtracted((extracted) => {
       if (extracted && extracted.length > 0) {
+        pushSnapshot('확장 프로그램 추출 이전')
         setQuestions(extracted.map((q) => ({ question: q.question, charLimit: q.charLimit ?? 800 })))
         setIsWaitingExtraction(false)
         if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
@@ -127,6 +138,22 @@ export function ApplicationSetup() {
       if (extractionTimerRef.current) clearTimeout(extractionTimerRef.current)
     }
   }, [isWaitingExtraction])
+
+  const pushSnapshot = (label: string) => {
+    setUndoStack((prev) => [...prev.slice(-4), { label, companyName, jobTitle, jobPosting, questions }])
+  }
+
+  const handleUndo = () => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev
+      const snap = prev[prev.length - 1]
+      setCompanyName(snap.companyName)
+      setJobTitle(snap.jobTitle)
+      setJobPosting(snap.jobPosting)
+      setQuestions(snap.questions)
+      return prev.slice(0, -1)
+    })
+  }
 
   const addQuestion = () => {
     setQuestions([...questions, { question: '', charLimit: 800 }])
@@ -170,6 +197,7 @@ export function ApplicationSetup() {
   }
 
   const applyJobOption = (company: string, job: JobOption) => {
+    pushSnapshot('스마트 자동완성 이전')
     setCompanyName(company)
     setJobTitle(job.jobTitle)
     setJobPosting(job.jobPosting)
@@ -344,6 +372,21 @@ export function ApplicationSetup() {
         </button>
         <h2 className="text-2xl font-bold">새 지원서 작성</h2>
       </div>
+
+      {/* 되돌리기 배너 */}
+      {undoStack.length > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-800 dark:bg-amber-950 animate-in slide-in-from-top-2 duration-200">
+          <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+            AI가 폼을 채웠습니다 — <span className="font-bold">{undoStack[undoStack.length - 1].label}</span>으로 되돌릴 수 있습니다
+          </span>
+          <button
+            onClick={handleUndo}
+            className="ml-4 flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 hover:bg-amber-200 transition-colors dark:border-amber-600 dark:bg-amber-900 dark:text-amber-300 shrink-0"
+          >
+            <Undo2 size={12} /> 되돌리기
+          </button>
+        </div>
+      )}
 
       <div className="space-y-5">
         {/* Company Info */}
