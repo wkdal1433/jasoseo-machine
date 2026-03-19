@@ -11,6 +11,7 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, AlertTriangle, XCircle, Sparkles, BarChart2 } from 'lucide-react'
+import { ModelPicker } from '@/components/common/ModelPicker'
 
 interface EpisodeUsage {
   episodeId: string
@@ -130,7 +131,8 @@ export function ConsistencyChecker() {
         companyName,
         questions.map((q) => ({ question: q.question, generatedText: q.generatedText }))
       )
-      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const consistencyModel = await window.api.settingsGet('model_ep_consistency_check') as string | null
+      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: consistencyModel || undefined })
       let parsed: AIConsistencyResult
       try {
         parsed = JSON.parse(raw)
@@ -254,16 +256,19 @@ export function ConsistencyChecker() {
             <p className="text-sm font-bold">AI 캐릭터 일관성 분석</p>
             <p className="text-xs text-muted-foreground mt-0.5">전체 문항 간 성격·가치관·경험 서술이 일관되는지 AI가 검토합니다</p>
           </div>
-          <button
-            onClick={runAICheck}
-            disabled={isChecking}
-            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50 shrink-0"
-          >
-            {isChecking
-              ? <><span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> 분석 중...</>
-              : <><Sparkles size={12} /> AI 분석 시작</>
-            }
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <ModelPicker endpointKey="consistency_check" />
+            <button
+              onClick={runAICheck}
+              disabled={isChecking}
+              className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+            >
+              {isChecking
+                ? <><span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> 분석 중...</>
+                : <><Sparkles size={12} /> AI 분석 시작</>
+              }
+            </button>
+          </div>
         </div>
 
         {aiError && (

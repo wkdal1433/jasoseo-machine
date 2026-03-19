@@ -135,6 +135,7 @@ export function EpisodeDiscoveryWizard({ onClose, initialEpisode }: Props) {
     setStep('interview')
     setIsAiAiTyping(true)
     try {
+      const interviewModel = await window.api.settingsGet('model_ep_episode_interview') as string | null
       const response = await window.api.claudeExecute({
         prompt: `당신은 자기소개서 코치입니다.
 
@@ -149,7 +150,8 @@ ${episode.rawContent.slice(0, 3000)}
 반드시 응답 끝에 다음 형식을 추가하세요:
 [SESSION_ANCHOR: MISSING={부족한_섹션명,콤마구분} | FILLED={완성된_섹션명,콤마구분}]
 예시: [SESSION_ANCHOR: MISSING=행동,분석,결과,학습 | FILLED=상황,문제]`,
-        maxTurns: 1
+        maxTurns: 1,
+        modelOverride: interviewModel || undefined
       })
       const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
       let cleanText = response
@@ -201,6 +203,7 @@ ${episode.rawContent.slice(0, 3000)}
       const stillMissing = missingMatch ? missingMatch[1].split(',').map(s => s.trim()).filter(Boolean) : []
       const allFilled = stillMissing.length === 0
 
+      const sendModel = await window.api.settingsGet('model_ep_episode_interview') as string | null
       const response = await window.api.claudeExecute({
         prompt: `당신은 자기소개서 인터뷰 코치입니다.
 
@@ -244,7 +247,8 @@ ${allFilled
 응답 끝에 반드시 추가:
 [SESSION_ANCHOR: MISSING={아직_부족한_섹션,콤마구분} | FILLED={완성된_섹션,콤마구분}]
 모든 섹션이 완성되어 마크다운을 출력하는 경우: [SESSION_ANCHOR: MISSING= | FILLED=상황,문제,행동,분석,결과,학습]`,
-        maxTurns: 1
+        maxTurns: 1,
+        modelOverride: sendModel || undefined
       })
       const anchorMatch = response.match(/\[SESSION_ANCHOR: (.*?)\]/)
       let cleanText = response
@@ -508,7 +512,8 @@ ${allFilled
                   className="w-full bg-transparent py-1 text-sm outline-none resize-none overflow-y-auto leading-relaxed"
                   style={{ maxHeight: '160px' }}
                 />
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <ModelPicker endpointKey="episode_interview" />
                   <button onClick={handleSendMessage} disabled={!input.trim() || isAiTyping} className="rounded-2xl bg-primary px-8 py-2 text-sm font-bold text-primary-foreground shadow-md transition-all active:scale-95 disabled:opacity-50">전송</button>
                 </div>
               </div>

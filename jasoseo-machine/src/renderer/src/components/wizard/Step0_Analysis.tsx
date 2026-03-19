@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useEpisodeStore } from '@/stores/episodeStore'
 import { buildStep0Prompt, GUI_SYSTEM_PROMPT } from '@/lib/prompt-builder'
+import { ModelPicker } from '@/components/common/ModelPicker'
 import type { HRIntentItem, Strategy, RecruitmentContext } from '@/types/application'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, Globe, Search, Link, Lightbulb, AlertTriangle, Target, ChevronDown } from 'lucide-react'
@@ -87,11 +88,13 @@ export function Step0Analysis() {
         questions.map((q) => ({ question: q.question, charLimit: q.charLimit })),
         strategy || undefined
       )
+      const step0Model = await window.api.settingsGet('model_ep_step0_analysis') as string | null
       const raw = await window.api.claudeExecute({
         prompt,
         outputFormat: 'json',
         maxTurns: 5,
-        appendSystemPrompt: GUI_SYSTEM_PROMPT
+        appendSystemPrompt: GUI_SYSTEM_PROMPT,
+        modelOverride: step0Model || undefined
       })
 
       let parsed: { hrIntents: HRIntentItem[]; strategy: Strategy; alternativeIntents?: HRIntentItem[]; strategyConfidence?: number }
@@ -403,6 +406,9 @@ export function Step0Analysis() {
           </div>
         )}
 
+        <div className="flex justify-end mb-1">
+          <ModelPicker endpointKey="step0_analysis" />
+        </div>
         <button
           onClick={runAnalysis}
           disabled={isAnalyzing || !recruitmentContext?.isConfirmed}

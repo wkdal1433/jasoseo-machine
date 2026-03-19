@@ -5,6 +5,7 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { buildSurgicalEditPrompt } from '@/lib/prompt-builder'
+import { ModelPicker } from '@/components/common/ModelPicker'
 import { ConsistencyChecker } from './ConsistencyChecker'
 import { cn } from '@/lib/utils'
 import { 
@@ -45,15 +46,16 @@ export function FullReview() {
   // 부분 수술 실행 (v21.4)
   const runSurgicalEdit = async () => {
     if (!selectedRange || !surgicalInput.trim() || isSurgicalEditing) return
-    
+
     setIsSurgicalEditing(true)
     const { qIdx, start, end } = selectedRange
     const fullText = localTexts[qIdx]
     const targetSection = fullText.slice(start, end)
-    
+
     try {
       const prompt = buildSurgicalEditPrompt(fullText, targetSection, surgicalInput, strategy || 'Balanced')
-      const response = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const surgicalModel = await window.api.settingsGet('model_ep_surgical_edit') as string | null
+      const response = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: surgicalModel || undefined })
       
       const newFullText = fullText.slice(0, start) + response.trim() + fullText.slice(end)
       handleUpdateText(qIdx, newFullText)
@@ -196,14 +198,15 @@ export function FullReview() {
                 {/* Surgical Edit Floating UI */}
                 {selectedRange?.qIdx === i && (
                   <div className="absolute top-[-50px] right-0 flex items-center gap-2 animate-in zoom-in-95 duration-200 bg-card border border-primary/20 p-2 rounded-xl shadow-2xl z-20">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={surgicalInput}
                       onChange={(e) => setSurgicalInput(e.target.value)}
                       placeholder="선택한 부분만 어떻게 고칠까요?"
                       className="w-64 bg-muted/50 border-none px-3 py-1.5 text-xs rounded-lg outline-none focus:ring-1 focus:ring-primary/30"
                     />
-                    <button 
+                    <ModelPicker endpointKey="surgical_edit" />
+                    <button
                       onClick={runSurgicalEdit}
                       disabled={!surgicalInput.trim() || isSurgicalEditing}
                       className="bg-primary text-white text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"

@@ -3,6 +3,7 @@ import { useWizardStore } from '@/stores/wizardStore'
 import { CharacterCounter } from '@/components/common/CharacterCounter'
 import { CopyButton } from '@/components/common/CopyButton'
 import { buildHeadlineGradePrompt } from '@/lib/prompt-builder'
+import { ModelPicker } from '@/components/common/ModelPicker'
 import { cn } from '@/lib/utils'
 import { Pencil, Star, RefreshCw } from 'lucide-react'
 
@@ -54,7 +55,8 @@ export function FinalResult() {
     setIsGrading(true)
     try {
       const prompt = buildHeadlineGradePrompt(headline, jobTitle, companyName)
-      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1 })
+      const headlineModel = await window.api.settingsGet('model_ep_headline_grade') as string | null
+      const raw = await window.api.claudeExecute({ prompt, outputFormat: 'json', maxTurns: 1, modelOverride: headlineModel || undefined })
       const match = raw.match(/\{[\s\S]*\}/)
       if (match) setHeadlineGrade(JSON.parse(match[0]) as HeadlineGradeResult)
     } catch { /* ignore */ } finally {
@@ -140,13 +142,16 @@ export function FinalResult() {
             <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
               <Star size={12} /> 소제목 품질 등급
             </span>
-            <button
-              onClick={runHeadlineGrade}
-              disabled={isGrading}
-              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
-            >
-              {isGrading ? <><RefreshCw size={10} className="animate-spin" /> 평가 중...</> : '평가하기'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <ModelPicker endpointKey="headline_grade" />
+              <button
+                onClick={runHeadlineGrade}
+                disabled={isGrading}
+                className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
+              >
+                {isGrading ? <><RefreshCw size={10} className="animate-spin" /> 평가 중...</> : '평가하기'}
+              </button>
+            </div>
           </div>
           {headlineGrade && (
             <div className="space-y-1.5">

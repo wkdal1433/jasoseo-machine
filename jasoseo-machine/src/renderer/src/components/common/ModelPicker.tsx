@@ -3,25 +3,35 @@ import { Settings, Check, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const MODELS = [
-  { value: 'opus',                    label: 'Claude Opus',         short: 'Opus'       },
-  { value: 'sonnet',                  label: 'Claude Sonnet',       short: 'Sonnet'     },
-  { value: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro',      short: 'G 2.5 Pro'  },
-  { value: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash',    short: 'G 2.5 Flash'},
-  { value: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', short: 'G Flash Lite' },
+  { value: 'opus',                      label: 'Claude Opus',              short: 'Opus'        },
+  { value: 'sonnet',                    label: 'Claude Sonnet',            short: 'Sonnet'      },
+  { value: 'gemini-3.1-pro-preview',    label: 'Gemini 3.1 Pro Preview',   short: 'G 3.1 Pro'   },
+  { value: 'gemini-3.0-pro',            label: 'Gemini 3.0 Pro',           short: 'G 3.0 Pro'   },
+  { value: 'gemini-2.5-pro',            label: 'Gemini 2.5 Pro',           short: 'G 2.5 Pro'   },
+  { value: 'gemini-2.5-flash',          label: 'Gemini 2.5 Flash',         short: 'G 2.5 Flash' },
+  { value: 'gemini-2.5-flash-lite',     label: 'Gemini 2.5 Flash Lite',    short: 'G 2.5 Lite'  },
+  { value: 'gemini-2.0-flash',          label: 'Gemini 2.0 Flash',         short: 'G 2.0 Flash' },
 ] as const
 
 const RECOMMENDED: Record<string, string> = {
-  cover_letter:    'opus',
-  company_analyze: 'gemini-2.5-pro',
-  onboarding_parse:'gemini-2.5-pro',
-  step1_reframe:   'gemini-2.5-pro',
-  verification:    'gemini-2.5-flash',
-  ep_suggest:      'gemini-2.5-flash',
-  web_fetch:       'gemini-2.5-flash',
-  pattern_analyze: 'gemini-2.5-flash',
-  form_analyze:    'gemini-2.5-flash-lite',
-  profile_fill:    'gemini-2.5-flash-lite',
-  form_extract:    'gemini-2.5-flash-lite',
+  cover_letter:       'opus',
+  company_analyze:    'gemini-2.5-pro',
+  step0_analysis:     'gemini-2.5-pro',
+  onboarding_parse:   'gemini-3.1-pro-preview',
+  step1_reframe:      'gemini-2.5-pro',
+  verification:       'gemini-2.5-flash',
+  consistency_check:  'gemini-2.5-flash',
+  headline_grade:     'gemini-2.5-flash',
+  surgical_edit:      'gemini-2.5-flash',
+  episode_edit:       'gemini-2.5-flash',
+  episode_interview:  'gemini-2.5-flash',
+  onboarding_interview: 'gemini-2.5-flash',
+  ep_suggest:         'gemini-2.5-flash',
+  web_fetch:          'gemini-2.5-flash',
+  pattern_analyze:    'gemini-2.5-flash',
+  form_analyze:       'gemini-2.5-flash-lite',
+  profile_fill:       'gemini-2.5-flash-lite',
+  form_extract:       'gemini-2.5-flash-lite',
 }
 
 interface Props {

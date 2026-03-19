@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Episode } from '@/types/episode'
 import { ClipboardList, Sparkles, CheckCircle2, History, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ModelPicker } from '@/components/common/ModelPicker'
 
 interface UsageRecord { appId: string; companyName: string; questionNumber: number; question: string; finalText: string | null }
 
@@ -153,11 +154,13 @@ ${instruction.trim()}
 수정된 마크다운 전문만 출력하세요. 설명이나 주석을 추가하지 마세요.
 출력은 반드시 \`# Episode\`로 시작하는 마크다운이어야 합니다.`
 
+      const editModel = await window.api.settingsGet('model_ep_episode_edit') as string | null
       const result = await window.api.claudeExecute({
         prompt,
         outputFormat: 'text',
         maxTurns: 3,
         processId: pid,
+        modelOverride: editModel || undefined,
       })
 
       if (!result || typeof result !== 'string') throw new Error('AI 응답이 비어있습니다.')
@@ -329,13 +332,16 @@ ${instruction.trim()}
                 />
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] text-muted-foreground">Ctrl+Enter로 전송</p>
-                  <button
-                    onClick={handleAiEdit}
-                    disabled={!instruction.trim()}
-                    className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity"
-                  >
-                    <Sparkles size={14} className="inline mr-1" /> AI에게 수정 요청
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <ModelPicker endpointKey="episode_edit" />
+                    <button
+                      onClick={handleAiEdit}
+                      disabled={!instruction.trim()}
+                      className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity"
+                    >
+                      <Sparkles size={14} className="inline mr-1" /> AI에게 수정 요청
+                    </button>
+                  </div>
                 </div>
                 {editState === 'error' && (
                   <div className="flex items-center gap-2">

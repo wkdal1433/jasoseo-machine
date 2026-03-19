@@ -177,9 +177,11 @@ export function MagicOnboarding({ onClose }: Props) {
     setIsAiAiTyping(true)
     try {
       const ep = result!.episodes[activeInterviewIndex]
+      const onboardingInterviewModel = await window.api.settingsGet('model_ep_onboarding_interview') as string | null
       const response = await window.api.claudeExecute({
         prompt: `에피소드 인터뷰 중...\n[대상]: ${ep.title}\n[기존]: ${ep.content}\n[대화]: ${interviewMessages.map(m => `${m.role}: ${m.content}`).join('\n')}\nuser: ${userMsg}`,
-        maxTurns: 1
+        maxTurns: 1,
+        modelOverride: onboardingInterviewModel || undefined,
       })
       setMessages((prev) => [...prev, { role: 'ai', content: response }])
       if (response.includes('```markdown')) {
