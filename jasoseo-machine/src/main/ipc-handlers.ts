@@ -404,48 +404,169 @@ if (IPC.EPISODE_SUGGEST_IDEAS) {
       })
 
       // SPA 렌더링 완료까지 폴링 (최대 10초, 500ms 간격)
-      let rawText = ''
+      // 2단계 추출: Stage1(DOM 구조 기반) → Stage2(AI 정제)
+      let extractedJson = ''
       for (let i = 0; i < 20; i++) {
         await new Promise((r) => setTimeout(r, 500))
-        const content: string = await win.webContents.executeJavaScript(`
+        const result: string = await win.webContents.executeJavaScript(`
           (function() {
-            var clone = document.body ? document.body.cloneNode(true) : null
-            if (!clone) return ''
-            clone.querySelectorAll('script,style').forEach(function(el) { el.remove() })
-            return clone.innerText || ''
+            try {
+              var structuredQuestions = [];
+              var allText = '';
+
+              // ── 탐색 대상: 메인 document + 접근 가능한 iframe ──────────────
+              var docs = [document];
+              try {
+                document.querySelectorAll('iframe').forEach(function(iframe) {
+                  try {
+                    if (iframe.contentDocument && iframe.contentDocument.body) {
+                      docs.push(iframe.contentDocument);
+                    }
+                  } catch(e) {} // cross-origin iframe은 건너뜀
+                });
+              } catch(e) {}
+
+              // ── Stage1: textarea 앵커 기반 구조화 문항 추출 ────────────────
+              docs.forEach(function(doc) {
+                doc.querySelectorAll('textarea').forEach(function(ta) {
+                  var label = '';
+                  var charLimit = null;
+
+                  // maxlength 속성에서 글자수 추출
+                  var maxLen = ta.getAttribute('maxlength');
+                  if (maxLen) charLimit = parseInt(maxLen);
+                  var dataMax = ta.dataset && (ta.dataset.maxlength || ta.dataset.max || ta.dataset.limit);
+                  if (dataMax && !charLimit) charLimit = parseInt(dataMax);
+
+                  // label[for=id] 방식
+                  var id = ta.id || ta.name;
+                  if (id) {
+                    var lbl = doc.querySelector('label[for="' + id + '"]');
+                    if (lbl) label = lbl.innerText.trim();
+                  }
+
+                  // 부모 컨테이너에서 label 텍스트 추출
+                  if (!label) {
+                    var parent = ta.closest('.form-item, .input-wrap, .cover-item, .apply-item, .question-item, .essay-wrap, .essay-item, .cover-area, li, tr, dl');
+                    if (!parent && ta.parentElement) parent = ta.parentElement.parentElement;
+                    if (parent) {
+                      var clone = parent.cloneNode(true);
+                      clone.querySelectorAll('textarea, input, button, .byte, .count, .limit, .byte-wrap, .guide, .tip, .info, small').forEach(function(el) { el.remove(); });
+                      var txt = clone.innerText.replace(/\\s+/g, ' ').trim();
+                      // 순수 숫자/byte 안내문이 아닌 경우만 label로 사용
+                      if (txt && txt.length > 3 && !/^[\\d,\\s자바이트byte%()]+$/.test(txt)) {
+                        label = txt.slice(0, 300);
+                      }
+                    }
+                  }
+
+                  if (label && label.length > 3) {
+                    structuredQuestions.push({ label: label.trim(), charLimit: charLimit });
+                  }
+                });
+              });
+
+              // ── Stage1 보완: contenteditable div 기반 (일부 공공기관 포털) ──
+              if (structuredQuestions.length === 0) {
+                docs.forEach(function(doc) {
+                  doc.querySelectorAll('[contenteditable="true"]').forEach(function(div) {
+                    var parent = div.closest('.question-wrap, .essay-item, .cover-item, li, tr, div');
+                    if (parent) {
+                      var clone = parent.cloneNode(true);
+                      clone.querySelectorAll('[contenteditable]').forEach(function(el) { el.remove(); });
+                      var label = clone.innerText.replace(/\\s+/g, ' ').trim();
+                      if (label && label.length > 3) {
+                        structuredQuestions.push({ label: label.slice(0, 300), charLimit: null });
+                      }
+                    }
+                  });
+                });
+              }
+
+              // ── 공통: 노이즈 제거 후 전체 텍스트 추출 (회사명·직무 파악용) ──
+              docs.forEach(function(doc) {
+                var body = doc.body ? doc.body.cloneNode(true) : null;
+                if (!body) return;
+                body.querySelectorAll([
+                  'script','style','noscript','nav','header','footer','aside',
+                  '.gnb','.lnb','.snb','.header','.footer','.sidebar',
+                  '.advertisement','.banner','.popup','.modal-backdrop',
+                  '[class*="nav"]','[class*="header"]','[class*="footer"]',
+                  '[id*="nav"]','[id*="header"]','[id*="footer"]'
+                ].join(',')).forEach(function(el) { el.remove(); });
+                var t = body.innerText.replace(/\\s{3,}/g, '\\n').trim();
+                if (t.length > allText.length) allText = t;
+              });
+
+              return JSON.stringify({
+                mode: structuredQuestions.length > 0 ? 'structured' : 'fallback',
+                questions: structuredQuestions,
+                text: allText   // 길이 제한 없음
+              });
+            } catch(e) {
+              return JSON.stringify({
+                mode: 'error',
+                questions: [],
+                text: document.body ? document.body.innerText.slice(0, 30000) : ''
+              });
+            }
           })()
         `)
-        if (content.replace(/\s/g, '').length > 300) {
-          rawText = content
+        const parsed = JSON.parse(result)
+        if (parsed.text.replace(/\s/g, '').length > 300 || parsed.questions.length > 0) {
+          extractedJson = result
           break
         }
       }
 
-      if (!rawText) throw new Error('페이지 콘텐츠를 불러오지 못했습니다. 직접 입력 모드를 이용해 주세요.')
+      if (!extractedJson) throw new Error('페이지 콘텐츠를 불러오지 못했습니다. 직접 입력 모드를 이용해 주세요.')
 
-      // 공백 정리 + 최대 10000자
-      const text = rawText
-        .replace(/\s{3,}/g, '\n')
-        .trim()
-        .slice(0, 10000)
-      const prompt = `다음은 채용공고 페이지의 텍스트입니다. JSON 형식으로 정보를 추출해주세요.
+      const extracted = JSON.parse(extractedJson)
+      const pageText = (extracted.text || '').replace(/\s{3,}/g, '\n').trim()
 
-[페이지 텍스트]
-${text}
+      // ── Stage2: 추출 결과에 따라 프롬프트 분기 ────────────────────────────
+      let prompt: string
+      if (extracted.mode === 'structured' && extracted.questions.length > 0) {
+        // 문항을 DOM에서 직접 찾은 경우 → AI는 회사명/직무만 추출
+        const qList = extracted.questions
+          .map((q: any, i: number) => `${i + 1}. "${q.label}"${q.charLimit ? ` (${q.charLimit}자)` : ''}`)
+          .join('\n')
+        prompt = `다음은 채용공고 페이지에서 추출한 정보입니다. JSON 형식으로 정리해주세요.
+
+[자소서 문항 목록 — DOM에서 직접 추출됨, 수정 금지]
+${qList}
+
+[페이지 텍스트 — 회사명·직무명 파악용]
+${pageText.slice(0, 8000)}
 
 ## 출력 규칙 (반드시 준수)
-1. 순수 JSON만 출력 (설명, 마크다운 코드블록 금지)
+1. 순수 JSON만 출력 (마크다운 코드블록 금지)
+2. questions 배열은 위 [자소서 문항 목록]을 그대로 사용 (추가·수정·삭제 금지)
+3. charLimit은 정수 또는 null (텍스트 형태 금지)
+4. jobs 배열에 각 직무를 별개 객체로 분리
+
+## 출력 예시
+{"companyName":"현대자동차","jobs":[{"jobTitle":"SW개발","jobPosting":"...요약...","questions":[{"question":"지원동기를 서술하시오","charLimit":800},{"question":"본인의 강점을 기술하시오","charLimit":500}]}]}`
+      } else {
+        // 문항 DOM을 못 찾은 경우 → AI가 전체 텍스트에서 추출
+        prompt = `다음은 채용공고 페이지의 텍스트입니다. JSON 형식으로 정보를 추출해주세요.
+
+[페이지 텍스트]
+${pageText}
+
+## questions 필드 추출 규칙 (엄격 준수)
+- 포함: 지원자에게 서술을 요청하는 질문 문장만 (예: "지원동기를 서술하시오", "본인의 강점을 기술해 주세요")
+- 제외: "최대 N자", "공백 포함", "N바이트 이내", "필수 입력", 버튼 텍스트, 섹션 제목
+- charLimit: 숫자만 (예: 500). 없으면 null. 절대 "500자" 형태 금지
+
+## 출력 규칙
+1. 순수 JSON만 출력 (마크다운 코드블록 금지)
 2. jobs 배열에 각 직무를 별개 객체로 분리 (여러 직무를 하나로 합치지 말 것)
-3. 직무가 5개면 jobs 배열 원소도 5개
 
-## 출력 형식 예시 (직무 3개인 경우)
-{"companyName":"현대자동차","jobs":[{"jobTitle":"SW개발","jobPosting":"...요약...","questions":[]},{"jobTitle":"HW개발","jobPosting":"...요약...","questions":[]},{"jobTitle":"AI연구","jobPosting":"...요약...","questions":[{"question":"지원동기를 서술하시오","charLimit":800}]}]}
+## 출력 예시
+{"companyName":"현대자동차","jobs":[{"jobTitle":"SW개발","jobPosting":"...요약...","questions":[{"question":"지원동기를 서술하시오","charLimit":800},{"question":"성장과정을 기술하시오","charLimit":500}]},{"jobTitle":"HW개발","jobPosting":"...요약...","questions":[]}]}`
+      }
 
-## 필드 설명
-- companyName: 기업명
-- jobs[].jobTitle: 직무명 (하나의 직무만, 다른 직무와 합치지 말 것)
-- jobs[].jobPosting: 해당 직무의 채용공고 요약 (자격요건, 우대사항, 인재상 포함)
-- jobs[].questions: 자소서 문항 배열 (없으면 빈 배열 [])`
       const aiResponse = await executeClaudePrompt({ prompt, outputFormat: 'json', maxTurns: 3, modelOverride: getSetting('model_ep_web_fetch') || undefined })
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('AI 분석 실패')
