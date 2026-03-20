@@ -171,9 +171,9 @@ export function ApplicationSetup() {
   }
 
   const canSubmit =
-    companyName.trim() &&
-    jobTitle.trim() &&
-    jobPosting.trim() &&
+    companyName?.trim() &&
+    jobTitle?.trim() &&
+    jobPosting?.trim() &&
     questions.every((q) => q.question?.trim() && q.charLimit > 0)
 
   const handleSubmit = () => {
@@ -198,11 +198,11 @@ export function ApplicationSetup() {
 
   const applyJobOption = (company: string, job: JobOption) => {
     pushSnapshot('스마트 자동완성 이전')
-    setCompanyName(company)
-    setJobTitle(job.jobTitle)
-    setJobPosting(job.jobPosting)
+    setCompanyName(company ?? '')
+    setJobTitle(job.jobTitle ?? '')
+    setJobPosting(job.jobPosting ?? '')
     if (job.questions && job.questions.length > 0) {
-      setQuestions(job.questions.map((q) => ({ question: q.question, charLimit: q.charLimit || 800 })))
+      setQuestions(job.questions.map((q) => ({ question: q.question ?? '', charLimit: q.charLimit || 800 })))
     }
     setMode('manual')
   }
