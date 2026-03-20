@@ -3,7 +3,7 @@ import { useEpisodeStore } from '@/stores/episodeStore'
 import { EpisodeDiscoveryWizard } from './EpisodeDiscoveryWizard'
 import { EpisodeDetailModal } from './EpisodeDetailModal'
 import type { Episode, EpisodeStatus } from '@/types/episode'
-import { Sparkles, Calendar, User, Pencil } from 'lucide-react'
+import { Sparkles, Calendar, User, Pencil, FileText } from 'lucide-react'
 
 const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }> = {
   ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
@@ -16,6 +16,8 @@ export function EpisodeListPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [refineEpisode, setRefineEpisode] = useState<Episode | null>(null) // 보강 모드
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null)
+  const [mdImportStatus, setMdImportStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [mdImportCount, setMdImportCount] = useState(0)
 
   useEffect(() => {
     loadEpisodes()
@@ -39,6 +41,37 @@ export function EpisodeListPage() {
     }
   }
 
+  const handleMdImport = async () => {
+    const filePath = await window.api.selectFile([{ name: 'Markdown 파일', extensions: ['md'] }])
+    if (!filePath) return
+    const content = await window.api.readMd(filePath as string)
+    if (!content) { alert('파일을 읽을 수 없습니다.'); return }
+    setMdImportStatus('loading')
+    try {
+      const response = await window.api.onboardingParseFile(content)
+      if (!response.success || !response.data?.episodes?.length) throw new Error('에피소드 추출 실패')
+      const result = response.data
+      for (let i = 0; i < result.episodes.length; i++) {
+        const ep = result.episodes[i]
+        const slug = (ep.title || '').replace(/[^\w가-힣\s]/g, '').replace(/\s+/g, '_').slice(0, 30) || `ep${i + 1}`
+        const fileName = `ep_md_${Date.now()}_${i}_${slug}.md`
+        const metaLines: string[] = []
+        if ((ep as any).organization) metaLines.push(`| **조직** | ${(ep as any).organization} |`)
+        if ((ep as any).period)       metaLines.push(`| **기간** | ${(ep as any).period} |`)
+        if ((ep as any).role)         metaLines.push(`| **역할** | ${(ep as any).role} |`)
+        const metaTable = metaLines.length > 0 ? `\n| 항목 | 내용 |\n|------|------|\n${metaLines.join('\n')}\n` : ''
+        await window.api.episodeSaveFile(fileName, `# Episode ${i + 1}. ${ep.title || slug}\n${metaTable}\n${ep.content}`)
+      }
+      setMdImportCount(result.episodes.length)
+      setMdImportStatus('done')
+      loadEpisodes()
+      setTimeout(() => setMdImportStatus('idle'), 4000)
+    } catch {
+      setMdImportStatus('error')
+      setTimeout(() => setMdImportStatus('idle'), 3000)
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -46,12 +79,26 @@ export function EpisodeListPage() {
           <h2 className="text-2xl font-bold">에피소드 관리</h2>
           <p className="text-sm text-muted-foreground mt-1">당신의 경험을 자산화하여 AI에게 학습시키세요.</p>
         </div>
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95"
-        >
-          <Sparkles size={16} className="inline mr-1" /> 새 에피소드 발굴하기
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleMdImport}
+            disabled={mdImportStatus === 'loading'}
+            className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all flex items-center gap-2 disabled:opacity-50"
+            title="MD 파일에서 에피소드 가져오기"
+          >
+            <FileText size={15} />
+            {mdImportStatus === 'loading' ? 'AI 분석 중...' :
+             mdImportStatus === 'done' ? `✓ ${mdImportCount}개 저장됨` :
+             mdImportStatus === 'error' ? '오류 발생' :
+             'MD로 가져오기'}
+          </button>
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95"
+          >
+            <Sparkles size={16} className="inline mr-1" /> 새 에피소드 발굴하기
+          </button>
+        </div>
       </div>
 
       {/* 카드 목록 영역 — isLoading 전환 시 마법사/모달이 unmount되지 않도록 분리 */}

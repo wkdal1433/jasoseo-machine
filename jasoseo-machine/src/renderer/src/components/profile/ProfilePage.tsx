@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import { useProfileStore } from '../../stores/profileStore'
 import {
@@ -45,6 +46,8 @@ export function ProfilePage() {
   const renameInputRef = useRef<HTMLInputElement>(null)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
+  const [welcomeName, setWelcomeName] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => { loadProfile() }, [])
 
@@ -119,10 +122,12 @@ export function ProfilePage() {
 
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return
-    await createProfile(newProfileName.trim())
+    const name = newProfileName.trim()
+    await createProfile(name)
     await loadProfilesList()
     setNewProfileName('')
     setIsCreatingProfile(false)
+    setWelcomeName(name)
   }
 
   const handleSwitch = async (id: string) => {
@@ -226,6 +231,33 @@ export function ProfilePage() {
 
   return (
     <div className="flex h-full flex-col p-6">
+      {/* Welcome Banner — 새 프로필 생성 직후 */}
+      {welcomeName && (
+        <div className="fixed bottom-6 right-6 z-[300] flex items-start gap-3 rounded-2xl border border-primary/20 bg-white/95 dark:bg-zinc-900/95 shadow-xl backdrop-blur-sm px-5 py-4 max-w-sm">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              <span className="text-primary">{welcomeName}</span>님, 새로운 프로필을 만드셨네요! 🎉
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              온보딩 기능을 이용해서 프로필과 에피소드를 채워보세요.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => { setWelcomeName(null); navigate('/onboarding') }}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                ✨ 온보딩 시작
+              </button>
+              <button
+                onClick={() => setWelcomeName(null)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Profile Selector */}
       <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm">
         {/* Row 1: Active profile selector + Save CTA */}
