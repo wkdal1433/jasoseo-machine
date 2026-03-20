@@ -1,6 +1,65 @@
 (async function() {
   console.log('%c🧙‍♂️ Jasoseo Machine: Hands of God Active', 'color: #4f46e5; font-weight: bold;');
 
+  // ── 진행 오버레이 ──────────────────────────────────────────────────
+  let _overlay = null;
+  let _progressBar = null;
+  let _stepEl = null;
+  let _countEl = null;
+  let _detailEl = null;
+
+  function createProgressOverlay() {
+    if (_overlay) return;
+    _overlay = document.createElement('div');
+    Object.assign(_overlay.style, {
+      position: 'fixed', bottom: '24px', right: '24px', zIndex: '2147483647',
+      background: 'rgba(17,24,39,0.96)', color: '#f9fafb', borderRadius: '12px',
+      padding: '14px 18px', minWidth: '230px', maxWidth: '280px',
+      fontFamily: 'system-ui, sans-serif', fontSize: '13px', lineHeight: '1.5',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+      transition: 'opacity .3s',
+    });
+    _overlay.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:16px;">🧙</span>
+        <span style="font-weight:700;font-size:13px;color:#a5b4fc;">자소서 머신</span>
+      </div>
+      <div id="jm-step" style="color:#e0e7ff;margin-bottom:6px;">준비 중...</div>
+      <div style="background:#374151;border-radius:99px;height:6px;overflow:hidden;margin-bottom:6px;">
+        <div id="jm-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:99px;transition:width .4s ease;"></div>
+      </div>
+      <div id="jm-count" style="color:#9ca3af;font-size:11px;"></div>
+      <div id="jm-detail" style="color:#6b7280;font-size:10px;margin-top:2px;min-height:12px;"></div>
+    `;
+    document.body.appendChild(_overlay);
+    _stepEl = _overlay.querySelector('#jm-step');
+    _progressBar = _overlay.querySelector('#jm-bar');
+    _countEl = _overlay.querySelector('#jm-count');
+    _detailEl = _overlay.querySelector('#jm-detail');
+  }
+
+  function updateProgress(step, pct, count, detail) {
+    if (!_overlay) createProgressOverlay();
+    if (_stepEl) _stepEl.textContent = step;
+    if (_progressBar) _progressBar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+    if (_countEl) _countEl.textContent = count || '';
+    if (_detailEl) _detailEl.textContent = detail || '';
+  }
+
+  function finishProgress(success, summary) {
+    if (!_overlay) return;
+    if (_stepEl) _stepEl.textContent = success ? '✅ 완료' : '❌ 실패';
+    if (_progressBar) _progressBar.style.width = '100%';
+    if (_progressBar) _progressBar.style.background = success ? 'linear-gradient(90deg,#10b981,#34d399)' : '#ef4444';
+    if (_countEl) _countEl.textContent = summary || '';
+    if (_detailEl) _detailEl.textContent = '';
+    setTimeout(() => { if (_overlay) { _overlay.style.opacity = '0'; setTimeout(() => { _overlay?.remove(); _overlay = null; }, 400); } }, 4000);
+  }
+
+  function destroyProgress() {
+    if (_overlay) { _overlay.remove(); _overlay = null; }
+  }
+
   // HMAC 서명 생성 헬퍼
   async function makeSignature(secret, body = {}) {
     const timestamp = Date.now().toString();
@@ -425,7 +484,7 @@
       node = node.parentElement;
     }
     // 5) placeholder 폴백 — 질문 텍스트가 placeholder에만 있는 경우
-    if (el.placeholder && el.placeholder.length > 15 && !skipPattern.test(el.placeholder)) {
+    if (el.placeholder && el.placeholder.length > 5 && !skipPattern.test(el.placeholder)) {
       return el.placeholder;
     }
     return '';
@@ -459,8 +518,12 @@
 
       const charLimit = nearbyLimit ?? maxLen;
 
-      const labelText = findLabelText(ta);
-      if (!labelText) return;
+      let labelText = findLabelText(ta);
+      // 라벨 없으면 placeholder 폴백, 그것도 없으면 인덱스 기반 기본값
+      if (!labelText) {
+        if (ta.placeholder && ta.placeholder.length > 5) labelText = ta.placeholder;
+        else labelText = `자기소개서 항목 ${questions.length + 1}`;
+      }
       // 글자수 안내문이 질문으로 오인된 경우 최종 차단
       // 전략: 괄호 안의 글자수 안내 "(최소 N자 ~ 최대 N자)" 를 먼저 제거한 후 남은 텍스트로 판단
       // → "현대오토에버의... 바랍니다. (최소 500자 ~ 최대 1000자)" 는 통과
@@ -471,7 +534,7 @@
       // ^(최소|최대): 글자수 범위 안내로 시작 → 안내문
       // ^\d+\s*(자|~\s*\d|\/\s*\d): "500자", "500~1000", "0/1000" 등 순수 글자수 표시 → 안내문
       // "1. 지원동기", "2024년 경험" 처럼 번호·연도로 시작하는 실제 문항은 통과
-      const isInstructionOnly = strippedLabel.length < 10 ||
+      const isInstructionOnly = strippedLabel.length < 4 ||
         /^(최소|최대)/.test(strippedLabel) ||
         /^\d+\s*(자($|\s)|~\s*\d|\/\s*\d)/.test(strippedLabel);
       if (isInstructionOnly) return;
@@ -512,7 +575,7 @@
           visited.add(el);
 
           const labelText = findLabelText(el);
-          if (!labelText || labelText.length < 10) return;
+          if (!labelText || labelText.length < 4) return;
           const nearbyLimit = findNearbyCharLimit(el);
           if (nearbyLimit !== null && nearbyLimit < 200) return;
 
@@ -1011,6 +1074,8 @@
       }
 
       // Phase 0: Fill 전에 구조를 완성한다 (AI 없음, extractBtn 흐름)
+      createProgressOverlay();
+      updateProgress('🏗️ 폼 구조 확장 중...', 10, '', '반복 섹션 행 추가');
       extractBtn.innerText = '⏳ 구조 확장 중...';
       await expandSectionRows(port, secret);
 
@@ -1195,9 +1260,11 @@
       }
 
       // 문항 추출: DOM 룰 기반 (AI 없음 — 즉시 실행, 할루시네이션 없음)
+      updateProgress('📋 문항 추출 중...', 30, `${formInputs.length}개 필드 발견`, '자소서 입력창 탐색');
       const questions = extractCoverLetterQuestions();
 
       // 프로필 매핑 분석 (AI) + 프로필 조회 병렬 실행
+      updateProgress('🤖 AI 분석 중...', 50, `문항 ${questions.length}개 추출`, 'Bridge 서버 호출 중');
       const [profileRes, profileFillResult] = await Promise.allSettled([
         bridgePost(port, secret, '/get-profile').catch(() => null),
         formInputs.length > 0
@@ -1210,6 +1277,7 @@
         : null;
 
       // 1단계: AI 매핑으로 채울 수 있는 필드 채움 (매칭 안 된 필드는 건너뜀)
+      updateProgress('✍️ 필드 채우는 중...', 70, `문항 ${questions.length}개 추출됨`, 'AI 매핑 결과 적용');
       console.log('[디버그] profileFillResult:', JSON.stringify(profileFillResult));
       const aiFills = (profileFillResult.status === 'fulfilled' && profileFillResult.value?.success)
         ? profileFillResult.value.fills || []
@@ -1301,6 +1369,7 @@
         }
       });
       console.log(`[프로필] AI ${aiFills.length}개 채움`);
+      updateProgress('✍️ 필드 채우는 중...', 70, `${aiFills.length}개 채움 완료`, '보완 매칭 중');
 
       // 2단계: 키워드 매칭으로 나머지 표준 필드 보완
       // (이미 AI가 채운 필드는 input.value 있어서 자동 스킵됨)
@@ -1494,6 +1563,7 @@
         const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
         if (result?.success) {
           extractBtn.innerText = `✅ ${questions.length}개 전송!`;
+          finishProgress(true, `문항 ${questions.length}개 앱으로 전송 완료`);
         } else {
           throw new Error(result?.error || '전송 실패');
         }
@@ -1502,6 +1572,7 @@
       const msg = err.message?.includes('Extension context invalidated')
         ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
         : '문항 추출 실패: ' + err.message;
+      finishProgress(false, err.message?.slice(0, 40) || '실패');
       alert(msg);
       extractBtn.innerText = '❌ 실패';
     } finally {
@@ -1530,6 +1601,8 @@
 
       // Phase 0: Fill 전에 구조를 완성한다 (AI 없음)
       // "AI는 값을 채우고, DOM은 구조를 만든다"
+      createProgressOverlay();
+      updateProgress('🏗️ 폼 구조 확장 중...', 10, '', '반복 섹션 행 추가');
       profileFillBtn.innerText = '⏳ 구조 확장 중...';
       await expandSectionRows(port, secret);
 
@@ -1616,6 +1689,7 @@
       });
 
       // 프로필 + AI 매핑 병렬 요청
+      updateProgress('🤖 AI 분석 중...', 40, `${formInputs.length}개 필드 수집`, 'Bridge 서버 호출');
       const [profileRes, profileFillResult] = await Promise.allSettled([
         bridgePost(port, secret, '/get-profile'),
         formInputs.length > 0
@@ -1680,10 +1754,12 @@
 
       const totalFilled = aiFills.length;
       profileFillBtn.innerText = totalFilled > 0 ? `✅ ${totalFilled}개 채움!` : '✅ 완료 (매칭 없음)';
+      finishProgress(true, totalFilled > 0 ? `${totalFilled}개 필드 채움 완료` : '완료 (매칭 없음)');
     } catch (err) {
       const msg = err.message?.includes('Extension context invalidated')
         ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
         : '프로필 채우기 실패: ' + err.message;
+      finishProgress(false, err.message?.slice(0, 40) || '실패');
       alert(msg);
       profileFillBtn.innerText = '❌ 실패';
     } finally {
