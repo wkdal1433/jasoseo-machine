@@ -375,6 +375,44 @@
       }
     });
 
+    // contenteditable 기반 에디터 탐지 (ProseMirror / Quill / TipTap / Slate 등)
+    // textarea가 0개이거나 contendeditable 에디터가 따로 있는 사이트 대응
+    if (questions.length === 0) {
+      const editableSelectors = [
+        // ProseMirror
+        '.ProseMirror[contenteditable="true"]',
+        // Quill
+        '.ql-editor[contenteditable="true"]',
+        // 범용 contenteditable (역할 명시된 것)
+        '[role="textbox"][contenteditable="true"]',
+        // 최후 수단: contenteditable=true 이면서 크기가 있는 div/section
+        'div[contenteditable="true"]',
+        'section[contenteditable="true"]',
+      ];
+      editableSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+          if (visited.has(el)) return;
+          const rect = el.getBoundingClientRect();
+          if (rect.height < 60) return; // 단문 입력창 제외
+          const style = window.getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden') return;
+          visited.add(el);
+
+          const labelText = findLabelText(el);
+          if (!labelText || labelText.length < 10) return;
+          const nearbyLimit = findNearbyCharLimit(el);
+          if (nearbyLimit !== null && nearbyLimit < 200) return;
+
+          const question = labelText.replace(/[\(\（][^)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '').trim();
+          if (question.length > 10) {
+            questions.push({ question, charLimit: nearbyLimit, editorType: 'contenteditable' });
+            // 나중에 fill 시 injectContentEditable 사용 표시
+            el.setAttribute('data-editor-type', 'contenteditable');
+          }
+        });
+      });
+    }
+
     return questions;
   }
 
@@ -516,8 +554,8 @@
     return parts.join('\n').slice(0, 30000);
   }
 
-  // === Custom Dropdown (Vuetify / Element UI / 커스텀 li 기반) ===
-  // native <select> 없이 div+클릭으로 열리는 드롭다운을 처리
+  // === Custom Dropdown (Vuetify / Element UI / 커스텀 — 행동 기반) ===
+  // selector 탐지가 아니라 "클릭 → aria-expanded/listbox 열림 확인 → 옵션 클릭" 행동 시뮬레이션
   async function injectCustomDropdown(triggerEl, value, fieldName) {
     if (!triggerEl) return false;
     try {
@@ -526,35 +564,29 @@
       triggerEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       console.log(`📋 CustomDropdown 열기: ${fieldName}`);
 
-      // 2) 드롭다운 옵션 대기 (최대 800ms)
-      const found = await waitFor(() => {
-        const container = triggerEl.closest('[class*="select"],[class*="dropdown"],[class*="wrap"],[class*="box"]')
-          || document;
-        const trySelectors = ['li', '[role="option"]', '[class*="option"]', '[class*="item"]', '.el-select-dropdown__item'];
-        for (const s of trySelectors) {
-          const items = container !== document ? container.querySelectorAll(s) : document.querySelectorAll(s);
-          for (const item of items) {
-            const t = item.textContent.trim();
-            if (t && isSemanticallyEqual(t, value)) return true;
-          }
-        }
+      // 2) 드롭다운 열림 감지 — aria-expanded 또는 role=listbox/option 등장 대기
+      const opened = await waitFor(() => {
+        // aria-expanded 전환 확인
+        const expanded = triggerEl.getAttribute('aria-expanded') === 'true'
+          || triggerEl.closest('[aria-expanded="true"]') !== null;
+        if (expanded) return true;
+        // listbox 또는 option role 등장 확인
+        if (document.querySelector('[role="listbox"],[role="option"]')) return true;
         return false;
       }, 800);
 
-      if (!found) {
-        console.warn(`⚠️ CustomDropdown 옵션 미발견: ${fieldName} = "${value}"`);
-        // 닫기 위해 Escape 발행
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        return false;
+      if (!opened) {
+        console.warn(`⚠️ CustomDropdown 열림 감지 실패 — 옵션 직접 탐색 시도: ${fieldName}`);
       }
 
-      // 3) 매칭 옵션 클릭
-      const container = triggerEl.closest('[class*="select"],[class*="dropdown"],[class*="wrap"],[class*="box"]')
-        || document;
-      const trySelectors = ['li', '[role="option"]', '[class*="option"]', '[class*="item"]', '.el-select-dropdown__item'];
-      for (const s of trySelectors) {
-        const items = container !== document ? container.querySelectorAll(s) : document.querySelectorAll(s);
-        for (const item of items) {
+      // 3) 옵션 텍스트 매칭 클릭 (role 우선, 그 다음 li/div)
+      const OPTION_SELECTORS = [
+        '[role="option"]', '[role="listbox"] li',
+        '.el-select-dropdown__item', '.v-list-item',
+        'li', '[class*="option"]', '[class*="item"]',
+      ];
+      for (const s of OPTION_SELECTORS) {
+        for (const item of document.querySelectorAll(s)) {
           const t = item.textContent.trim();
           if (t && isSemanticallyEqual(t, value)) {
             item.click();
@@ -563,9 +595,46 @@
           }
         }
       }
+
+      // 닫기 (미매칭 시 Escape)
+      console.warn(`⚠️ CustomDropdown 옵션 미발견: ${fieldName} = "${value}"`);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       return false;
     } catch (err) {
       console.error(`❌ CustomDropdown 실패: ${fieldName}`, err);
+      return false;
+    }
+  }
+
+  // === contenteditable / Rich Text Editor 입력 ===
+  // ProseMirror, Quill, TipTap 등 — el.value 안 먹힘, innerText + InputEvent 필요
+  function injectContentEditable(el, value, fieldName) {
+    if (!el) return false;
+    try {
+      el.focus();
+      // 기존 내용 전체 선택 후 교체
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      el.innerText = value;
+
+      // insertText InputEvent — React/Vue 상태 동기화 트리거
+      el.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: value,
+      }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+
+      console.log(`✅ ContentEditable 채움: ${fieldName} (${value.length}자)`);
+      return true;
+    } catch (err) {
+      console.error(`❌ ContentEditable 실패: ${fieldName}`, err);
       return false;
     }
   }
@@ -621,17 +690,21 @@
   }
 
   // 새 필드 수가 늘어날 때까지 대기 (Virtualized list 대응)
-  // NOTE: data-fill-idx 는 우리가 직접 할당하므로 새 필드엔 없음 → raw input 개수로 비교
+  // data-seen-before 방식: count 비교보다 정밀 — 섹션 교체로 count가 그대로여도 새 노드 감지
   const RAW_FIELD_SELECTOR = 'input[type="text"],input[type="date"],input[type="radio"],input[type="number"],select,input:not([type])';
-  async function waitForNewFields(prevRawCount, timeout = 2000) {
+
+  function markAllInputsAsSeen() {
+    document.querySelectorAll(RAW_FIELD_SELECTOR).forEach(el => {
+      el.dataset.seenBefore = '1';
+    });
+  }
+
+  async function waitForNewFields(timeout = 2000) {
     return waitFor(() => {
-      const all = document.querySelectorAll(RAW_FIELD_SELECTOR);
-      if (all.length > prevRawCount) return true;
-      // 단순 count 증가가 없더라도 data-fill-idx 없는 visible 새 필드가 생겼으면 true
-      for (const el of all) {
-        if (el.dataset.fillIdx !== undefined) continue; // 이미 처리된 필드
-        const s = window.getComputedStyle(el);
-        if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0) return true;
+      for (const el of document.querySelectorAll(RAW_FIELD_SELECTOR)) {
+        if (el.dataset.seenBefore) continue; // 이미 본 필드
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return true; // 새 visible 필드 발견
       }
       return false;
     }, timeout);
@@ -1054,13 +1127,14 @@
         });
 
       if (addBtns.length > 0) {
-        const prevRawCount = document.querySelectorAll(RAW_FIELD_SELECTOR).length;
+        // 클릭 전 현재 모든 필드를 "본 적 있음"으로 마킹 → 이후 새 필드만 감지
+        markAllInputsAsSeen();
         addBtns.slice(0, 10).forEach(btn => {
           try { btn.click(); console.log(`➕ 행 추가 클릭: "${btn.textContent.trim()}"`); } catch(e) {}
         });
         await waitForDomSettle(2000);
-        // Virtualized list: 새 필드가 생겨날 때까지 추가 대기
-        await waitForNewFields(prevRawCount, 1500);
+        // Virtualized list: 새 visible 필드가 나타날 때까지 대기
+        await waitForNewFields(1500);
 
         // 새로 생긴 빈 필드만 수집 (data-fill-idx 없는 것)
         let newIdx = formInputs.length;
