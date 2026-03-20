@@ -147,6 +147,27 @@ export class BridgeServer {
       res.json({ status: 'alive', version: 'v20.0' });
     });
 
+    // 반복 섹션 행 수 조회 — AI 없음, 프로필 데이터만 반환 (Fill 전 구조 확장용)
+    this.app.get('/profile-section-requirements', verifySignature, (_req, res) => {
+      const profile = getUserProfile();
+      if (!profile) return res.json({ success: false, error: 'No profile' });
+      res.json({
+        success: true,
+        requirements: {
+          experience:    (profile as any).experience?.length    || 0,
+          education:     (profile as any).education?.length     || 0,
+          languages:     (profile as any).languages?.length     || 0,
+          certificates:  (profile as any).certificates?.length  || 0,
+          training:      (profile as any).training?.length      || 0,
+          activities:    (profile as any).activities?.length    || 0,
+          awards:        (profile as any).awards?.length        || 0,
+          overseas:      (profile as any).overseas?.length      || 0,
+          computerSkills:(profile as any).computerSkills?.length || 0,
+          projects:      (profile as any).projects?.length      || 0,
+        }
+      });
+    });
+
     this.app.post('/get-profile', verifySignature, async (req, res) => {
       if (!this.isAuthorized) {
         const result = await dialog.showMessageBox({

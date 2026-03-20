@@ -29,6 +29,119 @@
     return response.json();
   }
 
+  async function bridgeGet(port, secret, path) {
+    const { timestamp, nonce, signature } = await makeSignature(secret, {});
+    const response = await fetch(`http://localhost:${port}${path}`, {
+      method: 'GET',
+      headers: {
+        'x-jasoseo-signature': signature,
+        'x-jasoseo-timestamp': timestamp,
+        'x-jasoseo-nonce': nonce
+      }
+    });
+    return response.json();
+  }
+
+  // ── 반복 섹션 행 확장 ──────────────────────────────────────────────
+  // 섹션 키워드 매핑 (프로필 필드명 → 한국어 섹션 헤딩 키워드)
+  const SECTION_KEYWORDS = {
+    experience:    ['경력', '직장', '근무', '재직', '회사명'],
+    education:     ['학력', '학교', '최종학력'],
+    languages:     ['어학', '언어', '외국어', 'toeic', 'toefl', 'jlpt', 'ielts'],
+    certificates:  ['자격', '자격증', '면허'],
+    training:      ['교육', '훈련', '연수', '수료', '이수'],
+    activities:    ['활동', '동아리', '봉사', '사회활동'],
+    awards:        ['수상', '포상', '상훈'],
+    overseas:      ['해외', '유학', '어학연수', '해외경험'],
+    projects:      ['프로젝트', '과제', '연구'],
+    computerSkills:['컴퓨터', '컴활', 'oa', 'ms office'],
+  };
+
+  // 버튼 기준으로 가장 가까운 섹션 헤딩 텍스트를 찾아 섹션 타입 반환
+  function detectSectionType(btn) {
+    const btnRect = btn.getBoundingClientRect();
+    const headingSelectors = 'h1,h2,h3,h4,h5,th,caption,strong,b,[class*="title"],[class*="heading"],[class*="tit"],[class*="label"]';
+    const headings = Array.from(document.querySelectorAll(headingSelectors));
+    // 버튼보다 위에 있는 헤딩 중 가장 가까운 것
+    let best = null, bestDist = Infinity;
+    for (const h of headings) {
+      const r = h.getBoundingClientRect();
+      const dist = btnRect.top - r.bottom;
+      if (dist >= 0 && dist < bestDist && r.width > 0) {
+        bestDist = dist;
+        best = h;
+      }
+    }
+    if (!best) return null;
+    const txt = best.textContent.toLowerCase().replace(/\s/g, '');
+    for (const [type, keywords] of Object.entries(SECTION_KEYWORDS)) {
+      if (keywords.some(kw => txt.includes(kw.replace(/\s/g, '')))) return type;
+    }
+    return null;
+  }
+
+  // 섹션 헤딩과 추가 버튼 사이의 현재 행 수 추정 (입력 필드 수 ÷ 예상 필드/행)
+  function estimateCurrentRows(btn) {
+    let container = btn.parentElement;
+    for (let i = 0; i < 6 && container && container !== document.body; i++) {
+      const inputs = container.querySelectorAll('input[type="text"],input[type="date"],select');
+      if (inputs.length >= 3) return Math.max(1, Math.round(inputs.length / 4));
+      container = container.parentElement;
+    }
+    return 1;
+  }
+
+  // Fill 전 구조 확장: 프로필 행 수에 맞게 추가 버튼 클릭
+  async function expandSectionRows(port, secret) {
+    let requirements = null;
+    try {
+      const res = await bridgeGet(port, secret, '/profile-section-requirements');
+      if (res.success) requirements = res.requirements;
+    } catch (e) {
+      console.warn('[섹션 확장] requirements 조회 실패, 스킵:', e.message);
+      return;
+    }
+    if (!requirements) return;
+
+    const addBtns = Array.from(document.querySelectorAll('button,[role="button"]')).filter(btn => {
+      if (btn.disabled) return false;
+      const s = window.getComputedStyle(btn);
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      const t = btn.textContent.trim();
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+      const cls = (btn.className || '').toLowerCase();
+      return /추가|추가하기|행\s*추가|항목\s*추가|입력\s*추가/.test(t)
+        || t === '+'
+        || /추가|add/.test(aria)
+        || (/add|plus|append/.test(cls) && t.length < 5);
+    });
+
+    if (addBtns.length === 0) return;
+
+    let expanded = false;
+    for (const btn of addBtns) {
+      const sectionType = detectSectionType(btn);
+      if (!sectionType || !requirements[sectionType]) continue;
+      const needed = requirements[sectionType];
+      const current = estimateCurrentRows(btn);
+      const clicks = Math.max(0, needed - current);
+      if (clicks === 0) continue;
+
+      console.log(`[섹션 확장] ${sectionType}: 현재 ${current}행 → 목표 ${needed}행 (${clicks}회 클릭)`);
+      for (let i = 0; i < clicks; i++) {
+        try { btn.click(); } catch (e) {}
+        await waitForDomSettle(1000);
+        await waitForNewFields(1500);
+      }
+      expanded = true;
+    }
+
+    if (expanded) {
+      console.log('[섹션 확장] 완료 — DOM 최종 정착 대기');
+      await waitForDomSettle(500);
+    }
+  }
+
   // 프로필 필드 자동 매칭 — label/aria-label/placeholder/부모텍스트 다중 전략
   function fillProfileFields(profile) {
     if (!profile) return [];
@@ -1410,6 +1523,11 @@
       }
       const port = config.bridgePort;
       const secret = config.bridgeSecret;
+
+      // Phase 0: Fill 전에 구조를 완성한다 (AI 없음)
+      // "AI는 값을 채우고, DOM은 구조를 만든다"
+      profileFillBtn.innerText = '⏳ 구조 확장 중...';
+      await expandSectionRows(port, secret);
 
       // 라벨 텍스트 추출 헬퍼
       function collectLabelText(el) {
