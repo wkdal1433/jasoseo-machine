@@ -32,7 +32,7 @@ export function MagicOnboarding({ onClose }: Props) {
   const location = useLocation()
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const { loadEpisodes } = useEpisodeStore()
-  const { loadProfile, setLock } = useProfileStore()
+  const { profile, loadProfile, setLock } = useProfileStore()
   const { model } = useSettingsStore()
   const [savedEpisodeCount, setSavedEpisodeCount] = useState(0)
 
@@ -66,7 +66,8 @@ export function MagicOnboarding({ onClose }: Props) {
         window.api.draftSave('__onboarding_pending__', {
           result,
           interviewMessages,
-          activeInterviewIndex
+          activeInterviewIndex,
+          profileId: (profile as any)?.id
         })
       } catch { /* ignore */ }
     }

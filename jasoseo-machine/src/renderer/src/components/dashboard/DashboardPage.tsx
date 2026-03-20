@@ -5,6 +5,7 @@ import { useHistoryStore } from '@/stores/historyStore'
 import { useWizardStore } from '@/stores/wizardStore'
 import { useSnapshotStore } from '@/stores/snapshotStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
 import { 
   Rocket, 
@@ -24,10 +25,17 @@ export function DashboardPage() {
   const { applications, loadApplications, drafts, loadDrafts, deleteDraft: deleteDraftFromStore } = useHistoryStore()
   const wizardStore = useWizardStore()
   const { projectDir, isLoaded } = useSettingsStore()
+  const { profile } = useProfileStore()
   const [oldTrashCount, setOldTrashCount] = useState(0)
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
   const [hasPendingOnboarding, setHasPendingOnboarding] = useState(false)
   const [emptyFieldsReport, setEmptyFieldsReport] = useState<{ fields: string[]; url: string } | null>(null)
+
+  // profile이 로드될 때마다 온보딩 pending 재확인 (프로필 전환 시 간섭 방지)
+  useEffect(() => {
+    if ((profile as any)?.id) checkPendingOnboarding()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(profile as any)?.id])
 
   useEffect(() => {
     loadEpisodes()
@@ -48,8 +56,12 @@ export function DashboardPage() {
 
   const checkPendingOnboarding = async () => {
     try {
-      const draft = await window.api.draftGet('__onboarding_pending__')
-      setHasPendingOnboarding(!!draft)
+      const draft = await window.api.draftGet('__onboarding_pending__') as any
+      if (!draft) { setHasPendingOnboarding(false); return }
+      // draft에 profileId가 없는 구버전이거나, 현재 프로필과 일치할 때만 표시
+      const draftProfileId = draft.wizardState ? JSON.parse(draft.wizardState)?.profileId : undefined
+      const currentProfileId = (profile as any)?.id
+      setHasPendingOnboarding(!draftProfileId || !currentProfileId || draftProfileId === currentProfileId)
     } catch { /* ignore */ }
   }
 

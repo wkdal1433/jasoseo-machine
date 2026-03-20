@@ -18,7 +18,7 @@ const ENDPOINT_CONFIGS = [
   { key: 'company_analyze',  label: '기업 리서치 (Step 0)',    recommended: 'gemini-2.5-pro',        reason: '웹 검색 + 심층 분석' },
   { key: 'onboarding_parse', label: '온보딩 PDF 분석',         recommended: 'gemini-2.5-pro',        reason: '복잡한 문서 구조 파악' },
   { key: 'ep_suggest',       label: '에피소드 아이디어 제안',  recommended: 'gemini-2.5-flash',      reason: '구조화 출력, 중간 복잡도' },
-  { key: 'web_fetch',        label: '채용공고 URL 파싱',       recommended: 'gemini-2.5-flash',      reason: '단순 텍스트 추출' },
+  { key: 'web_fetch',        label: '채용공고 URL 파싱',       recommended: 'gemini-2.5-pro',        reason: 'fallback 시 복잡한 DOM 구조 해석 필요' },
   { key: 'pattern_analyze',  label: '자소서 패턴 분석',        recommended: 'gemini-2.5-flash',      reason: '단순 패턴 추출' },
   { key: 'form_analyze',     label: '폼 구조 분석 (확장)',     recommended: 'gemini-2.5-flash-lite', reason: '단순 필드 매칭' },
   { key: 'profile_fill',     label: '프로필 채우기 (확장)',    recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 매핑' },

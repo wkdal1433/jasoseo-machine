@@ -27,7 +27,7 @@ const RECOMMENDED: Record<string, string> = {
   episode_interview:  'gemini-2.5-flash',
   onboarding_interview: 'gemini-2.5-flash',
   ep_suggest:         'gemini-2.5-flash',
-  web_fetch:          'gemini-2.5-flash',
+  web_fetch:          'gemini-2.5-pro',
   pattern_analyze:    'gemini-2.5-flash',
   form_analyze:       'gemini-2.5-flash-lite',
   profile_fill:       'gemini-2.5-flash-lite',
