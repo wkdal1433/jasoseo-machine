@@ -132,7 +132,7 @@ export class BridgeServer {
       if (!signature || !timestamp || !nonce) return res.status(401).json({ error: 'Missing headers' });
 
       const now = Date.now();
-      if (Math.abs(now - parseInt(timestamp)) > 30000) return res.status(401).json({ error: 'Expired' });
+      if (Math.abs(now - parseInt(timestamp)) > 300000) return res.status(401).json({ error: 'Expired' }); // 5분
 
       const expectedSignature = crypto
         .createHmac('sha256', this.secretKey)

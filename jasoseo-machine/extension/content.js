@@ -1010,6 +1010,10 @@
         return `${sectionHint || 'f'}.${type}.${posInSection}.${label}`;
       }
 
+      // Phase 0: Fill 전에 구조를 완성한다 (AI 없음, extractBtn 흐름)
+      extractBtn.innerText = '⏳ 구조 확장 중...';
+      await expandSectionRows(port, secret);
+
       // 폼 입력 필드 메타데이터 수집 (text / select / date — Gemini에 보낼 경량 구조체)
       const formInputs = [];
 
