@@ -106,10 +106,19 @@ Korean recruitment forms follow this EXACT column order. Never swap fields:
   Column 1 = 교육명                  → training[i].name
   Column 2 = 기관명                  → training[i].organization
 
-## 4. Framework Compatibility
-- Use injectValue(selectors, value, type) for all input/select/textarea fields.
-- Use clickAddButton(selectors) to click "추가" / "+" buttons before adding new rows.
-- Never attempt to click submit buttons.
+## 4. Framework Compatibility — Function Selection Rules
+
+Use the correct function for each field type:
+
+| Field Type | Function | When to use |
+|------------|----------|-------------|
+| 일반 input/textarea/native select | `injectValue(selectors, value, type)` | placeholder가 있는 일반 입력창, `<select>` 태그 |
+| 자동완성(Autocomplete) 입력창 | `injectAutocomplete(selectors, value, fieldName)` | 어학명, 자격증명처럼 "검색결과에서 선택" 방식. 타이핑 후 드롭다운이 뜨는 필드 |
+| 커스텀 드롭다운 (li 기반) | `injectCustomSelect(selectors, value, fieldName)` | `<select>`가 아닌 클릭하면 li 목록이 펼쳐지는 커스텀 UI. 활용능력구분, 활용수준, 활용기간 등 |
+| 체크박스/라디오 | `injectValue(selectors, value, 'checkbox')` | boolean 값은 반드시 `true`/`false` (문자열 금지) |
+| 행 추가 버튼 | `clickAddButton(selectors)` | "추가" / "+" 버튼. 배열 항목 추가 전 호출 |
+
+- Never attempt to click submit or 저장 buttons.
 
 # OUTPUT FORMAT (JSON ONLY):
 {
@@ -204,15 +213,17 @@ Korean recruitment forms follow this EXACT column order. Never swap fields:
   const injectValue = (selectors, value, type, fieldName) => {
     if (!Array.isArray(selectors)) selectors = [selectors];
     const el = findInAllFrames(selectors);
-    
+
     if (!el) {
       failedFields.push({ name: fieldName || selectors[0], selectors });
       return false;
     }
-    
+
     try {
       if (type === 'checkbox' || type === 'radio') {
-        el.checked = !!value;
+        // "false" 문자열을 boolean false로 처리
+        const boolVal = value === true || value === 'true' || value === '1' || value === 'yes';
+        el.checked = boolVal;
       } else {
         el.value = value;
       }
@@ -221,6 +232,112 @@ Korean recruitment forms follow this EXACT column order. Never swap fields:
       return true;
     } catch (err) {
       console.error('❌ Injection failed:', fieldName, err);
+      return false;
+    }
+  };
+
+  /**
+   * Autocomplete(자동완성) 입력창 처리
+   * - 값 주입 후 검색 이벤트 발행 → 500ms 후 드롭다운 첫 번째 일치 항목 클릭
+   */
+  const injectAutocomplete = (selectors, value, fieldName) => {
+    if (!Array.isArray(selectors)) selectors = [selectors];
+    const el = findInAllFrames(selectors);
+    if (!el) {
+      failedFields.push({ name: fieldName || selectors[0], selectors });
+      return false;
+    }
+    try {
+      el.focus();
+      el.value = value;
+      ['keydown', 'keypress', 'input', 'keyup', 'change'].forEach(evName => {
+        try {
+          el.dispatchEvent(new Event(evName, { bubbles: true, cancelable: true }));
+        } catch(e) {}
+      });
+      if (el._valueTracker) el._valueTracker.setValue('');
+      console.log(\`🔍 Autocomplete triggered: \${fieldName} = "\${value}"\`);
+
+      setTimeout(() => {
+        const container = el.closest('[class*="wrap"], [class*="box"], [class*="group"], form')
+                         || el.parentElement?.parentElement || document;
+        const trySelectors = [
+          '.suggest-list li', '.autocomplete li', '[class*="suggest"] li',
+          '[class*="autocomplete"] li', '[class*="list"] li', 'ul[class*="suggest"] > li',
+          '[role="listbox"] [role="option"]', '[role="option"]', 'ul > li'
+        ];
+        let clicked = false;
+        for (const s of trySelectors) {
+          const items = (container !== document ? container.querySelectorAll(s) : []);
+          const globalItems = document.querySelectorAll(s);
+          const pool = items.length > 0 ? items : globalItems;
+          for (const item of pool) {
+            const text = item.textContent.trim();
+            if (text && (text.includes(value) || value.includes(text))) {
+              item.click();
+              console.log(\`✅ Autocomplete selected: \${fieldName} → "\${text}"\`);
+              clicked = true;
+              break;
+            }
+          }
+          if (clicked) break;
+        }
+        if (!clicked) {
+          console.warn(\`⚠️ Autocomplete 드롭다운 항목 미발견: \${fieldName} = "\${value}" — 수동 입력 필요\`);
+          failedFields.push({ name: fieldName || selectors[0], selectors });
+        }
+      }, 600);
+      return true;
+    } catch (err) {
+      console.error('❌ Autocomplete injection failed:', fieldName, err);
+      return false;
+    }
+  };
+
+  /**
+   * 커스텀 드롭다운 (li 기반, native <select> 아님) 처리
+   * - 드롭다운 트리거 클릭 → 400ms 후 옵션 텍스트 매칭 클릭
+   */
+  const injectCustomSelect = (selectors, value, fieldName) => {
+    if (!Array.isArray(selectors)) selectors = [selectors];
+    const el = findInAllFrames(selectors);
+    if (!el) {
+      failedFields.push({ name: fieldName || selectors[0], selectors });
+      return false;
+    }
+    try {
+      el.click();
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      console.log(\`📋 CustomSelect opened: \${fieldName}\`);
+
+      setTimeout(() => {
+        const container = el.closest('[class*="select"], [class*="dropdown"], [class*="wrap"], [class*="box"]')
+                         || el.parentElement?.parentElement || document;
+        const trySelectors = [
+          'li', '[role="option"]', '[class*="option"]', '[class*="item"]', 'a'
+        ];
+        let clicked = false;
+        for (const s of trySelectors) {
+          const items = container !== document ? container.querySelectorAll(s) : document.querySelectorAll(s);
+          for (const item of items) {
+            const text = item.textContent.trim();
+            if (text && (text === value || text.includes(value) || value.includes(text))) {
+              item.click();
+              console.log(\`✅ CustomSelect selected: \${fieldName} → "\${text}"\`);
+              clicked = true;
+              break;
+            }
+          }
+          if (clicked) break;
+        }
+        if (!clicked) {
+          console.warn(\`⚠️ CustomSelect 옵션 미발견: \${fieldName} = "\${value}" — 수동 선택 필요\`);
+          failedFields.push({ name: fieldName || selectors[0], selectors });
+        }
+      }, 500);
+      return true;
+    } catch (err) {
+      console.error('❌ CustomSelect injection failed:', fieldName, err);
       return false;
     }
   };
