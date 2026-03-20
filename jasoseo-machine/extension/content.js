@@ -324,7 +324,8 @@
     const visited = new Set();
 
     document.querySelectorAll('textarea').forEach(ta => {
-      if (ta.offsetHeight < 60) return;
+      const computedH = parseInt(window.getComputedStyle(ta).height) || 0;
+      if (ta.offsetHeight < 30 && computedH < 30) return;
       const style = window.getComputedStyle(ta);
       if (style.display === 'none' || style.visibility === 'hidden') return;
 
@@ -732,7 +733,7 @@
           // AI fill 중 disabled였던 필드들 재시도 (data-fill-idx 있으나 당시 disabled)
           aiFills.forEach(({ idx, value }) => {
             const el = document.querySelector(`[data-fill-idx="${idx}"]`);
-            if (!el || !value || !el.disabled === false) return; // 여전히 disabled면 스킵
+            if (!el || !value || el.disabled) return; // 여전히 disabled면 스킵
             // 이미 값이 있으면 스킵
             if (el.tagName === 'SELECT' && el.value && el.value !== '0' && el.value !== '-1') return;
             if (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.value) return;
@@ -760,13 +761,22 @@
       }
 
       // [다중행] 추가 버튼 자동 클릭 → 새로 생긴 필드 2차 AI 채움
-      const addBtns = Array.from(document.querySelectorAll('button, [role="button"]'))
+      const addBtns = Array.from(document.querySelectorAll('button, [role="button"], a[role="button"]'))
         .filter(btn => {
           if (btn.disabled) return false;
           const style = window.getComputedStyle(btn);
           if (style.display === 'none' || style.visibility === 'hidden') return false;
           const t = btn.textContent.trim();
-          return /^(\+\s*)?(추가|행\s*추가|항목\s*추가|입력\s*추가)$/.test(t);
+          const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+          const cls = (btn.className || '').toLowerCase();
+          // 텍스트 포함 버튼
+          if (/추가|추가하기|행\s*추가|항목\s*추가|입력\s*추가/.test(t)) return true;
+          // "+" 텍스트 단독 (icon-only add button)
+          if (t === '+') return true;
+          // aria-label 또는 class에 추가/add 포함
+          if (/추가|add/.test(aria)) return true;
+          if (/add|plus|append/.test(cls) && t.length < 5) return true;
+          return false;
         });
 
       if (addBtns.length > 0) {
