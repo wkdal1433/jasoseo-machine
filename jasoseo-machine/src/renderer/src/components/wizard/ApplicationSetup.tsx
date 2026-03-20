@@ -85,15 +85,15 @@ export function ApplicationSetup() {
   useEffect(() => {
     if (setupDraft && !isRestored.current) {
       isRestored.current = true
-      setMode(setupDraft.mode)
-      setCompanyName(setupDraft.companyName)
-      setJobTitle(setupDraft.jobTitle)
-      setJobPosting(setupDraft.jobPosting)
-      setStrategy(setupDraft.strategy)
-      setQuestions(setupDraft.questions.length > 0 ? setupDraft.questions : [{ question: '', charLimit: 800 }])
-      setSmartUrl(setupDraft.smartUrl)
-      setJobOptions(setupDraft.jobOptions)
-      setPendingCompanyName(setupDraft.pendingCompanyName)
+      setMode(setupDraft.mode ?? 'select')
+      setCompanyName(setupDraft.companyName ?? '')
+      setJobTitle(setupDraft.jobTitle ?? '')
+      setJobPosting(setupDraft.jobPosting ?? '')
+      setStrategy(setupDraft.strategy ?? 'Balanced')
+      setQuestions((setupDraft.questions?.length > 0) ? setupDraft.questions : [{ question: '', charLimit: 800 }])
+      setSmartUrl(setupDraft.smartUrl ?? '')
+      setJobOptions(setupDraft.jobOptions ?? [])
+      setPendingCompanyName(setupDraft.pendingCompanyName ?? '')
     }
   }, [])
 
@@ -174,7 +174,7 @@ export function ApplicationSetup() {
     companyName.trim() &&
     jobTitle.trim() &&
     jobPosting.trim() &&
-    questions.every((q) => q.question.trim() && q.charLimit > 0)
+    questions.every((q) => q.question?.trim() && q.charLimit > 0)
 
   const handleSubmit = () => {
     if (!canSubmit) return
