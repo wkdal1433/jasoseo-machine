@@ -516,6 +516,127 @@
     return parts.join('\n').slice(0, 30000);
   }
 
+  // === Custom Dropdown (Vuetify / Element UI / 커스텀 li 기반) ===
+  // native <select> 없이 div+클릭으로 열리는 드롭다운을 처리
+  async function injectCustomDropdown(triggerEl, value, fieldName) {
+    if (!triggerEl) return false;
+    try {
+      // 1) 트리거 클릭 → 드롭다운 열기
+      triggerEl.click();
+      triggerEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      console.log(`📋 CustomDropdown 열기: ${fieldName}`);
+
+      // 2) 드롭다운 옵션 대기 (최대 800ms)
+      const found = await waitFor(() => {
+        const container = triggerEl.closest('[class*="select"],[class*="dropdown"],[class*="wrap"],[class*="box"]')
+          || document;
+        const trySelectors = ['li', '[role="option"]', '[class*="option"]', '[class*="item"]', '.el-select-dropdown__item'];
+        for (const s of trySelectors) {
+          const items = container !== document ? container.querySelectorAll(s) : document.querySelectorAll(s);
+          for (const item of items) {
+            const t = item.textContent.trim();
+            if (t && isSemanticallyEqual(t, value)) return true;
+          }
+        }
+        return false;
+      }, 800);
+
+      if (!found) {
+        console.warn(`⚠️ CustomDropdown 옵션 미발견: ${fieldName} = "${value}"`);
+        // 닫기 위해 Escape 발행
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return false;
+      }
+
+      // 3) 매칭 옵션 클릭
+      const container = triggerEl.closest('[class*="select"],[class*="dropdown"],[class*="wrap"],[class*="box"]')
+        || document;
+      const trySelectors = ['li', '[role="option"]', '[class*="option"]', '[class*="item"]', '.el-select-dropdown__item'];
+      for (const s of trySelectors) {
+        const items = container !== document ? container.querySelectorAll(s) : document.querySelectorAll(s);
+        for (const item of items) {
+          const t = item.textContent.trim();
+          if (t && isSemanticallyEqual(t, value)) {
+            item.click();
+            console.log(`✅ CustomDropdown 선택: ${fieldName} → "${t}"`);
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error(`❌ CustomDropdown 실패: ${fieldName}`, err);
+      return false;
+    }
+  }
+
+  // === Convergence Engine Utilities ===
+
+  // Semantic equality: "010-1234-5678" === "01012345678", "대졸" === "대학교 졸업" 등 처리
+  function normalize(v) {
+    return String(v).replace(/[\s\-\(\)\/]/g, '').toLowerCase();
+  }
+
+  function isSemanticallyEqual(a, b) {
+    if (!a || !b) return false;
+    const na = normalize(a), nb = normalize(b);
+    return na === nb || na.includes(nb) || nb.includes(na);
+  }
+
+  // 이미 올바른 값이 채워진 필드인지 확인 (idempotency)
+  function alreadyFilled(el, expectedValue) {
+    if (!el || expectedValue === undefined || expectedValue === null) return false;
+    if (el.tagName === 'SELECT') {
+      const selected = el.options[el.selectedIndex];
+      if (!selected || selected.value === '' || selected.value === '0') return false;
+      return isSemanticallyEqual(el.value, expectedValue) ||
+             isSemanticallyEqual(selected.text, expectedValue);
+    }
+    if (el.type === 'checkbox') return el.checked === (expectedValue === true || expectedValue === 'true');
+    return isSemanticallyEqual(el.value, expectedValue);
+  }
+
+  // DOM 변화 감지 기반 대기 (setTimeout 대체)
+  async function waitFor(condition, timeout = 2000, interval = 150) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (condition()) return true;
+      await new Promise(r => setTimeout(r, interval));
+    }
+    return false;
+  }
+
+  // MutationObserver 기반 DOM 안정화 대기
+  async function waitForDomSettle(maxWait = 1500) {
+    return new Promise(resolve => {
+      let timer;
+      const observer = new MutationObserver(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { observer.disconnect(); resolve(); }, 300);
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      // 최대 대기 보장
+      setTimeout(() => { observer.disconnect(); resolve(); }, maxWait);
+    });
+  }
+
+  // 새 필드 수가 늘어날 때까지 대기 (Virtualized list 대응)
+  // NOTE: data-fill-idx 는 우리가 직접 할당하므로 새 필드엔 없음 → raw input 개수로 비교
+  const RAW_FIELD_SELECTOR = 'input[type="text"],input[type="date"],input[type="radio"],input[type="number"],select,input:not([type])';
+  async function waitForNewFields(prevRawCount, timeout = 2000) {
+    return waitFor(() => {
+      const all = document.querySelectorAll(RAW_FIELD_SELECTOR);
+      if (all.length > prevRawCount) return true;
+      // 단순 count 증가가 없더라도 data-fill-idx 없는 visible 새 필드가 생겼으면 true
+      for (const el of all) {
+        if (el.dataset.fillIdx !== undefined) continue; // 이미 처리된 필드
+        const s = window.getComputedStyle(el);
+        if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0) return true;
+      }
+      return false;
+    }, timeout);
+  }
+
   // 1-b 클릭: Gemini로 문항 분석 → 앱으로 전송 + 프로필 자동 입력
   extractBtn.onclick = async () => {
     extractBtn.disabled = true;
@@ -562,6 +683,11 @@
         return labelText.replace(/[*\s]+/g, ' ').trim();
       }
 
+      function makeStableId(type, labelText, sectionHint, posInSection) {
+        const label = (labelText || '').replace(/[\s*\[\]]/g, '').slice(0, 20);
+        return `${sectionHint || 'f'}.${type}.${posInSection}.${label}`;
+      }
+
       // 폼 입력 필드 메타데이터 수집 (text / select / date — Gemini에 보낼 경량 구조체)
       const formInputs = [];
 
@@ -575,15 +701,17 @@
         if (input.value) return;
 
         const idx = formInputs.length;
+        const labelText_t = collectLabelText(input);
         input.setAttribute('data-fill-idx', idx);
         formInputs.push({
           idx,
           type: 'text',
           id: input.id || null,
           name: input.getAttribute('name') || null,
-          labelText: collectLabelText(input),
+          labelText: labelText_t,
           placeholder: input.placeholder || null,
           ariaLabel: input.getAttribute('aria-label') || null,
+          stableId: makeStableId('text', labelText_t, null, formInputs.length),
         });
       });
 
@@ -595,13 +723,15 @@
         if (input.value) return;
 
         const idx = formInputs.length;
+        const labelText_d = collectLabelText(input);
         input.setAttribute('data-fill-idx', idx);
         formInputs.push({
           idx,
           type: 'date',
           id: input.id || null,
           name: input.getAttribute('name') || null,
-          labelText: collectLabelText(input),
+          labelText: labelText_d,
+          stableId: makeStableId('date', labelText_d, null, formInputs.length),
         });
       });
 
@@ -614,16 +744,58 @@
         if (checkbox.offsetWidth === 0) return;
 
         const idx = formInputs.length;
+        const labelText_c = collectLabelText(checkbox);
         checkbox.setAttribute('data-fill-idx', idx);
         formInputs.push({
           idx,
           type: 'checkbox',
           id: checkbox.id || null,
           name: checkbox.getAttribute('name') || null,
-          labelText: collectLabelText(checkbox),
+          labelText: labelText_c,
           disabled: checkbox.disabled, // AI에게 현재 disabled 여부 알림
+          stableId: makeStableId('checkbox', labelText_c, null, formInputs.length),
         });
       });
+
+      // 5) radio group — name 별로 묶어서 하나의 항목으로 수집
+      //    예) 전역여부: [{value:'Y', label:'예'}, {value:'N', label:'아니오'}]
+      {
+        const seenNames = new Set();
+        document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+          if (radio.disabled) return;
+          const style = window.getComputedStyle(radio);
+          if (style.display === 'none' || style.visibility === 'hidden') return;
+          if (radio.offsetWidth === 0) return;
+          const groupName = radio.getAttribute('name');
+          if (!groupName || seenNames.has(groupName)) return;
+          seenNames.add(groupName);
+
+          // 그룹 내 이미 선택된 것 있으면 스킵
+          const groupEls = Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(groupName)}"]`));
+          if (groupEls.some(r => r.checked)) return;
+
+          const options = groupEls.map(r => {
+            const lbl = document.querySelector(`label[for="${CSS.escape(r.id)}"]`);
+            const labelTxt = lbl?.textContent.trim()
+              || r.getAttribute('aria-label')
+              || r.value;
+            return `${labelTxt}(value=${r.value})`;
+          });
+
+          const idx = formInputs.length;
+          const labelText_r = collectLabelText(radio);
+          // 대표 요소(첫 번째 라디오)에만 data-fill-idx 부여
+          radio.setAttribute('data-fill-idx', idx);
+          formInputs.push({
+            idx,
+            type: 'radio',
+            name: groupName,
+            labelText: labelText_r,
+            options,
+            stableId: makeStableId('radio', labelText_r, null, formInputs.length),
+          });
+        });
+      }
 
       // 3) select (드롭다운) — options 목록 포함해서 AI에 전달
       document.querySelectorAll('select').forEach((select) => {
@@ -641,16 +813,60 @@
         if (options.length === 0) return;
 
         const idx = formInputs.length;
+        const labelText_s = collectLabelText(select);
         select.setAttribute('data-fill-idx', idx);
         formInputs.push({
           idx,
           type: 'select',
           id: select.id || null,
           name: select.getAttribute('name') || null,
-          labelText: collectLabelText(select),
+          labelText: labelText_s,
           options,
+          stableId: makeStableId('select', labelText_s, null, formInputs.length),
         });
       });
+
+      // 6) 커스텀 드롭다운 (Vuetify / Element UI / li 기반)
+      //    native <select> 없이 div/span 클릭으로 열리는 드롭다운 감지
+      {
+        const customDropdownSelectors = [
+          // Vuetify
+          '.v-select__slot', '.v-select__selections',
+          // Element UI
+          '.el-select', '.el-select__input',
+          // 범용 커스텀 드롭다운
+          '[class*="select-wrap"] [class*="selected"]',
+          '[class*="selectbox"] [class*="selected"]',
+          '[class*="custom-select"]',
+          '[class*="dropdown-trigger"]',
+          '[role="combobox"]',
+        ];
+        customDropdownSelectors.forEach(sel => {
+          document.querySelectorAll(sel).forEach(trigger => {
+            if (trigger.getAttribute('data-fill-idx') !== null) return; // 중복 방지
+            const style = window.getComputedStyle(trigger);
+            if (style.display === 'none' || style.visibility === 'hidden') return;
+            if (trigger.offsetWidth === 0) return;
+            // 이미 선택된 텍스트가 있는지 확인 (placeholder가 아닌 경우 스킵)
+            const currentText = trigger.textContent.trim();
+            const isPlaceholder = !currentText || currentText.length < 2
+              || /선택|please|select|--/i.test(currentText);
+            if (!isPlaceholder) return;
+
+            const idx = formInputs.length;
+            const labelText_cd = collectLabelText(trigger);
+            trigger.setAttribute('data-fill-idx', idx);
+            trigger.setAttribute('data-fill-type', 'custom-dropdown');
+            formInputs.push({
+              idx,
+              type: 'custom-dropdown',
+              labelText: labelText_cd,
+              currentText,
+              stableId: makeStableId('custom-dropdown', labelText_cd, null, formInputs.length),
+            });
+          });
+        });
+      }
 
       // 문항 추출: DOM 룰 기반 (AI 없음 — 즉시 실행, 할루시네이션 없음)
       const questions = extractCoverLetterQuestions();
@@ -676,6 +892,12 @@
         const el = document.querySelector(`[data-fill-idx="${idx}"]`);
         if (!el || !value) return;
 
+        // 이미 올바른 값이면 스킵 (idempotency)
+        if (alreadyFilled(el, value)) {
+          console.log(`⏭️ 이미 채움 스킵: idx=${idx} → "${value}"`);
+          return;
+        }
+
         if (el.tagName === 'SELECT') {
           // select: value 또는 option text로 매칭
           const opts = Array.from(el.options);
@@ -684,7 +906,7 @@
             o.value.toLowerCase() === target ||
             o.text.trim().toLowerCase() === target ||
             o.text.trim().toLowerCase().includes(target) ||
-            target.includes(o.text.trim().toLowerCase()) && o.text.trim().length > 0
+            (target.includes(o.text.trim().toLowerCase()) && o.text.trim().length > 0)
           );
           if (match) {
             el.value = match.value;
@@ -692,6 +914,25 @@
             console.log(`✅ AI Select 채움: idx=${idx} → "${match.text.trim()}"`);
           } else {
             console.warn(`⚠️ Select 옵션 미매칭: idx=${idx} value="${value}"`);
+          }
+        } else if (el.type === 'radio') {
+          // radio group: name으로 전체 그룹 찾아서 텍스트 매칭 클릭
+          const groupName = el.getAttribute('name');
+          if (groupName) {
+            const groupEls = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(groupName)}"]`);
+            let clicked = false;
+            for (const radio of groupEls) {
+              const lbl = document.querySelector(`label[for="${CSS.escape(radio.id)}"]`);
+              const t = lbl?.textContent.trim() || radio.value;
+              if (isSemanticallyEqual(t, value) || isSemanticallyEqual(radio.value, value)) {
+                radio.click();
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log(`✅ AI Radio 채움: idx=${idx} name="${groupName}" → "${t}"`);
+                clicked = true;
+                break;
+              }
+            }
+            if (!clicked) console.warn(`⚠️ Radio 옵션 미매칭: idx=${idx} name="${groupName}" value="${value}"`);
           }
         } else if (el.type === 'checkbox') {
           // checkbox: "true"/"1"/true 일 때만 체크 (절대 uncheck 안 함)
@@ -701,13 +942,16 @@
             el.dispatchEvent(new Event('change', { bubbles: true }));
             console.log(`✅ AI Checkbox 체크: idx=${idx} label="${el.getAttribute('data-fill-idx')}"`);
           }
+        } else if (el.getAttribute('data-fill-type') === 'custom-dropdown') {
+          // 커스텀 드롭다운 (Vuetify / Element UI)
+          injectCustomDropdown(el, value, `custom-dropdown[idx=${idx}]`);
         } else if (el.type === 'date') {
           // date: YYYY-MM-DD 형식 그대로
           el.value = String(value).slice(0, 10);
           ['input', 'change'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
           console.log(`✅ AI Date 채움: idx=${idx} → "${el.value}"`);
         } else {
-          // text 계열
+          // text 계열 — React controlled input 대응: nativeSetter 필수
           const proto = window.HTMLInputElement.prototype;
           const setter = Object.getOwnPropertyDescriptor(proto, 'value');
           if (setter && setter.set) setter.set.call(el, value);
@@ -757,6 +1001,36 @@
           // 키워드 매칭도 재시도 (새로 활성화된 필드 커버)
           fillProfileFields(profile);
           console.log('[재시도] 연동 필드 재시도 완료');
+
+          // [종료 조건 보완] disabled→enabled된 필드가 있으면 한 번 더 AI 채움 시도
+          const newlyEnabled = aiFills.filter(({ idx }) => {
+            const el = document.querySelector(`[data-fill-idx="${idx}"]`);
+            return el && !el.disabled && !alreadyFilled(el, aiFills.find(f => f.idx === idx)?.value);
+          });
+          if (newlyEnabled.length > 0) {
+            console.log(`[수렴] 새로 활성화된 필드 ${newlyEnabled.length}개 재채움`);
+            newlyEnabled.forEach(({ idx, value }) => {
+              const el = document.querySelector(`[data-fill-idx="${idx}"]`);
+              if (!el || alreadyFilled(el, value)) return;
+              if (el.tagName === 'SELECT') {
+                const opts = Array.from(el.options);
+                const match = opts.find(o => isSemanticallyEqual(o.text, value) || isSemanticallyEqual(o.value, value));
+                if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [수렴] Select: idx=${idx} → "${match.text.trim()}"`); }
+              } else if (el.type === 'radio') {
+                const radioGroup = document.querySelectorAll(`input[type="radio"][name="${el.name}"]`);
+                for (const radio of radioGroup) {
+                  const lbl = document.querySelector(`label[for="${radio.id}"]`);
+                  const t = lbl?.textContent.trim() || radio.value;
+                  if (isSemanticallyEqual(t, value)) { radio.click(); radio.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [수렴] Radio: "${t}"`); break; }
+                }
+              } else {
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+                if (setter?.set) setter.set.call(el, value); else el.value = value;
+                ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+                console.log(`✅ [수렴] Input: idx=${idx} → "${value}"`);
+              }
+            });
+          }
         }, 600);
       }
 
@@ -780,10 +1054,13 @@
         });
 
       if (addBtns.length > 0) {
+        const prevRawCount = document.querySelectorAll(RAW_FIELD_SELECTOR).length;
         addBtns.slice(0, 10).forEach(btn => {
           try { btn.click(); console.log(`➕ 행 추가 클릭: "${btn.textContent.trim()}"`); } catch(e) {}
         });
-        await new Promise(r => setTimeout(r, 1000));
+        await waitForDomSettle(2000);
+        // Virtualized list: 새 필드가 생겨날 때까지 추가 대기
+        await waitForNewFields(prevRawCount, 1500);
 
         // 새로 생긴 빈 필드만 수집 (data-fill-idx 없는 것)
         let newIdx = formInputs.length;
@@ -828,11 +1105,25 @@
             secondFills.forEach(({ idx, value }) => {
               const el = document.querySelector(`[data-fill-idx="${idx}"]`);
               if (!el || !value) return;
+              if (alreadyFilled(el, value)) { console.log(`⏭️ 2차 스킵: idx=${idx}`); return; }
               if (el.tagName === 'SELECT') {
                 const opts = Array.from(el.options);
                 const target = String(value).toLowerCase();
                 const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target || o.text.trim().toLowerCase().includes(target));
                 if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ 2차 Select: idx=${idx} → "${match.text.trim()}"`); }
+              } else if (el.type === 'radio') {
+                const groupName = el.getAttribute('name');
+                if (groupName) {
+                  const groupEls = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(groupName)}"]`);
+                  for (const radio of groupEls) {
+                    const lbl = document.querySelector(`label[for="${CSS.escape(radio.id)}"]`);
+                    const t = lbl?.textContent.trim() || radio.value;
+                    if (isSemanticallyEqual(t, value) || isSemanticallyEqual(radio.value, value)) {
+                      radio.click(); radio.dispatchEvent(new Event('change', { bubbles: true }));
+                      console.log(`✅ 2차 Radio: idx=${idx} → "${t}"`); break;
+                    }
+                  }
+                }
               } else if (el.type === 'checkbox') {
                 const shouldCheck = value === 'true' || value === true || value === '1';
                 if (shouldCheck && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); }
