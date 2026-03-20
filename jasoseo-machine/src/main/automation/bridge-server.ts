@@ -7,7 +7,27 @@ import fs from 'fs';
 import os from 'os';
 import { getSetting, setSetting, getUserProfile } from '../db';
 import { BrowserWindow, dialog } from 'electron';
-import { executeClaudePrompt } from '../claude-bridge';
+import { executeClaudePrompt, type ClaudeExecuteOptions } from '../claude-bridge';
+
+// 429 발생 시 자동 재시도 (지수 백오프)
+async function executeWithRetry(options: ClaudeExecuteOptions, maxRetries = 2, baseDelayMs = 2000): Promise<string> {
+  let lastErr: Error = new Error('unknown')
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await executeClaudePrompt(options)
+    } catch (err: any) {
+      lastErr = err
+      if (err.message?.includes('429') && attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt)
+        console.warn(`[retry] 429 감지 (model=${options.modelOverride}), ${delay}ms 후 재시도 (${attempt + 1}/${maxRetries})`)
+        await new Promise(r => setTimeout(r, delay))
+      } else {
+        throw err
+      }
+    }
+  }
+  throw lastErr
+}
 
 /**
  * v20.0 Bridge Server (The Brain of "Hands of God")
@@ -184,7 +204,8 @@ RULES:
 - No preamble or explanation.`;
 
       try {
-        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', skipProjectDir: true, modelOverride: getSetting('model_ep_profile_fill') || undefined });
+        const modelOverride = getSetting('model_ep_profile_fill') || undefined
+        const raw = await executeWithRetry({ prompt, outputFormat: 'json', skipProjectDir: true, modelOverride });
         console.log(`\n===== PROFILE FILL RAW (${raw.length} chars) =====`);
         console.log(raw.slice(0, 500));
         console.log('=====');
@@ -246,7 +267,7 @@ RULES:
 반드시 아래와 같은 형태의 단일 JSON 객체로만 반환하세요 (배열 직접 반환 금지):
 {"questions": [{"question":"...", "charLimit":1000, "order":0}, ...]}`;
 
-        const raw = await executeClaudePrompt({ prompt, outputFormat: 'json', filePath: tmpFile, modelOverride: getSetting('model_ep_form_extract') || undefined });
+        const raw = await executeWithRetry({ prompt, outputFormat: 'json', filePath: tmpFile, modelOverride: getSetting('model_ep_form_extract') || undefined });
 
         // [디버그] Gemini 응답 원문을 파일로 저장 (확인 후 삭제 예정)
         const debugFile = path.join(os.tmpdir(), `gemini_raw_${Date.now()}.txt`);
