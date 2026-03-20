@@ -113,9 +113,7 @@
     8. 완성된 Full Review 화면 (3초)
   저장: jasoseo-machine/assets/images/hero.gif
 -->
-<div align="center">
-<img src="assets/images/hero.gif" alt="자소서 머신 전체 워크플로우 데모" width="860"/>
-</div>
+<div align="center"><br/><b>🎬 &nbsp; 전체 워크플로우 데모 GIF 촬영 예정</b><br/><code>hero.gif</code><br/><br/></div>
 
 ---
 
@@ -147,7 +145,7 @@
   강조: PDF → 카드 변환되는 순간
   저장: jasoseo-machine/assets/images/onboarding.gif
 -->
-<img src="assets/images/onboarding.gif" alt="매직 온보딩 데모" width="430"/>
+<div align="center"><br/><b>🎬 &nbsp; 데모 GIF 촬영 예정</b><br/><code>onboarding.gif</code><br/><br/></div>
 
 </td>
 </tr>
@@ -167,7 +165,7 @@
   강조: URL 1개에서 문항이 나타나는 순간
   저장: jasoseo-machine/assets/images/smart-mode.gif
 -->
-<img src="assets/images/smart-mode.gif" alt="스마트 URL 모드 데모" width="430"/>
+<div align="center"><br/><b>🎬 &nbsp; 데모 GIF 촬영 예정</b><br/><code>smart-mode.gif</code><br/><br/></div>
 
 </td>
 <td width="50%" valign="top">
@@ -206,7 +204,7 @@
   강조: 글자가 촤르륵 채워지는 스트리밍 장면
   저장: jasoseo-machine/assets/images/generation.gif
 -->
-<img src="assets/images/generation.gif" alt="실시간 스트리밍 생성 데모" width="430"/>
+<div align="center"><br/><b>🎬 &nbsp; 데모 GIF 촬영 예정</b><br/><code>generation.gif</code><br/><br/></div>
 
 </td>
 </tr>
@@ -226,7 +224,7 @@
   강조: 여러 빈칸이 한번에 채워지는 마지막 장면
   저장: jasoseo-machine/assets/images/extension.gif
 -->
-<img src="assets/images/extension.gif" alt="Chrome 확장 자동 입력 데모" width="430"/>
+<div align="center"><br/><b>🎬 &nbsp; 데모 GIF 촬영 예정</b><br/><code>extension.gif</code><br/><br/></div>
 
 </td>
 <td width="50%" valign="top">
@@ -270,21 +268,21 @@
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="assets/images/dashboard.png" alt="대시보드" width="430"/>
+<div><br/><b>📸 스크린샷 촬영 예정</b><br/><code>dashboard.png</code><br/><br/></div>
 <br/><sub>대시보드</sub>
 </td>
 <td width="50%" align="center">
-<img src="assets/images/episodes.png" alt="에피소드 라이브러리" width="430"/>
+<div><br/><b>📸 스크린샷 촬영 예정</b><br/><code>episodes.png</code><br/><br/></div>
 <br/><sub>에피소드 라이브러리</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" align="center">
-<img src="assets/images/step0.png" alt="기업 리서치 (Step 0)" width="430"/>
+<div><br/><b>📸 스크린샷 촬영 예정</b><br/><code>step0.png</code><br/><br/></div>
 <br/><sub>기업 리서치 분석</sub>
 </td>
 <td width="50%" align="center">
-<img src="assets/images/result.png" alt="완성된 자소서 (Full Review)" width="430"/>
+<div><br/><b>📸 스크린샷 촬영 예정</b><br/><code>result.png</code><br/><br/></div>
 <br/><sub>완성된 자소서</sub>
 </td>
 </tr>
