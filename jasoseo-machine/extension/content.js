@@ -1156,18 +1156,31 @@
           // 커스텀 드롭다운 (Vuetify / Element UI)
           injectCustomDropdown(el, value, `custom-dropdown[idx=${idx}]`);
         } else if (el.type === 'date') {
-          // date: YYYY-MM-DD 형식 그대로
-          el.value = String(value).slice(0, 10);
-          ['input', 'change'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
-          console.log(`✅ AI Date 채움: idx=${idx} → "${el.value}"`);
+          // date: YYYY-MM-DD 필수 — YYYY-MM이면 -01 패딩
+          let dateVal = String(value).split(',')[0].trim();
+          if (/^\d{4}-\d{2}$/.test(dateVal)) dateVal += '-01';
+          dateVal = dateVal.slice(0, 10);
+          const dateSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+          if (dateSetter && dateSetter.set) dateSetter.set.call(el, dateVal);
+          else el.value = dateVal;
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: dateVal }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log(`✅ AI Date 채움: idx=${idx} → "${dateVal}"`);
         } else {
-          // text 계열 — React controlled input 대응: nativeSetter 필수
+          // text 계열 — React 17+ 대응: InputEvent + inputType:'insertText' 필수
           const proto = window.HTMLInputElement.prototype;
           const setter = Object.getOwnPropertyDescriptor(proto, 'value');
-          if (setter && setter.set) setter.set.call(el, value);
-          else el.value = value;
-          ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
-          console.log(`✅ AI 프로필 채움: idx=${idx} → "${value}"`);
+          // 콤마 구분 다중값이면 첫 번째 항목만 사용 (반복 섹션 오매핑 방지)
+          const singleValue = String(value).includes(',') && el.type !== 'hidden'
+            ? String(value).split(',')[0].trim()
+            : String(value);
+          if (setter && setter.set) setter.set.call(el, singleValue);
+          else el.value = singleValue;
+          el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: singleValue }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          el.dispatchEvent(new Event('blur', { bubbles: true }));
+          const confirmed = el.value === singleValue;
+          console.log(`${confirmed ? '✅' : '⚠️'} AI 프로필 채움: idx=${idx} → "${singleValue}"${confirmed ? '' : ' (DOM 미반영 의심)'}`);
         }
       });
       console.log(`[프로필] AI ${aiFills.length}개 채움`);

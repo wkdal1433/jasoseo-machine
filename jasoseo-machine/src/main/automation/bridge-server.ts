@@ -194,12 +194,14 @@ ${fieldLines}
 RULES:
 - DO NOT use any tools (e.g., web_fetch, google_search).
 - Output ONLY a single JSON object in the format: {"fills": [{"idx": number, "value": "string"}, ...]}
+- ONE value per field. NEVER put multiple comma-separated values into one field. Each form input accepts exactly one value.
+- For repeating sections (경력, 학력, 자격증, 어학 등): if the profile has multiple entries but only one row exists in the form, use only the FIRST (most recent) entry. The user will add more rows manually.
+- For type="select": the value MUST exactly match one of the option values shown in options=[...]. Pick the most semantically correct option.
+- For type="date": output value in YYYY-MM-DD format. If only year+month is known, use the 1st day (e.g., 2022-07 → 2022-07-01).
+- For type="checkbox": output "true" ONLY if the profile explicitly indicates this field is true/yes/applicable. Output "false" otherwise. NEVER check boxes that look like privacy agreements or terms consent.
+- Fields marked disabled=true will be retried automatically after other fields are filled — still include them in mapping if they match.
+- For type="text": output a single plain string value (no comma-separated lists).
 - Only map fields that have a high confidence match.
-- For type="select": the value MUST exactly match one of the option values shown in options=[...] (use the part before "(value=", or the value= part). Pick the most semantically correct option.
-- For type="date": output value in YYYY-MM-DD format.
-- For type="checkbox": output "true" ONLY if the profile explicitly indicates this field is true/yes/applicable. Output "false" otherwise. NEVER check boxes that look like privacy agreements or terms consent. Fields with disabled=true may become enabled after other fields are filled — still include them in mapping if they match.
-- Fields marked disabled=true will be retried automatically after other fields are filled.
-- For type="text": output the profile value as a plain string.
 - If no matches are found, return {"fills": []}.
 - No preamble or explanation.`;
 
