@@ -13,6 +13,9 @@ import {
   AlertTriangle
 } from 'lucide-react'
 
+// Flash 전용 엔드포인트 키 — 확장 프로그램 핑퐁 파트 (속도 중심, Pro 모델 금지)
+const FLASH_ONLY_KEYS = new Set(['form_analyze', 'profile_fill', 'form_extract'])
+
 const ENDPOINT_CONFIGS = [
   { key: 'cover_letter',     label: '자소서 작성 (실시간)',    recommended: 'opus',                  reason: '최고 품질 글쓰기' },
   { key: 'company_analyze',  label: '기업 리서치 (Step 0)',    recommended: 'gemini-2.5-pro',        reason: '웹 검색 + 심층 분석' },
@@ -20,9 +23,9 @@ const ENDPOINT_CONFIGS = [
   { key: 'ep_suggest',       label: '에피소드 아이디어 제안',  recommended: 'gemini-2.5-flash',      reason: '구조화 출력, 중간 복잡도' },
   { key: 'web_fetch',        label: '채용공고 URL 파싱',       recommended: 'gemini-2.5-pro',        reason: 'fallback 시 복잡한 DOM 구조 해석 필요' },
   { key: 'pattern_analyze',  label: '자소서 패턴 분석',        recommended: 'gemini-2.5-flash',      reason: '단순 패턴 추출' },
-  { key: 'form_analyze',     label: '폼 구조 분석 (확장)',     recommended: 'gemini-2.5-flash-lite', reason: '단순 필드 매칭' },
-  { key: 'profile_fill',     label: '프로필 채우기 (확장)',    recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 매핑' },
-  { key: 'form_extract',     label: '문항 추출 (확장)',         recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 추출' },
+  { key: 'form_analyze',     label: '폼 구조 분석 (확장) ⚡',  recommended: 'gemini-2.5-flash-lite', reason: '단순 필드 매칭 — Flash 전용' },
+  { key: 'profile_fill',     label: '프로필 채우기 (확장) ⚡', recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 매핑 — Flash 전용' },
+  { key: 'form_extract',     label: '문항 추출 (확장) ⚡',     recommended: 'gemini-2.5-flash-lite', reason: '매우 단순한 추출 — Flash 전용' },
 ] as const
 
 const MODEL_OPTIONS = [
@@ -43,6 +46,13 @@ const MODEL_OPTIONS = [
   { group: 'Gemini Auto', models: [
     { value: 'auto', label: 'Auto', desc: '상황에 따라 Pro/Flash 자동 전환 (CLI 기본값)' },
   ]}
+]
+
+// 확장 프로그램 핑퐁 파트 전용 Flash 모델 목록
+const FLASH_MODEL_OPTIONS = [
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', desc: '가장 빠름 — 단순 매핑 최적 (추천)' },
+  { value: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash',      desc: '균형형 — 복잡한 폼 구조에 적합' },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview', desc: '최신 Flash — 실험적' },
 ]
 
 export function SettingsPage() {
@@ -280,22 +290,24 @@ export function SettingsPage() {
           </div>
           <div className="space-y-2">
             {ENDPOINT_CONFIGS.map((ep) => {
-              const allModels = MODEL_OPTIONS.flatMap(g => g.models)
+              const isFlashOnly = FLASH_ONLY_KEYS.has(ep.key)
+              const availableModels = isFlashOnly ? FLASH_MODEL_OPTIONS : MODEL_OPTIONS.flatMap(g => g.models)
               const current = endpointModels[ep.key] || ep.recommended
               const isRecommended = current === ep.recommended
               return (
-                <div key={ep.key} className="grid grid-cols-2 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/30 transition-colors">
+                <div key={ep.key} className={`grid grid-cols-2 items-center gap-3 rounded-md px-2 py-1.5 transition-colors ${isFlashOnly ? 'hover:bg-yellow-50 bg-yellow-50/40 border border-yellow-100' : 'hover:bg-accent/30'}`}>
                   <div>
                     <span className="text-xs font-medium">{ep.label}</span>
                     <span className="ml-1.5 text-[10px] text-muted-foreground">⭐ {ep.recommended}</span>
                     {isRecommended && <span className="ml-1 text-[10px] bg-primary/10 text-primary rounded px-1">추천</span>}
+                    {isFlashOnly && <span className="ml-1 text-[10px] bg-yellow-100 text-yellow-700 rounded px-1">Flash 전용</span>}
                   </div>
                   <select
                     value={current}
                     onChange={(e) => handleEndpointModelChange(ep.key, e.target.value)}
-                    className="rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+                    className={`rounded-md border px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring ${isFlashOnly ? 'border-yellow-200 bg-yellow-50' : 'border-input bg-background'}`}
                   >
-                    {allModels.map(m => (
+                    {availableModels.map(m => (
                       <option key={m.value} value={m.value}>{m.label}</option>
                     ))}
                   </select>
