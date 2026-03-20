@@ -42,79 +42,175 @@ export const FIXTURE_PROFILE = {
       gpaScale: '4.5'
     }
   ],
-  experience: [{
-    id: 'exp-1',
-    companyName: '테크스타트업',
-    dept: '개발팀',
-    rank: '인턴',
-    jobCategory: '백엔드 개발',
-    employmentType: '인턴',        // 고용형태
-    startDate: '2022-07',
-    endDate: '2022-12',
-    isCurrent: false,
-    description: '사용자 인증 API 설계 및 구현, MySQL 쿼리 최적화로 응답시간 40% 단축',
-    resignReason: '인턴십 계약 만료',  // 퇴직사유
-    salary: '',
-    isPublic: { salary: false, description: true, companyName: true }
-  }],
-  projects: [{                    // 프로젝트 (경력과 별도)
-    id: 'proj-1',
-    name: '일정 자동화 SaaS 개발',
-    client: '개인 프로젝트',
-    startDate: '2023-03',
-    endDate: '2023-08',
-    participation: '100',
-    role: '기획/개발/배포 전담',
-    description: 'Next.js + Supabase 기반 1인 개발, DAU 12명 달성'
-  }],
+  experience: [
+    {
+      id: 'exp-1',
+      companyName: '테크스타트업',
+      dept: '개발팀',
+      rank: '인턴',
+      jobCategory: '백엔드 개발',
+      employmentType: '인턴',
+      startDate: '2022-07',
+      endDate: '2022-12',
+      isCurrent: false,
+      description: '사용자 인증 API 설계 및 구현, MySQL 쿼리 최적화로 응답시간 40% 단축',
+      resignReason: '인턴십 계약 만료',
+      salary: '',
+      isPublic: { salary: false, description: true, companyName: true }
+    },
+    {
+      id: 'exp-2',
+      companyName: '핀테크코리아',
+      dept: '플랫폼개발팀',
+      rank: '사원',
+      jobCategory: '백엔드 개발',
+      employmentType: '정규직',
+      startDate: '2023-09',
+      endDate: '2024-08',
+      isCurrent: false,
+      description: '결제 API 신규 개발 및 운영, 트랜잭션 처리 안정성 99.9% 달성',
+      resignReason: '이직',
+      salary: '',
+      isPublic: { salary: false, description: true, companyName: true }
+    }
+  ],
+  projects: [
+    {
+      id: 'proj-1',
+      name: '일정 자동화 SaaS 개발',
+      client: '개인 프로젝트',
+      startDate: '2023-03',
+      endDate: '2023-08',
+      participation: '100',
+      role: '기획/개발/배포 전담',
+      description: 'Next.js + Supabase 기반 1인 개발, DAU 12명 달성'
+    },
+    {
+      id: 'proj-2',
+      name: '교내 학점 관리 앱',
+      client: '한국대학교',
+      startDate: '2022-03',
+      endDate: '2022-08',
+      participation: '50',
+      role: '백엔드 개발',
+      description: 'Spring Boot + MySQL 기반 학점 관리 웹앱, 재학생 200명 사용'
+    }
+  ],
   skills: ['Python', 'TypeScript', 'React', 'Node.js', 'MySQL', 'Docker', 'Git'],
-  computerSkills: [{              // 컴퓨터활용능력
-    id: 'cs-1',
-    program: 'Microsoft Excel',
-    level: '상',
-    period: '3년'
-  }],
-  activities: [{
-    id: 'act-1',
-    type: 'club' as const,
-    organization: '교내 AI 동아리',
-    role: '스터디 운영진',
-    startDate: '2021-03',
-    endDate: '2022-12',
-    description: '주간 논문 스터디 운영, 머신러닝 프로젝트 3건 완료'
-  }],
-  training: [{
-    id: 'tr-1',
-    name: 'AWS Solutions Architect 교육',
-    organization: 'AWS Korea',
-    startDate: '2023-06',
-    endDate: '2023-06',
-    description: '클라우드 아키텍처 설계 실습 과정'
-  }],
-  certificates: [{
-    id: 'cert-1',
-    name: '정보처리기사',
-    issuer: '한국산업인력공단',
-    number: '23-12345678',         // 자격증 번호
-    date: '2022-11'
-  }],
-  languages: [{
-    id: 'lang-1',
-    category: '영어',
-    language: '영어',
-    testName: 'TOEIC',
-    grade: '875',
-    level: '상',
-    date: '2023-01'
-  }],
-  awards: [{
-    id: 'award-1',
-    name: '우수 졸업논문상',
-    issuer: '한국대학교 컴퓨터공학과',
-    date: '2023-02',
-    description: '분산 시스템 성능 최적화 연구'
-  }],
-  overseas: [],
+  computerSkills: [
+    {
+      id: 'cs-1',
+      program: 'Microsoft Excel',
+      level: '상',
+      period: '3년'
+    },
+    {
+      id: 'cs-2',
+      program: 'Python',
+      level: '고급',
+      period: '4년'
+    }
+  ],
+  activities: [
+    {
+      id: 'act-1',
+      type: 'club' as const,
+      organization: '교내 AI 동아리',
+      role: '스터디 운영진',
+      startDate: '2021-03',
+      endDate: '2022-12',
+      description: '주간 논문 스터디 운영, 머신러닝 프로젝트 3건 완료'
+    },
+    {
+      id: 'act-2',
+      type: 'volunteer' as const,
+      organization: '강남구 IT 봉사단',
+      role: '팀원',
+      startDate: '2022-01',
+      endDate: '2022-06',
+      description: '시니어 대상 스마트폰 활용 교육 진행, 월 2회 정기 활동'
+    }
+  ],
+  training: [
+    {
+      id: 'tr-1',
+      name: 'AWS Solutions Architect 교육',
+      organization: 'AWS Korea',
+      startDate: '2023-06',
+      endDate: '2023-06',
+      description: '클라우드 아키텍처 설계 실습 과정'
+    },
+    {
+      id: 'tr-2',
+      name: '데이터 엔지니어링 부트캠프',
+      organization: '패스트캠퍼스',
+      startDate: '2023-09',
+      endDate: '2023-11',
+      description: 'Spark, Kafka, Airflow 기반 데이터 파이프라인 구축 실습'
+    }
+  ],
+  certificates: [
+    {
+      id: 'cert-1',
+      name: '정보처리기사',
+      issuer: '한국산업인력공단',
+      number: '23-12345678',
+      date: '2022-11'
+    },
+    {
+      id: 'cert-2',
+      name: 'AWS Certified Developer',
+      issuer: 'Amazon Web Services',
+      number: 'AWS-DEV-2023-9876',
+      date: '2023-07'
+    }
+  ],
+  languages: [
+    {
+      id: 'lang-1',
+      category: '영어',
+      language: '영어',
+      testName: 'TOEIC',
+      grade: '875',
+      level: '상',
+      date: '2023-01'
+    },
+    {
+      id: 'lang-2',
+      category: '일본어',
+      language: '일본어',
+      testName: 'JLPT',
+      grade: 'N2',
+      level: '중',
+      date: '2022-07'
+    }
+  ],
+  awards: [
+    {
+      id: 'award-1',
+      name: '우수 졸업논문상',
+      issuer: '한국대학교 컴퓨터공학과',
+      date: '2023-02',
+      description: '분산 시스템 성능 최적화 연구'
+    },
+    {
+      id: 'award-2',
+      name: '교내 해커톤 최우수상',
+      issuer: '한국대학교',
+      date: '2022-11',
+      description: '24시간 해커톤 AI 트랙 1위, 실시간 이상탐지 시스템 구현'
+    }
+  ],
+  overseas: [
+    {
+      id: 'overseas-1',
+      country: '미국',
+      startDate: '2020-07',
+      endDate: '2020-08',
+      purpose: '어학연수',
+      description: '캘리포니아 어학원 2개월 연수'
+    }
+  ],
   portfolio: [
     { id: 'port-1', type: 'url' as const, label: 'GitHub', path: 'https://github.com/fixture-user' },
     { id: 'port-2', type: 'url' as const, label: '블로그', path: 'https://blog.fixture-user.dev' }
