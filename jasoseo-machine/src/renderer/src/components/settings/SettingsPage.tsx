@@ -75,6 +75,10 @@ export function SettingsPage() {
     const models: Record<string, string> = {}
     for (const ep of ENDPOINT_CONFIGS) {
       const val = await window.api.settingsGet(`model_ep_${ep.key}`) as string | null
+      if (!val) {
+        // DB에 없으면 추천값을 즉시 저장 — UI 표시만 되고 실제 AI 호출엔 반영 안 되는 버그 방지
+        await window.api.settingsSet(`model_ep_${ep.key}`, ep.recommended)
+      }
       models[ep.key] = val || ep.recommended
     }
     setEndpointModels(models)
