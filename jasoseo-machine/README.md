@@ -68,35 +68,17 @@
 
 ## 전체 파이프라인
 
-<!--
-  [이미지 3] pipeline-diagram.png
-  종류: AI 생성 (나노바나나) 또는 Figma/Canva로 직접 제작
-  크기: 1280×220 → 표시 860px
-  내용: 수평 파이프라인 흐름도
-    - 9개 원형 노드 (0~8번), 화살표로 연결
-    - Step 0: 돋보기 아이콘 (기업 분석)
-    - Step 1~2: 퍼즐 아이콘 (재해석/매칭)
-    - Step 3~5: 연필 아이콘 (생성)
-    - Step 6~8: 체크 아이콘 (검증)
-    - 색상: 왼쪽 파랑 → 중앙 보라 → 오른쪽 초록으로 그라데이션
-    - 다크 배경, 플랫 인포그래픽 스타일
-  나노바나나 프롬프트:
-    "horizontal pipeline infographic, 10 connected circular nodes numbered 0 to 8,
-     arrows between nodes, left nodes blue, middle nodes purple, right nodes green,
-     icons inside nodes (magnifier, puzzle, pencil, checkmark),
-     dark background, flat modern infographic style, wide format, no text"
-  저장: jasoseo-machine/assets/images/pipeline-diagram.png
--->
-<img src="assets/images/pipeline-diagram.png" alt="9단계 AI 파이프라인" width="860"/>
-
-```
-원자재 투입                  AI 9단계 정제 공정                완성품 출하
-────────────────────────────────────────────────────────────────────────
-이력서/경험   →  [0]기업분석 → [1]질문재해석 → [2]에피소드매칭
-              →  [3]도입부   → [4]본문S-P-A-A-R-L → [5]마무리
-              →  [6]할루시네이션검증 → [7]탈락패턴제거 → [8]이중코딩검증
-              →  완성된 자소서 → Chrome 확장 → 채용사이트 자동 입력
-```
+| 단계 | 역할 | 핵심 작업 |
+|------|------|-----------|
+| **Step 0** | 기업 전략 해석 | HR 의도 파악 · 작성 전략 수립 |
+| **Step 1** | 질문 재해석 | 질문을 기업 가치에 유리하게 재정의 |
+| **Step 2** | 에피소드 매칭 | 최적 에피소드 선택 · 앵글 결정 (사용자 승인) |
+| **Step 3** | 도입부 생성 | 소제목 + 핵심 메시지 · 이중 코딩 적용 |
+| **Step 4** | 본문 전개 | S-P-A-A-R-L 구조 · 구체성 80% 집중 |
+| **Step 5** | 마무리 | 역량 재확인 + 기업 가치 연결 |
+| **Step 6** | 할루시네이션 검증 | Episode 외 정보 사용 여부 전수 검사 |
+| **Step 7** | 탈락 패턴 제거 | 기술 나열 · 추상 서술 · 감정 과잉 제거 |
+| **Step 8** | 이중 코딩 검증 | 내 이야기 + 회사 가치 동시 전달 확인 |
 
 ---
 
@@ -373,9 +355,9 @@ Copyright (c) 2026 장준수 — [LICENSE](LICENSE) 참조
 
 | 파일 | 크기 | 나노바나나 프롬프트 요약 |
 |------|------|------------------------|
-| `logo.png` | 512×512 | 기어+문서+별 아이콘, 네이비-퍼플 그라데이션, 플랫 |
-| `hero-concept.png` | 1280×540 | 자소서 공장 이소메트릭, 컨베이어벨트, 9개 AI 스테이션, 다크 |
-| `pipeline-diagram.png` | 1280×220 | 수평 파이프라인 노드 0~8, 파랑→보라→초록 색상 흐름 |
+| `logo.png` | 512×512 | 기어+문서+별 아이콘, 네이비+앰버, 에나멜 핀 스타일 |
+| `hero-concept-dark.png` | 1280×540 | 자소서 공장 이소메트릭, 다크 배경, 도트 스타일 |
+| `hero-concept-light.png` | 1280×540 | 자소서 공장 이소메트릭, 라이트 배경, 도트 스타일 |
 
 ### 앱 실제 화면 캡처
 
