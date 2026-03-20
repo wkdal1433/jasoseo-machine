@@ -39,12 +39,22 @@ export class FormAnalyzer {
   public buildBatchPrompt(formStructure: string, profile: UserProfile): string {
     const cleanForm = this.cleanHTML(formStructure);
 
+    // 배열 필드 요약: 항목 수를 AI에게 명시적으로 전달
+    const arraySummary = {
+      certificates: (profile.certificates || []).map(c => ({ name: c.name, issuer: c.issuer, date: c.date })),
+      activities:   (profile.activities   || []).map(a => ({ organization: a.organization, role: a.role, startDate: a.startDate, endDate: a.endDate })),
+      awards:       (profile.awards       || []).map(a => ({ name: a.name, issuer: a.issuer, date: a.date })),
+      training:     (profile.training     || []).map(t => ({ name: t.name, organization: t.organization })),
+      languages:    (profile.languages    || []).map(l => ({ language: l.language, testName: l.testName, grade: l.grade })),
+      experience:   (profile.experience   || []).map(e => ({ companyName: e.companyName, startDate: e.startDate, endDate: e.endDate })),
+    };
+
     return `
 # ROLE: High-Fidelity Recruitment Form Automator
 
 # MISSION:
-Analyze the [Job Application Form] and match it with the [User Profile]. 
-Generate a ROBUST JavaScript snippet that fills all fields.
+Analyze the [Job Application Form] and match it with the [User Profile].
+Generate a ROBUST JavaScript snippet that fills ALL fields including ALL array items.
 
 # USER PROFILE (Source of Truth):
 ${JSON.stringify(profile, null, 2)}
@@ -53,25 +63,67 @@ ${JSON.stringify(profile, null, 2)}
 ${cleanForm}
 
 # CORE REQUIREMENTS:
-1. **Fuzzy Selectors (Critical)**: For each field, provide an ARRAY of possible CSS selectors. 
-   - Example: ["#user_name", "input[name='nm']", "input[placeholder*='성명']"]
-   - Prioritize IDs, then names, then distinctive attributes.
-2. **Framework Compatibility**: The runtime provides an 'injectValue(selectors, value, type)' function which handles React/Vue state updates. Use it.
-3. **No Auto-Submit**: Never attempt to click submit buttons.
+
+## 1. Fuzzy Selectors (Critical)
+For each field, provide an ARRAY of possible CSS selectors.
+- Example: ["#user_name", "input[name='nm']", "input[placeholder*='성명']"]
+- Prioritize IDs, then names, then distinctive attributes.
+
+## 2. Array Field Rules (MOST IMPORTANT)
+The profile contains multiple items in array fields. You MUST fill ALL of them, not just the first.
+Array item counts: ${JSON.stringify(Object.fromEntries(Object.entries(arraySummary).map(([k,v]) => [k, (v as any[]).length])))}
+
+For each array field (certificates, activities, awards, training, languages, experience):
+- Step A: If the form shows only 1 row but has an "추가" / "+" / "행 추가" button, call clickAddButton() BEFORE injecting each additional item.
+- Step B: Inject items in ORDER (index 0 first, then 1, then 2...).
+- Step C: Use the runtime's clickAddButton(selectors) to expand rows.
+
+## 3. Field Mapping Rules (Strict)
+Korean recruitment forms follow this EXACT column order. Never swap fields:
+
+자격증 (certificates) row order:
+  Column 1 = 자격증명 / 자격증 이름  → certificates[i].name
+  Column 2 = 발행기관 / 취득기관     → certificates[i].issuer
+  Column 3 = 취득일 / 발행일         → certificates[i].date
+
+활동 (activities) row order:
+  Column 1 = 기관명 / 단체명         → activities[i].organization
+  Column 2 = 직책 / 역할             → activities[i].role
+  Column 3 = 시작일                  → activities[i].startDate
+  Column 4 = 종료일                  → activities[i].endDate
+
+수상 (awards) row order:
+  Column 1 = 수상명                  → awards[i].name
+  Column 2 = 수여기관                → awards[i].issuer
+  Column 3 = 수상일                  → awards[i].date
+
+어학 (languages) row order:
+  Column 1 = 언어                    → languages[i].language
+  Column 2 = 시험명                  → languages[i].testName
+  Column 3 = 등급/점수               → languages[i].grade
+
+교육 (training) row order:
+  Column 1 = 교육명                  → training[i].name
+  Column 2 = 기관명                  → training[i].organization
+
+## 4. Framework Compatibility
+- Use injectValue(selectors, value, type) for all input/select/textarea fields.
+- Use clickAddButton(selectors) to click "추가" / "+" buttons before adding new rows.
+- Never attempt to click submit buttons.
 
 # OUTPUT FORMAT (JSON ONLY):
 {
   "totalMatches": 42,
   "matches": [
-    { 
-      "fieldName": "Name", 
-      "selectors": ["#name", "input[name='user_name']"], 
-      "value": "홍길동",
-      "type": "text", 
-      "reason": "Direct match" 
+    {
+      "fieldName": "certificates[0].name",
+      "selectors": ["#cert_name_0", "input[name='cert_nm_0']"],
+      "value": "정보처리기사",
+      "type": "text",
+      "reason": "자격증명 첫번째 항목"
     }
   ],
-  "script": "/* Example: injectValue(['#n', '[name=nm]'], 'Value', 'text'); */"
+  "script": "/* clickAddButton(['button.add-cert']); injectValue(['#cert_name_0'], '정보처리기사', 'text', 'certificates[0].name'); */"
 }
 `;
   }
@@ -130,6 +182,23 @@ ${cleanForm}
     const events = ['input', 'change', 'blur'];
     events.forEach(name => el.dispatchEvent(new Event(name, { bubbles: true, cancelable: true })));
     if (el._valueTracker) el._valueTracker.setValue(el.value);
+  };
+
+  const clickAddButton = (selectors) => {
+    if (!Array.isArray(selectors)) selectors = [selectors];
+    const btn = findInAllFrames(selectors);
+    if (!btn) {
+      console.warn('⚠️ 추가 버튼을 찾지 못했습니다:', selectors);
+      return false;
+    }
+    try {
+      btn.click();
+      console.log(\`➕ 행 추가 클릭: \${selectors[0]}\`);
+      return true;
+    } catch(e) {
+      console.error('❌ 추가 버튼 클릭 실패:', e);
+      return false;
+    }
   };
 
   const injectValue = (selectors, value, type, fieldName) => {
