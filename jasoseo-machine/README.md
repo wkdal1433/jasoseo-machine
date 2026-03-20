@@ -51,7 +51,11 @@
      no text, wide format 2:1 ratio"
   저장: jasoseo-machine/assets/images/hero-concept.png
 -->
-<img src="assets/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="assets/images/hero-concept-light.png"/>
+  <source media="(prefers-color-scheme: dark)"  srcset="assets/images/hero-concept-dark.png"/>
+  <img src="assets/images/hero-concept-dark.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+</picture>
 
 <br/>
 <br/>

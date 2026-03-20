@@ -50,7 +50,11 @@
   저장 위치: jasoseo-machine/assets/images/hero-concept.png
 -->
 <p align="center">
-  <img src="./jasoseo-machine/assets/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="./jasoseo-machine/assets/images/hero-concept-light.png"/>
+    <source media="(prefers-color-scheme: dark)"  srcset="./jasoseo-machine/assets/images/hero-concept-dark.png"/>
+    <img src="./jasoseo-machine/assets/images/hero-concept-dark.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+  </picture>
 </p>
 
 ---
