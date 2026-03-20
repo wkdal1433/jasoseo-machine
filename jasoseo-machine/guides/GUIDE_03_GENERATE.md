@@ -20,7 +20,7 @@
      크기: 900×560px
      촬영: ApplicationSetup 화면 — "스마트 URL 모드" 탭이 선택된 상태, URL 입력 필드에 예시 URL 입력됨
      강조 포인트: 두 모드 탭(스마트 URL / 직접 입력) 전환 버튼, URL 입력 필드
-     저장 위치: docs/images/setup-page.png
+     저장 위치: assets/images/setup-page.png
 -->
 
 ### 4-2. 9단계 AI 파이프라인
@@ -47,7 +47,7 @@
        4. Step 6~8 검증 완료 체크마크
        5. 최종 완성된 자소서 전체 화면
      강조 포인트: 스트리밍 타이핑 효과, 단계별 진행 표시기
-     저장 위치: docs/images/generation.gif
+     저장 위치: assets/images/generation.gif
 -->
 
 ### 4-3. 인라인 편집 (Surgical Edit)
@@ -79,7 +79,7 @@
        3. 각 문항 textarea에 텍스트가 자동으로 채워지는 장면 (0.5초 간격)
        4. 모든 항목 입력 완료 상태
      강조 포인트: 자동 입력되는 텍스트 흐름 — 사람이 입력하는 것처럼 보이는 타이핑 효과
-     저장 위치: docs/images/extension.gif
+     저장 위치: assets/images/extension.gif
 -->
 
 ---

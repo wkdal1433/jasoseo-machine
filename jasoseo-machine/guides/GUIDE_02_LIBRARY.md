@@ -22,7 +22,7 @@
        3. AI 분석 진행 스피너 (로딩 중)
        4. 프로필 + 에피소드 카드가 채워지는 결과 화면
      강조 포인트: 파일 드롭 → 분석 → 자동 완성의 "마법 같은" 흐름
-     저장 위치: docs/images/onboarding.gif
+     저장 위치: assets/images/onboarding.gif
 -->
 
 ---
@@ -48,7 +48,7 @@
        4. AI 꼬리 질문 + 답변 1~2 라운드
        5. 인터뷰 완료 후 S-P-A-A-R-L 카드 생성되는 순간
      강조 포인트: 대화 흐름, 구조화된 카드가 생성되는 "완성" 순간
-     저장 위치: docs/images/interview.gif
+     저장 위치: assets/images/interview.gif
 -->
 
 ---
@@ -66,7 +66,7 @@
      크기: 1100×640px
      촬영: 에피소드 탭 — 에피소드 카드 3~4개가 그리드 형태로 채워진 상태
      강조 포인트: 카드의 제목, HR 의도 태그(실행력/성장성 등), 역량 뱃지
-     저장 위치: docs/images/episodes.png
+     저장 위치: assets/images/episodes.png
 -->
 
 ---

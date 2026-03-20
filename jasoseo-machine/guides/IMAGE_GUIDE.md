@@ -14,7 +14,12 @@ README 및 가이드 문서에 삽입할 이미지와 GIF의 제작 명세서입
 | **4** | `pipeline-diagram.png` | AI 생성 | 기술 이해도 상승 |
 | **5~** | 나머지 GIF/스크린샷 | 앱 캡처 | 기능별 상세 설명 |
 
-**저장 위치 공통**: `jasoseo-machine/docs/images/`
+| 파일 용도 | 저장 위치 | 이유 |
+|----------|-----------|------|
+| README/가이드 이미지 (GIF, PNG, 스크린샷) | `jasoseo-machine/assets/images/` | tracked → GitHub에 표시됨 |
+| 앱 아이콘 (Electron 빌드용) | `jasoseo-machine/build/icon.ico` | electron-builder 표준 경로 (package.json 설정) |
+
+> `jasoseo-machine/docs/`는 gitignore 대상이므로 이미지를 절대 그 경로에 저장하지 마세요.
 
 ---
 
@@ -28,6 +33,10 @@ README 및 가이드 문서에 삽입할 이미지와 GIF의 제작 명세서입
 | **선택 이유** | 굵은 검정 외곽선 + 솔리드 플랫 컬러 → 작은 크기에서도 선명. 앱 아이콘에 최적 |
 | **출력 크기** | 512×512 → README에 120px로 표시 |
 | **생성 권장 수** | 5~6장 생성 후 가장 잘 나온 것 선택 |
+| **README 저장 경로** | `jasoseo-machine/assets/images/logo.png` |
+| **앱 아이콘 저장 경로** | `jasoseo-machine/build/icon.ico` (electron-builder가 이 경로에서 읽음) |
+
+> **앱 아이콘 변환**: 나노바나나에서 PNG로 받은 후 → [CloudConvert](https://cloudconvert.com/png-to-ico) 등으로 ICO 변환 → `build/icon.ico`로 저장. PNG 원본은 `assets/images/logo.png`에도 보관.
 
 **한국어 프롬프트:**
 ```
@@ -118,7 +127,7 @@ ultra wide horizontal format 6:1 ratio
 창 크기: 1280×800 (앱 창 고정)
 GIF 설정: 24fps / LossyGIF 85% / 4MB 이하
 추천 도구: ScreenToGif (Windows) / Gifox (Mac)
-저장 위치: jasoseo-machine/docs/images/
+저장 위치: jasoseo-machine/assets/images/
 ```
 
 ---

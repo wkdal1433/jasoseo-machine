@@ -50,7 +50,7 @@ claude --version
      크기: 800×260px
      촬영: 터미널(Windows Terminal 또는 PowerShell)에서 gemini --version / claude --version 두 명령어 실행 결과를 동시에 보여주는 화면
      강조 포인트: 버전 숫자가 출력된 줄을 강조 (예: gemini/1.x.x, claude/1.x.x)
-     저장 위치: docs/images/setup-verify.png
+     저장 위치: assets/images/setup-verify.png
 -->
 
 ---
@@ -78,7 +78,7 @@ npm run dev
      크기: 900×480px
      촬영: Chrome chrome://extensions 페이지 — 개발자 모드 ON 상태, 자소서 머신 확장이 목록에 로드된 화면
      강조 포인트: 개발자 모드 토글(ON), 확장 카드 이름·아이콘
-     저장 위치: docs/images/extension-install.png
+     저장 위치: assets/images/extension-install.png
 -->
 
 ---
@@ -94,7 +94,7 @@ npm run dev
      크기: 900×520px
      촬영: 앱 설정 페이지 — AI Provider 섹션에서 [연결 테스트] 버튼 클릭 후 초록색 "연결 성공" 뱃지가 표시된 상태
      강조 포인트: 초록색 성공 메시지, CLI 경로 입력 필드
-     저장 위치: docs/images/settings-test.png
+     저장 위치: assets/images/settings-test.png
 -->
 
 ---

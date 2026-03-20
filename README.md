@@ -7,9 +7,9 @@
     나노바나나 프롬프트:
       "미니멀 플랫 앱 아이콘, 기어 안에 문서 아이콘, 상단에 작은 별 반짝임,
        네이비 투 퍼플 그라데이션, 흰 배경, 클린 테크 스타트업 스타일, 512×512"
-    저장 위치: jasoseo-machine/docs/images/logo.png
+    저장 위치: jasoseo-machine/assets/images/logo.png
   -->
-  <img src="./jasoseo-machine/docs/images/logo.png" width="120" alt="자소서 머신 로고" />
+  <img src="./jasoseo-machine/assets/images/logo.png" width="120" alt="자소서 머신 로고" />
 </p>
 
 <h1 align="center">자소서 머신 (Jasoseo Machine)</h1>
@@ -47,10 +47,10 @@
      small human silhouette with arms crossed standing at monitor on far right watching,
      dark background #0d1117, neon blue and purple lighting accents,
      clean minimal tech illustration style, no text labels, wide 2:1 ratio"
-  저장 위치: jasoseo-machine/docs/images/hero-concept.png
+  저장 위치: jasoseo-machine/assets/images/hero-concept.png
 -->
 <p align="center">
-  <img src="./jasoseo-machine/docs/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+  <img src="./jasoseo-machine/assets/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
 </p>
 
 ---
@@ -70,10 +70,10 @@
     6. Step 3 생성 시작 → 재밌는 멘트 + shimmer 바 (3초)
     7. 스트리밍 글자 채워지는 장면 (8~10초 — 핵심)
     8. Full Review 완성 화면 (3초)
-  저장 위치: jasoseo-machine/docs/images/hero.gif
+  저장 위치: jasoseo-machine/assets/images/hero.gif
 -->
 <p align="center">
-  <img src="./jasoseo-machine/docs/images/hero.gif" alt="자소서 머신 전체 워크플로우 데모" width="860"/>
+  <img src="./jasoseo-machine/assets/images/hero.gif" alt="자소서 머신 전체 워크플로우 데모" width="860"/>
 </p>
 
 ---
@@ -102,9 +102,9 @@
     3. AI 처리 로딩 애니메이션 3~5초
     4. 에피소드 카드들이 순차적으로 나타남
   강조 포인트: PDF 한 장 → 카드 여러 개로 변환되는 마법 순간
-  저장 위치: jasoseo-machine/docs/images/onboarding.gif
+  저장 위치: jasoseo-machine/assets/images/onboarding.gif
 -->
-<img src="./jasoseo-machine/docs/images/onboarding.gif" alt="매직 온보딩 데모" width="430"/>
+<img src="./jasoseo-machine/assets/images/onboarding.gif" alt="매직 온보딩 데모" width="430"/>
 
 </td>
 </tr>
@@ -122,9 +122,9 @@
     3. "공고 자동 분석" 버튼 클릭
     4. 로딩 → 문항 목록 자동 생성 완료
   강조 포인트: URL 1개 입력 → 문항이 뚝딱 나오는 순간
-  저장 위치: jasoseo-machine/docs/images/smart-mode.gif
+  저장 위치: jasoseo-machine/assets/images/smart-mode.gif
 -->
-<img src="./jasoseo-machine/docs/images/smart-mode.gif" alt="스마트 URL 모드 데모" width="430"/>
+<img src="./jasoseo-machine/assets/images/smart-mode.gif" alt="스마트 URL 모드 데모" width="430"/>
 
 </td>
 <td width="50%" valign="top">
@@ -158,9 +158,9 @@
     3. 첫 글자 등장 → 스트리밍 (12~15초 — 핵심 장면)
     4. 상단 진행 바 + 글자수 카운터 포함되도록 구도 잡기
   강조 포인트: 자소서 글자가 촤르륵 채워지는 스트리밍 장면
-  저장 위치: jasoseo-machine/docs/images/generation.gif
+  저장 위치: jasoseo-machine/assets/images/generation.gif
 -->
-<img src="./jasoseo-machine/docs/images/generation.gif" alt="AI 실시간 스트리밍 생성 데모" width="430"/>
+<img src="./jasoseo-machine/assets/images/generation.gif" alt="AI 실시간 스트리밍 생성 데모" width="430"/>
 
 </td>
 </tr>
@@ -178,9 +178,9 @@
     3. Chrome 확장 팝업 아이콘 클릭 → "자동 입력" 버튼
     4. 여러 텍스트박스가 순차적으로 빠르게 채워지는 클라이맥스 (6~8초)
   강조 포인트: 빈칸들이 한번에 채워지는 마지막 장면 (가장 임팩트 있는 순간)
-  저장 위치: jasoseo-machine/docs/images/extension.gif
+  저장 위치: jasoseo-machine/assets/images/extension.gif
 -->
-<img src="./jasoseo-machine/docs/images/extension.gif" alt="Chrome 확장 자동 입력 데모" width="430"/>
+<img src="./jasoseo-machine/assets/images/extension.gif" alt="Chrome 확장 자동 입력 데모" width="430"/>
 
 </td>
 <td width="50%" valign="top">

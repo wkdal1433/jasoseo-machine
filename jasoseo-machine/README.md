@@ -8,9 +8,9 @@
   나노바나나 프롬프트:
     "미니멀 플랫 앱 아이콘, 기어 안에 문서 아이콘, 상단에 작은 별 반짝임,
      네이비 투 퍼플 그라데이션, 흰 배경, 클린 테크 스타트업 스타일, 512×512"
-  저장: jasoseo-machine/docs/images/logo.png
+  저장: jasoseo-machine/assets/images/logo.png
 -->
-<img src="docs/images/logo.png" alt="자소서 머신 로고" width="96"/>
+<img src="assets/images/logo.png" alt="자소서 머신 로고" width="96"/>
 
 # 자소서 머신
 
@@ -49,9 +49,9 @@
      small human silhouette standing at monitor on the right watching,
      dark background #0d1117, neon blue purple lighting, clean tech minimal art style,
      no text, wide format 2:1 ratio"
-  저장: jasoseo-machine/docs/images/hero-concept.png
+  저장: jasoseo-machine/assets/images/hero-concept.png
 -->
-<img src="docs/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
+<img src="assets/images/hero-concept.png" alt="자소서 공장 — 자동화 파이프라인 개념도" width="860"/>
 
 <br/>
 <br/>
@@ -81,9 +81,9 @@
      arrows between nodes, left nodes blue, middle nodes purple, right nodes green,
      icons inside nodes (magnifier, puzzle, pencil, checkmark),
      dark background, flat modern infographic style, wide format, no text"
-  저장: jasoseo-machine/docs/images/pipeline-diagram.png
+  저장: jasoseo-machine/assets/images/pipeline-diagram.png
 -->
-<img src="docs/images/pipeline-diagram.png" alt="9단계 AI 파이프라인" width="860"/>
+<img src="assets/images/pipeline-diagram.png" alt="9단계 AI 파이프라인" width="860"/>
 
 ```
 원자재 투입                  AI 9단계 정제 공정                완성품 출하
@@ -111,10 +111,10 @@
     6. Step 3 생성 시작 → 재밌는 멘트 + shimmer (3초)
     7. 스트리밍 글자 (8~10초 — 핵심 장면)
     8. 완성된 Full Review 화면 (3초)
-  저장: jasoseo-machine/docs/images/hero.gif
+  저장: jasoseo-machine/assets/images/hero.gif
 -->
 <div align="center">
-<img src="docs/images/hero.gif" alt="자소서 머신 전체 워크플로우 데모" width="860"/>
+<img src="assets/images/hero.gif" alt="자소서 머신 전체 워크플로우 데모" width="860"/>
 </div>
 
 ---
@@ -145,9 +145,9 @@
     3. AI 처리 로딩 애니메이션 (3~5초)
     4. 에피소드 카드들 순차적으로 등장
   강조: PDF → 카드 변환되는 순간
-  저장: jasoseo-machine/docs/images/onboarding.gif
+  저장: jasoseo-machine/assets/images/onboarding.gif
 -->
-<img src="docs/images/onboarding.gif" alt="매직 온보딩 데모" width="430"/>
+<img src="assets/images/onboarding.gif" alt="매직 온보딩 데모" width="430"/>
 
 </td>
 </tr>
@@ -165,9 +165,9 @@
     3. "공고 자동 분석" 클릭
     4. 로딩 → 문항 목록 자동 생성
   강조: URL 1개에서 문항이 나타나는 순간
-  저장: jasoseo-machine/docs/images/smart-mode.gif
+  저장: jasoseo-machine/assets/images/smart-mode.gif
 -->
-<img src="docs/images/smart-mode.gif" alt="스마트 URL 모드 데모" width="430"/>
+<img src="assets/images/smart-mode.gif" alt="스마트 URL 모드 데모" width="430"/>
 
 </td>
 <td width="50%" valign="top">
@@ -204,9 +204,9 @@
     4. 첫 글자 등장 → 스트리밍 (12~15초 핵심)
     5. 상단 진행 바 + 글자수 카운터 포함되도록
   강조: 글자가 촤르륵 채워지는 스트리밍 장면
-  저장: jasoseo-machine/docs/images/generation.gif
+  저장: jasoseo-machine/assets/images/generation.gif
 -->
-<img src="docs/images/generation.gif" alt="실시간 스트리밍 생성 데모" width="430"/>
+<img src="assets/images/generation.gif" alt="실시간 스트리밍 생성 데모" width="430"/>
 
 </td>
 </tr>
@@ -224,9 +224,9 @@
     3. 확장 팝업 → "자동 입력" 클릭
     4. 텍스트박스들이 순차적으로 채워지는 클라이맥스 (6~8초)
   강조: 여러 빈칸이 한번에 채워지는 마지막 장면
-  저장: jasoseo-machine/docs/images/extension.gif
+  저장: jasoseo-machine/assets/images/extension.gif
 -->
-<img src="docs/images/extension.gif" alt="Chrome 확장 자동 입력 데모" width="430"/>
+<img src="assets/images/extension.gif" alt="Chrome 확장 자동 입력 데모" width="430"/>
 
 </td>
 <td width="50%" valign="top">
@@ -270,21 +270,21 @@
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="docs/images/dashboard.png" alt="대시보드" width="430"/>
+<img src="assets/images/dashboard.png" alt="대시보드" width="430"/>
 <br/><sub>대시보드</sub>
 </td>
 <td width="50%" align="center">
-<img src="docs/images/episodes.png" alt="에피소드 라이브러리" width="430"/>
+<img src="assets/images/episodes.png" alt="에피소드 라이브러리" width="430"/>
 <br/><sub>에피소드 라이브러리</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" align="center">
-<img src="docs/images/step0.png" alt="기업 리서치 (Step 0)" width="430"/>
+<img src="assets/images/step0.png" alt="기업 리서치 (Step 0)" width="430"/>
 <br/><sub>기업 리서치 분석</sub>
 </td>
 <td width="50%" align="center">
-<img src="docs/images/result.png" alt="완성된 자소서 (Full Review)" width="430"/>
+<img src="assets/images/result.png" alt="완성된 자소서 (Full Review)" width="430"/>
 <br/><sub>완성된 자소서</sub>
 </td>
 </tr>
@@ -390,6 +390,6 @@ Copyright (c) 2026 장준수 — [LICENSE](LICENSE) 참조
 | `result.png` | PNG | - | Full Review 완성된 자소서 전체 |
 
 **공통 설정**: 앱 윈도우 1280×800 고정, GIF 24fps, LossyGIF로 4MB 이하 압축
-**저장 위치**: 모두 `jasoseo-machine/docs/images/`
+**저장 위치**: 모두 `jasoseo-machine/assets/images/`
 
 </details>
