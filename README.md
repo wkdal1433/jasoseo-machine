@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/AI--Engine-Gemini%20%26%20Claude-orange?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Platform-Electron-lightgrey?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge" />
@@ -61,9 +61,9 @@
 
 | 단계 | 가이드 제목 | 주요 내용 |
 | :--- | :--- | :--- |
-| **Step 1** | [<img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="16" height="16" valign="bottom" /> 환경 설정 및 설치](./docs/USER_GUIDE_PART1_2.md) | CLI 설치 및 앱-AI 연결 |
-| **Step 2** | [<img src="https://unpkg.com/lucide-static@latest/icons/box.svg" width="16" height="16" valign="bottom" /> 나의 무기 만들기](./docs/USER_GUIDE_PART3.md) | 이력서 기반 경험 데이터화 |
-| **Step 3** | [<img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="16" height="16" valign="bottom" /> 자소서 생성 및 자동 제출](./docs/USER_GUIDE_PART4_5.md) | 위저드 활용 및 크롬 연동 |
+| **Step 1** | [<img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="16" height="16" valign="bottom" /> 환경 설정 및 설치](./jasoseo-machine/guides/GUIDE_01_SETUP.md) | CLI 설치 및 앱-AI 연결 |
+| **Step 2** | [<img src="https://unpkg.com/lucide-static@latest/icons/box.svg" width="16" height="16" valign="bottom" /> 나의 무기 만들기](./jasoseo-machine/guides/GUIDE_02_LIBRARY.md) | 이력서 기반 경험 데이터화 |
+| **Step 3** | [<img src="https://unpkg.com/lucide-static@latest/icons/wand-sparkles.svg" width="16" height="16" valign="bottom" /> 자소서 생성 및 자동 제출](./jasoseo-machine/guides/GUIDE_03_GENERATE.md) | 위저드 활용 및 크롬 연동 |
 
 
 ---
