@@ -413,6 +413,45 @@
       });
     }
 
+    // same-origin iframe 안에서도 탐색 (cross-origin은 조용히 스킵)
+    if (questions.length === 0) {
+      document.querySelectorAll('iframe').forEach(iframe => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (!doc) return;
+          const IFRAME_EDITOR_SELS = [
+            'textarea',
+            '.ProseMirror[contenteditable="true"]',
+            '.ql-editor[contenteditable="true"]',
+            '[role="textbox"][contenteditable="true"]',
+            'div[contenteditable="true"]',
+          ];
+          IFRAME_EDITOR_SELS.forEach(sel => {
+            doc.querySelectorAll(sel).forEach(el => {
+              if (visited.has(el)) return;
+              const rect = el.getBoundingClientRect();
+              if (rect.height < 60) return;
+              visited.add(el);
+              // iframe 안에서는 findLabelText가 부분적으로만 동작 — 페이지 제목 fallback
+              const labelText = el.getAttribute('aria-label')
+                || el.getAttribute('placeholder')
+                || doc.title
+                || '자기소개서 입력';
+              if (labelText.length < 4) return;
+              questions.push({
+                question: labelText.trim(),
+                charLimit: null,
+                editorType: 'iframe-contenteditable',
+              });
+              el.setAttribute('data-editor-type', 'iframe-contenteditable');
+            });
+          });
+        } catch (e) {
+          // cross-origin — 조용히 스킵 (접근 불가)
+        }
+      });
+    }
+
     return questions;
   }
 
@@ -612,7 +651,6 @@
     if (!el) return false;
     try {
       el.focus();
-      // 기존 내용 전체 선택 후 교체
       const sel = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(el);
@@ -637,6 +675,104 @@
       console.error(`❌ ContentEditable 실패: ${fieldName}`, err);
       return false;
     }
+  }
+
+  // === iframe 내부 contenteditable 탐색 및 채움 ===
+  // same-origin: 직접 접근 / cross-origin: clipboard fallback + 안내 토스트
+  function showClipboardToast(value, fieldName) {
+    navigator.clipboard.writeText(value).catch(() => {});
+    const toast = document.createElement('div');
+    Object.assign(toast.style, {
+      position: 'fixed', bottom: '80px', right: '20px', zIndex: '9999999',
+      background: '#1e293b', color: '#f1f5f9', padding: '12px 16px',
+      borderRadius: '10px', fontSize: '13px', maxWidth: '320px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)', lineHeight: '1.5',
+    });
+    toast.innerHTML = `<b>📋 클립보드 복사 완료</b><br>"${fieldName}" 입력창은 보안 영역(cross-origin)이라 자동 입력이 제한됩니다.<br><span style="color:#94a3b8">Ctrl+V로 붙여넣기 해주세요.</span>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 7000);
+  }
+
+  async function injectIntoIframes(value, fieldName) {
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) continue; // cross-origin → 접근 불가
+        const EDITOR_SELS = [
+          '.ProseMirror[contenteditable="true"]',
+          '.ql-editor[contenteditable="true"]',
+          '[role="textbox"][contenteditable="true"]',
+          'div[contenteditable="true"]',
+          'textarea',
+        ];
+        for (const sel of EDITOR_SELS) {
+          const el = doc.querySelector(sel);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 || rect.height < 30) continue;
+
+          if (el.tagName === 'TEXTAREA') {
+            const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+            if (setter?.set) setter.set.call(el, value); else el.value = value;
+            ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+          } else {
+            injectContentEditable(el, value, `${fieldName}[iframe]`);
+          }
+          console.log(`✅ iframe 내부 채움: ${fieldName}`);
+          logSuccess(`${fieldName}[iframe]`, 'iframe-editor', value);
+          return true;
+        }
+      } catch (e) {
+        // cross-origin SecurityError — clipboard fallback
+        if (e.name === 'SecurityError' || e.message?.includes('cross-origin')) {
+          console.warn(`🛡️ cross-origin iframe 감지: ${fieldName} — clipboard fallback 실행`);
+          showClipboardToast(value, fieldName);
+          logFailed(fieldName, 'iframe-crossorigin', 'cross-origin 접근 차단 → clipboard 복사');
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  // === Failure Log (실패 로그 수집 — 커버리지 튜닝의 원료) ===
+  const FILL_LOG = {
+    success: [],  // { fieldName, type, value }
+    failed:  [],  // { fieldName, type, selectors, reason }
+    skipped: [],  // { fieldName, reason }
+  };
+
+  function logSuccess(fieldName, type, value) {
+    FILL_LOG.success.push({ fieldName, type, value: String(value).slice(0, 50) });
+  }
+  function logFailed(fieldName, type, reason, selectors = []) {
+    FILL_LOG.failed.push({ fieldName, type, reason, selectors });
+  }
+  function logSkipped(fieldName, reason) {
+    FILL_LOG.skipped.push({ fieldName, reason });
+  }
+
+  function showFillSummary() {
+    const { success, failed, skipped } = FILL_LOG;
+    const total = success.length + failed.length;
+    console.groupCollapsed(
+      `%c📊 Fill Summary: ${success.length}/${total} 성공 | 실패 ${failed.length} | 스킵 ${skipped.length}`,
+      'color: #6366f1; font-weight: bold; font-size: 13px;'
+    );
+    if (success.length > 0) {
+      console.log('%c✅ 성공 필드:', 'color: #10b981; font-weight: bold;');
+      success.forEach(f => console.log(`  [${f.type}] ${f.fieldName}: "${f.value}"`));
+    }
+    if (failed.length > 0) {
+      console.log('%c❌ 실패 필드 (튜닝 필요):', 'color: #ef4444; font-weight: bold;');
+      failed.forEach(f => console.log(`  [${f.type}] ${f.fieldName}: ${f.reason}`));
+    }
+    if (skipped.length > 0) {
+      console.log('%c⏭️ 스킵된 필드:', 'color: #f59e0b; font-weight: bold;');
+      skipped.forEach(f => console.log(`  ${f.fieldName}: ${f.reason}`));
+    }
+    console.groupEnd();
   }
 
   // === Convergence Engine Utilities ===
@@ -987,6 +1123,7 @@
             console.log(`✅ AI Select 채움: idx=${idx} → "${match.text.trim()}"`);
           } else {
             console.warn(`⚠️ Select 옵션 미매칭: idx=${idx} value="${value}"`);
+            logFailed(`select[idx=${idx}]`, 'select', `옵션 미매칭: "${value}"`);
           }
         } else if (el.type === 'radio') {
           // radio group: name으로 전체 그룹 찾아서 텍스트 매칭 클릭
@@ -1005,7 +1142,7 @@
                 break;
               }
             }
-            if (!clicked) console.warn(`⚠️ Radio 옵션 미매칭: idx=${idx} name="${groupName}" value="${value}"`);
+            if (!clicked) { console.warn(`⚠️ Radio 옵션 미매칭: idx=${idx} name="${groupName}" value="${value}"`); logFailed(`radio[${groupName}]`, 'radio', `옵션 미매칭: "${value}"`); }
           }
         } else if (el.type === 'checkbox') {
           // checkbox: "true"/"1"/true 일 때만 체크 (절대 uncheck 안 함)
@@ -1238,6 +1375,8 @@
       alert(msg);
       extractBtn.innerText = '❌ 실패';
     } finally {
+      // 실패 로그 요약 출력 (커버리지 튜닝 원료)
+      showFillSummary();
       setTimeout(() => {
         extractBtn.disabled = false;
         extractBtn.innerText = '📋 문항 추출';
