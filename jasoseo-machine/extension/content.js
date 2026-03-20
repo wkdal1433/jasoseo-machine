@@ -286,32 +286,34 @@
       }
       p = p.parentElement;
     }
-    // 3) 조상 컨테이너 내 제목 요소(h1~h6, dt, th, legend, strong, b) 우선 탐색
-    //    placeholder-hint div보다 제목 요소를 먼저 찾아야 오류 방지
-    const headingSelector = 'h1, h2, h3, h4, h5, h6, dt, th, legend';
+    // 3) 조상 컨테이너 내 제목/강조 요소 우선 탐색 (Vuetify v-label, strong 등 포함)
+    const headingSelector = 'h1, h2, h3, h4, h5, h6, dt, th, legend, strong, b';
     let ancestor = el.parentElement;
-    for (let i = 0; i < 6 && ancestor; i++) {
+    for (let i = 0; i < 10 && ancestor; i++) {
       const headings = Array.from(ancestor.querySelectorAll(headingSelector));
       for (const h of headings) {
-        if (h.contains(el)) continue; // textarea를 포함하는 요소 제외
+        if (h.contains(el)) continue;
         const t = h.textContent.trim();
-        if (t.length >= 8 && t.length <= 300) return t;
+        if (t.length >= 5 && t.length <= 400) return t;
       }
       ancestor = ancestor.parentElement;
     }
-    // 4) el → 부모 → 조부모 순으로 이전 형제 탐색 (최대 6레벨)
-    // 안내문/placeholder 텍스트는 건너뜀
+    // 4) el → 부모 → 조부모 순으로 이전 형제 탐색 (최대 8레벨)
     const skipPattern = /최소|최대|자 이내|자 이상|글자.*입력|입력.*글자|\d+자.*내로|\d+자.*이내|입력해\s*주세요|작성해\s*주세요|입력하세요|작성하세요|여기에\s*입력/;
     let node = el;
-    for (let depth = 0; depth < 6; depth++) {
+    for (let depth = 0; depth < 8; depth++) {
       let prev = node.previousElementSibling;
       while (prev) {
         const t = prev.textContent.trim();
-        if (t.length >= 15 && t.length <= 600 && !skipPattern.test(t)) return t;
+        if (t.length >= 5 && t.length <= 800 && !skipPattern.test(t)) return t;
         prev = prev.previousElementSibling;
       }
       if (!node.parentElement) break;
       node = node.parentElement;
+    }
+    // 5) placeholder 폴백 — 질문 텍스트가 placeholder에만 있는 경우
+    if (el.placeholder && el.placeholder.length > 15 && !skipPattern.test(el.placeholder)) {
+      return el.placeholder;
     }
     return '';
   }
@@ -345,8 +347,6 @@
 
       const labelText = findLabelText(ta);
       if (!labelText) return;
-      // placeholder 폴백이면 실제 질문을 못 찾은 것 → 건너뜀
-      if (labelText === ta.placeholder) return;
       // 글자수 안내문이 질문으로 오인된 경우 최종 차단
       // 전략: 괄호 안의 글자수 안내 "(최소 N자 ~ 최대 N자)" 를 먼저 제거한 후 남은 텍스트로 판단
       // → "현대오토에버의... 바랍니다. (최소 500자 ~ 최대 1000자)" 는 통과
@@ -757,6 +757,89 @@
           fillProfileFields(profile);
           console.log('[재시도] 연동 필드 재시도 완료');
         }, 600);
+      }
+
+      // [다중행] 추가 버튼 자동 클릭 → 새로 생긴 필드 2차 AI 채움
+      const addBtns = Array.from(document.querySelectorAll('button, [role="button"]'))
+        .filter(btn => {
+          if (btn.disabled) return false;
+          const style = window.getComputedStyle(btn);
+          if (style.display === 'none' || style.visibility === 'hidden') return false;
+          const t = btn.textContent.trim();
+          return /^(\+\s*)?(추가|행\s*추가|항목\s*추가|입력\s*추가)$/.test(t);
+        });
+
+      if (addBtns.length > 0) {
+        addBtns.slice(0, 10).forEach(btn => {
+          try { btn.click(); console.log(`➕ 행 추가 클릭: "${btn.textContent.trim()}"`); } catch(e) {}
+        });
+        await new Promise(r => setTimeout(r, 1000));
+
+        // 새로 생긴 빈 필드만 수집 (data-fill-idx 없는 것)
+        let newIdx = formInputs.length;
+        const newInputs = [];
+        const collectNew = (el, type, extra = {}) => {
+          if (el.getAttribute('data-fill-idx') !== null) return;
+          el.setAttribute('data-fill-idx', newIdx);
+          newInputs.push({ idx: newIdx, type, labelText: collectLabelText(el), ...extra });
+          newIdx++;
+        };
+        document.querySelectorAll('input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input:not([type])').forEach(input => {
+          if (input.disabled || input.readOnly || input.value) return;
+          const s = window.getComputedStyle(input);
+          if (s.display === 'none' || s.visibility === 'hidden' || input.offsetWidth === 0) return;
+          collectNew(input, 'text', { placeholder: input.placeholder || null, name: input.getAttribute('name') || null });
+        });
+        document.querySelectorAll('input[type="date"]').forEach(input => {
+          if (input.disabled || input.readOnly || input.value) return;
+          const s = window.getComputedStyle(input);
+          if (s.display === 'none' || s.visibility === 'hidden') return;
+          collectNew(input, 'date', { name: input.getAttribute('name') || null });
+        });
+        document.querySelectorAll('select').forEach(select => {
+          if (select.disabled) return;
+          const s = window.getComputedStyle(select);
+          if (s.display === 'none' || s.visibility === 'hidden' || select.offsetWidth === 0) return;
+          const curVal = select.value;
+          if (curVal && curVal !== '0' && curVal !== '-1') return;
+          const options = Array.from(select.options)
+            .filter(o => o.value !== '' && o.value !== '0' && o.value !== '-1')
+            .map(o => `${o.text.trim()}(value=${o.value})`);
+          if (options.length === 0) return;
+          collectNew(select, 'select', { options, name: select.getAttribute('name') || null });
+        });
+
+        if (newInputs.length > 0) {
+          console.log(`[다중행] 새 필드 ${newInputs.length}개 — 2차 AI 채움 시작`);
+          try {
+            const secondFill = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputs });
+            console.log('[디버그] 2차 profileFillResult:', JSON.stringify({ status: 'fulfilled', value: secondFill }));
+            const secondFills = secondFill?.success ? (secondFill.fills || []) : [];
+            secondFills.forEach(({ idx, value }) => {
+              const el = document.querySelector(`[data-fill-idx="${idx}"]`);
+              if (!el || !value) return;
+              if (el.tagName === 'SELECT') {
+                const opts = Array.from(el.options);
+                const target = String(value).toLowerCase();
+                const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target || o.text.trim().toLowerCase().includes(target));
+                if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ 2차 Select: idx=${idx} → "${match.text.trim()}"`); }
+              } else if (el.type === 'checkbox') {
+                const shouldCheck = value === 'true' || value === true || value === '1';
+                if (shouldCheck && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); }
+              } else {
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+                if (setter?.set) setter.set.call(el, value); else el.value = value;
+                ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
+                console.log(`✅ 2차 채움: idx=${idx} → "${value}"`);
+              }
+            });
+            console.log(`[다중행] 2차 AI ${secondFills.length}개 채움`);
+          } catch(e) {
+            console.warn('[다중행] 2차 AI 실패:', e.message);
+          }
+        } else {
+          console.log('[다중행] 추가 버튼은 클릭됐으나 새 빈 필드 없음');
+        }
       }
 
       // 문항 전송
