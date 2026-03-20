@@ -45,6 +45,14 @@ claude --version
 
 버전 숫자가 출력되면 설치 완료입니다.
 
+<!-- 📸 [이미지 삽입] setup-verify.png
+     종류: 스크린샷 (정적 PNG)
+     크기: 800×260px
+     촬영: 터미널(Windows Terminal 또는 PowerShell)에서 gemini --version / claude --version 두 명령어 실행 결과를 동시에 보여주는 화면
+     강조 포인트: 버전 숫자가 출력된 줄을 강조 (예: gemini/1.x.x, claude/1.x.x)
+     저장 위치: docs/images/setup-verify.png
+-->
+
 ---
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/package.svg" width="24" height="24" valign="bottom" /> Part 2. 프로그램 설치 및 실행
@@ -65,6 +73,14 @@ npm run dev
 3. **[압축해제된 확장 프로그램 로드]** 클릭
 4. `jasoseo-machine/extension` 폴더 선택
 
+<!-- 📸 [이미지 삽입] extension-install.png
+     종류: 스크린샷 (정적 PNG)
+     크기: 900×480px
+     촬영: Chrome chrome://extensions 페이지 — 개발자 모드 ON 상태, 자소서 머신 확장이 목록에 로드된 화면
+     강조 포인트: 개발자 모드 토글(ON), 확장 카드 이름·아이콘
+     저장 위치: docs/images/extension-install.png
+-->
+
 ---
 
 ## <img src="https://unpkg.com/lucide-static@latest/icons/settings.svg" width="24" height="24" valign="bottom" /> Part 2-3. 앱과 AI 엔진 연결 확인
@@ -72,6 +88,14 @@ npm run dev
 1. 앱 좌측 하단 **설정** 메뉴 진입
 2. **AI Provider 설정** 섹션에서 CLI 경로 확인 (기본값: `gemini` 또는 `claude`)
 3. **[연결 테스트]** 버튼 클릭 → 초록색 성공 메시지 확인
+
+<!-- 📸 [이미지 삽입] settings-test.png
+     종류: 스크린샷 (정적 PNG)
+     크기: 900×520px
+     촬영: 앱 설정 페이지 — AI Provider 섹션에서 [연결 테스트] 버튼 클릭 후 초록색 "연결 성공" 뱃지가 표시된 상태
+     강조 포인트: 초록색 성공 메시지, CLI 경로 입력 필드
+     저장 위치: docs/images/settings-test.png
+-->
 
 ---
 
