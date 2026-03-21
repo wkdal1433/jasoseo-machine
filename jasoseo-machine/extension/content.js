@@ -175,16 +175,16 @@
         || (/add|plus|append/.test(cls) && t.length < 5);
     });
 
-    if (addBtns.length === 0) return;
-
+    // + 버튼 방식
     let expanded = false;
+    const coveredSections = new Set();
     for (const btn of addBtns) {
       const sectionType = detectSectionType(btn);
       if (!sectionType || !requirements[sectionType]) continue;
       const needed = requirements[sectionType];
       const current = estimateCurrentRows(btn);
       const clicks = Math.max(0, needed - current);
-      if (clicks === 0) continue;
+      if (clicks === 0) { coveredSections.add(sectionType); continue; }
 
       console.log(`[섹션 확장] ${sectionType}: 현재 ${current}행 → 목표 ${needed}행 (${clicks}회 클릭)`);
       for (let i = 0; i < clicks; i++) {
@@ -192,7 +192,36 @@
         await waitForDomSettle(1000);
         await waitForNewFields(1500);
       }
+      coveredSections.add(sectionType);
       expanded = true;
+    }
+
+    // save-button 방식: + 버튼 없는 섹션에서 저장 버튼 탐지
+    for (const [sectionType, needed] of Object.entries(requirements)) {
+      if (coveredSections.has(sectionType) || needed <= 1) continue;
+      // 해당 섹션 heading 찾기
+      const headingSelectors = 'h1,h2,h3,h4,h5,th,caption,[class*="title"],[class*="tit"]';
+      const headings = Array.from(document.querySelectorAll(headingSelectors));
+      const keywords = SECTION_KEYWORDS[sectionType] || [];
+      const sectionHeading = headings.find(h => {
+        const t = h.textContent.toLowerCase().replace(/\s/g, '');
+        return keywords.some(kw => t.includes(kw.replace(/\s/g, '')));
+      });
+      if (!sectionHeading) continue;
+
+      // heading 기준 섹션 컨테이너 탐색
+      let sectionRoot = sectionHeading.parentElement;
+      for (let i = 0; i < 6 && sectionRoot && sectionRoot !== document.body; i++) {
+        const saveBtn = findSectionSaveButton(sectionRoot);
+        if (saveBtn) {
+          console.log(`[Save-button 방식 감지] ${sectionType}: 저장 버튼 발견 — ${needed}항목 대기`);
+          // 저장 루프는 fill 후 별도 호출 — 여기서는 감지만 기록
+          sectionRoot.setAttribute('data-save-section', sectionType);
+          sectionRoot.setAttribute('data-save-needed', String(needed));
+          break;
+        }
+        sectionRoot = sectionRoot.parentElement;
+      }
     }
 
     if (expanded) {
@@ -201,8 +230,72 @@
     }
   }
 
-  // 프로필 필드 자동 매칭 — label/aria-label/placeholder/부모텍스트 다중 전략
-  function fillProfileFields(profile) {
+  // ── Save-button 패턴 처리 ──────────────────────────────────────────────
+  // 섹션 루트 내에서 저장 버튼 탐색 (전역 탐색 금지 — 오탐 방지)
+  function findSectionSaveButton(sectionRoot) {
+    const savePattern = /^저장$|^저장하기$|^확인$|^등록$|^입력완료$/;
+    const excludePattern = /전체\s*저장|임시\s*저장|최종\s*저장|전체\s*확인|목록|취소|삭제/;
+    const candidates = Array.from(sectionRoot.querySelectorAll('button,[role="button"]')).filter(btn => {
+      if (btn.disabled) return false;
+      const s = window.getComputedStyle(btn);
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      const t = btn.textContent.trim();
+      return savePattern.test(t) && !excludePattern.test(t);
+    });
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+
+  // 섹션 루트 탐색: 추가 버튼 기준으로 가장 가까운 섹션 컨테이너 반환
+  function getSectionRoot(addBtn) {
+    // 추가 버튼에서 최대 8레벨 위로 올라가며 충분히 큰 컨테이너 찾기
+    let node = addBtn.parentElement;
+    for (let i = 0; i < 8 && node && node !== document.body; i++) {
+      const inputs = node.querySelectorAll('input, select, textarea');
+      if (inputs.length >= 3) return node;
+      node = node.parentElement;
+    }
+    return addBtn.closest('section, article, fieldset, [class*="section"], [class*="wrap"], [class*="area"]')
+      || addBtn.parentElement;
+  }
+
+  // 저장 버튼 클릭 후 DOM 변화 2단계 대기 (엔지니어 권장)
+  async function commitSectionRow(saveBtn) {
+    saveBtn.click();
+    await waitForDomSettle(1500);
+    await waitForNewFields(2000);
+  }
+
+  // Save-button Sequential Fill-Save 루프
+  // profile[sectionType]이 N개인 경우: 현재 열린 행 채움 → 저장 → 새 행 채움 → 저장 ...
+  async function fillSaveLoop(sectionType, entries, addBtn, aiFills) {
+    const sectionRoot = getSectionRoot(addBtn);
+    console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목, sectionRoot:`, sectionRoot.tagName);
+
+    for (let i = 0; i < entries.length; i++) {
+      // 마지막 항목이 아닌 경우에만 저장 버튼 클릭 → 새 행 생성
+      if (i < entries.length - 1) {
+        const saveBtn = findSectionSaveButton(sectionRoot);
+        if (!saveBtn) {
+          console.warn(`[Save루프] ${sectionType}: 저장 버튼 없음 — 루프 중단 (${i + 1}/${entries.length})`);
+          logSkipped(`${sectionType}[row ${i}]`, '저장 버튼 탐지 실패');
+          break;
+        }
+        console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 저장 → 새 행 대기`);
+        await commitSectionRow(saveBtn);
+
+        // 저장 후 검증: 새 행이 실제로 생겼는지 확인
+        const newFields = sectionRoot.querySelectorAll('input:not([data-fill-idx]), select:not([data-fill-idx])');
+        if (newFields.length === 0) {
+          console.warn(`[Save루프] ${sectionType}: 저장 후 새 행 미생성 — 루프 중단`);
+          logFailed(`${sectionType}[row ${i}]`, 'save-loop', '저장 후 새 행 DOM 미생성');
+          break;
+        }
+        console.log(`[Save루프] ${sectionType}: 새 행 확인됨 (${newFields.length}개 미매핑 필드)`);
+      }
+    }
+  }
+
+
     if (!profile) return [];
     const p = profile.personal || {};
     const edu = (profile.education || [])[0] || {};
@@ -1762,6 +1855,19 @@
           });
           fillProfileFields(profile);
         }, 600);
+      }
+
+      // Save-button 루프 실행 (expandSectionRows에서 data-save-section 마킹된 섹션만)
+      const saveSections = document.querySelectorAll('[data-save-section]');
+      if (saveSections.length > 0) {
+        updateProgress('💾 섹션 저장 중...', 85, `${saveSections.length}개 섹션`, '저장 버튼 패턴');
+        for (const sectionRoot of saveSections) {
+          const sectionType = sectionRoot.getAttribute('data-save-section');
+          const needed = parseInt(sectionRoot.getAttribute('data-save-needed') || '1');
+          const entries = profile?.[sectionType] || [];
+          if (entries.length <= 1) continue;
+          await fillSaveLoop(sectionType, entries, sectionRoot, aiFills);
+        }
       }
 
       const totalFilled = aiFills.length;
