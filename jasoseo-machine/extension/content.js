@@ -471,23 +471,33 @@
       ancestor = ancestor.parentElement;
     }
     // 4) el → 부모 → 조부모 순으로 이전 형제 탐색 (최대 8레벨)
-    const skipPattern = /최소|최대|자 이내|자 이상|글자.*입력|입력.*글자|\d+자.*내로|\d+자.*이내|입력해\s*주세요|작성해\s*주세요|입력하세요|작성하세요|여기에\s*입력/;
+    // 순수 글자수 안내문 (텍스트 전체가 안내문인 경우)만 skip — 나머지는 정규화해서 사용
+    const pureCounterPattern = /^[\d\/\|\s~\-,]+$|^(최소|최대)\s*\d/;
     let node = el;
     for (let depth = 0; depth < 8; depth++) {
       let prev = node.previousElementSibling;
       while (prev) {
         const t = prev.textContent.trim();
-        if (t.length >= 5 && t.length <= 800 && !skipPattern.test(t)) return t;
+        if (t.length >= 5 && t.length <= 800 && !pureCounterPattern.test(t)) return t;
         prev = prev.previousElementSibling;
       }
       if (!node.parentElement) break;
       node = node.parentElement;
     }
     // 5) placeholder 폴백 — 질문 텍스트가 placeholder에만 있는 경우
-    if (el.placeholder && el.placeholder.length > 5 && !skipPattern.test(el.placeholder)) {
+    if (el.placeholder && el.placeholder.length > 5 && !pureCounterPattern.test(el.placeholder)) {
       return el.placeholder;
     }
     return '';
+  }
+
+  // 라벨 정규화: "지원동기를 입력해 주세요" → "지원동기를" (instruction 제거, question 보존)
+  function normalizeLabel(text) {
+    return text
+      .replace(/입력해\s*주세요\.?|작성해\s*주세요\.?|입력하세요\.?|작성하세요\.?|여기에\s*입력\s*해\s*주세요\.?/g, '')
+      .replace(/[\(\（][^\)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '') // (최소 N자 ~ 최대 N자) 제거
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
   // 자소서 문항 추출: textarea + label 쌍을 스캔해서 question + charLimit 반환
@@ -524,30 +534,22 @@
         if (ta.placeholder && ta.placeholder.length > 5) labelText = ta.placeholder;
         else labelText = `자기소개서 항목 ${questions.length + 1}`;
       }
-      // 글자수 안내문이 질문으로 오인된 경우 최종 차단
-      // 전략: 괄호 안의 글자수 안내 "(최소 N자 ~ 최대 N자)" 를 먼저 제거한 후 남은 텍스트로 판단
-      // → "현대오토에버의... 바랍니다. (최소 500자 ~ 최대 1000자)" 는 통과
-      // → "최소 500 최대 1000자 내로 서술 해주세요" 는 차단
-      const strippedLabel = labelText
-        .replace(/[\(\（][^\)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '') // (최소 N자 ~ 최대 N자) 제거
-        .trim();
-      // ^(최소|최대): 글자수 범위 안내로 시작 → 안내문
-      // ^\d+\s*(자|~\s*\d|\/\s*\d): "500자", "500~1000", "0/1000" 등 순수 글자수 표시 → 안내문
-      // "1. 지원동기", "2024년 경험" 처럼 번호·연도로 시작하는 실제 문항은 통과
-      const isInstructionOnly = strippedLabel.length < 4 ||
-        /^(최소|최대)/.test(strippedLabel) ||
-        /^\d+\s*(자($|\s)|~\s*\d|\/\s*\d)/.test(strippedLabel);
+      // 라벨 정규화: instruction 구문 제거 후 남은 텍스트로 판단
+      // "지원동기를 입력해 주세요" → "지원동기를" (통과)
+      // "최소 500 최대 1000자 내로 서술해주세요" → "" (차단)
+      const normalized = normalizeLabel(labelText);
+      // 순수 글자수/범위 표시만 남은 경우 차단
+      const isInstructionOnly = normalized.length < 4 ||
+        /^(최소|최대)/.test(normalized) ||
+        /^\d+\s*(자($|\s)|~\s*\d|\/\s*\d)/.test(normalized);
       if (isInstructionOnly) return;
 
       // 글자수 제한 추출: "지원동기 (800자 이내)" → 800  (카운터 우선, 없으면 레이블에서)
       const charLimitMatch = labelText.match(/(\d{3,4})\s*자/);
       const finalCharLimit = charLimit ?? (charLimitMatch ? parseInt(charLimitMatch[1]) : null);
 
-      // 순수 문항 텍스트 (글자수 부분 제거)
-      const question = labelText.replace(/[\(\（][^)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '').trim();
-
-      if (question.length > 10) {
-        questions.push({ question, charLimit: finalCharLimit });
+      if (normalized.length >= 4) {
+        questions.push({ question: normalized, charLimit: finalCharLimit });
       }
     });
 
@@ -1284,11 +1286,13 @@
         : [];
       aiFills.forEach(({ idx, value }) => {
         const el = document.querySelector(`[data-fill-idx="${idx}"]`);
-        if (!el || !value) return;
+        if (!el) { logFailed(`idx=${idx}`, 'unknown', 'DOM에서 요소 찾기 실패'); return; }
+        if (!value) { logSkipped(`idx=${idx}`, 'AI 응답 값 없음'); return; }
 
         // 이미 올바른 값이면 스킵 (idempotency)
         if (alreadyFilled(el, value)) {
           console.log(`⏭️ 이미 채움 스킵: idx=${idx} → "${value}"`);
+          logSkipped(`idx=${idx}`, '이미 채워진 필드');
           return;
         }
 
@@ -1306,6 +1310,7 @@
             el.value = match.value;
             el.dispatchEvent(new Event('change', { bubbles: true }));
             console.log(`✅ AI Select 채움: idx=${idx} → "${match.text.trim()}"`);
+            logSuccess(`select[idx=${idx}]`, 'select', match.text.trim());
           } else {
             console.warn(`⚠️ Select 옵션 미매칭: idx=${idx} value="${value}"`);
             logFailed(`select[idx=${idx}]`, 'select', `옵션 미매칭: "${value}"`);
@@ -1323,6 +1328,7 @@
                 radio.click();
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
                 console.log(`✅ AI Radio 채움: idx=${idx} name="${groupName}" → "${t}"`);
+                logSuccess(`radio[${groupName}]`, 'radio', t);
                 clicked = true;
                 break;
               }
@@ -1336,6 +1342,9 @@
             el.click();
             el.dispatchEvent(new Event('change', { bubbles: true }));
             console.log(`✅ AI Checkbox 체크: idx=${idx} label="${el.getAttribute('data-fill-idx')}"`);
+            logSuccess(`checkbox[idx=${idx}]`, 'checkbox', 'true');
+          } else if (!shouldCheck) {
+            logSkipped(`checkbox[idx=${idx}]`, 'AI값 false — uncheck 안함');
           }
         } else if (el.getAttribute('data-fill-type') === 'custom-dropdown') {
           // 커스텀 드롭다운 (Vuetify / Element UI)
@@ -1351,6 +1360,7 @@
           el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: dateVal }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
           console.log(`✅ AI Date 채움: idx=${idx} → "${dateVal}"`);
+          logSuccess(`date[idx=${idx}]`, 'date', dateVal);
         } else {
           // text 계열 — React 17+ 대응: InputEvent + inputType:'insertText' 필수
           const proto = window.HTMLInputElement.prototype;
@@ -1366,6 +1376,8 @@
           el.dispatchEvent(new Event('blur', { bubbles: true }));
           const confirmed = el.value === singleValue;
           console.log(`${confirmed ? '✅' : '⚠️'} AI 프로필 채움: idx=${idx} → "${singleValue}"${confirmed ? '' : ' (DOM 미반영 의심)'}`);
+          if (confirmed) logSuccess(`text[idx=${idx}]`, el.type || 'text', singleValue);
+          else logFailed(`text[idx=${idx}]`, el.type || 'text', 'DOM 미반영 — React setter 실패 의심');
         }
       });
       console.log(`[프로필] AI ${aiFills.length}개 채움`);
