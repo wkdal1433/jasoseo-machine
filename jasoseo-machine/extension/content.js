@@ -296,6 +296,8 @@
   }
 
 
+  // 프로필 필드 자동 매칭 — label/aria-label/placeholder/부모텍스트 다중 전략
+  function fillProfileFields(profile) {
     if (!profile) return [];
     const p = profile.personal || {};
     const edu = (profile.education || [])[0] || {};
