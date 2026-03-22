@@ -197,6 +197,8 @@
     }
 
     // save-button 방식: + 버튼 없는 섹션에서 저장 버튼 탐지
+    // DOM 속성 대신 JS 배열로 반환 — React 리렌더 시 DOM 속성 유실 방지
+    const detectedSaveSections = [];
     for (const [sectionType, needed] of Object.entries(requirements)) {
       if (coveredSections.has(sectionType) || needed <= 1) continue;
       // 해당 섹션 heading 찾기
@@ -215,9 +217,7 @@
         const saveBtn = findSectionSaveButton(sectionRoot);
         if (saveBtn) {
           console.log(`[Save-button 방식 감지] ${sectionType}: 저장 버튼 발견 — ${needed}항목 대기`);
-          // 저장 루프는 fill 후 별도 호출 — 여기서는 감지만 기록
-          sectionRoot.setAttribute('data-save-section', sectionType);
-          sectionRoot.setAttribute('data-save-needed', String(needed));
+          detectedSaveSections.push({ sectionType, sectionRoot, needed });
           break;
         }
         sectionRoot = sectionRoot.parentElement;
@@ -228,6 +228,8 @@
       console.log('[섹션 확장] 완료 — DOM 최종 정착 대기');
       await waitForDomSettle(500);
     }
+
+    return detectedSaveSections; // fill 후 save-loop에서 사용
   }
 
   // ── Save-button 패턴 처리 ──────────────────────────────────────────────
@@ -267,9 +269,8 @@
 
   // Save-button Sequential Fill-Save 루프
   // profile[sectionType]이 N개인 경우: 현재 열린 행 채움 → 저장 → 새 행 채움 → 저장 ...
-  async function fillSaveLoop(sectionType, entries, addBtn, aiFills) {
-    const sectionRoot = getSectionRoot(addBtn);
-    console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목, sectionRoot:`, sectionRoot.tagName);
+  async function fillSaveLoop(sectionType, entries, sectionRoot) {
+    console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목 처리 시작`);
 
     for (let i = 0; i < entries.length; i++) {
       // 마지막 항목이 아닌 경우에만 저장 버튼 클릭 → 새 행 생성
@@ -1506,10 +1507,13 @@
             } else if (el.type === 'checkbox') {
               const shouldCheck = value === 'true' || value === '1';
               if (shouldCheck && !el.checked) { el.click(); el.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [재시도] Checkbox: idx=${idx}`); }
-            } else {
-              const proto = window.HTMLInputElement.prototype;
+            } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+              const proto = el.tagName === 'TEXTAREA'
+                ? window.HTMLTextAreaElement.prototype
+                : window.HTMLInputElement.prototype;
               const setter = Object.getOwnPropertyDescriptor(proto, 'value');
               if (setter && setter.set) setter.set.call(el, value);
+              else el.value = value;
               ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
               console.log(`✅ [재시도] Input: idx=${idx} → "${value}"`);
             }
@@ -1711,7 +1715,7 @@
       createProgressOverlay();
       updateProgress('🏗️ 폼 구조 확장 중...', 10, '', '반복 섹션 행 추가');
       profileFillBtn.innerText = '⏳ 구조 확장 중...';
-      await expandSectionRows(port, secret);
+      const detectedSaveSections = await expandSectionRows(port, secret) || [];
 
       // 라벨 텍스트 추출 헬퍼
       function collectLabelText(el) {
@@ -1859,16 +1863,17 @@
         }, 600);
       }
 
-      // Save-button 루프 실행 (expandSectionRows에서 data-save-section 마킹된 섹션만)
-      const saveSections = document.querySelectorAll('[data-save-section]');
-      if (saveSections.length > 0) {
-        updateProgress('💾 섹션 저장 중...', 85, `${saveSections.length}개 섹션`, '저장 버튼 패턴');
-        for (const sectionRoot of saveSections) {
-          const sectionType = sectionRoot.getAttribute('data-save-section');
-          const needed = parseInt(sectionRoot.getAttribute('data-save-needed') || '1');
+      // Save-button 루프 실행 (expandSectionRows 반환 목록 사용 — DOM 속성 유실 방지)
+      if (detectedSaveSections.length > 0) {
+        updateProgress('💾 섹션 저장 중...', 85, `${detectedSaveSections.length}개 섹션`, '저장 버튼 패턴');
+        for (const { sectionType, sectionRoot, needed } of detectedSaveSections) {
           const entries = profile?.[sectionType] || [];
-          if (entries.length <= 1) continue;
-          await fillSaveLoop(sectionType, entries, sectionRoot, aiFills);
+          console.log(`[Save루프 준비] ${sectionType}: profile 항목 ${entries.length}개, needed ${needed}`);
+          if (entries.length <= 1) {
+            console.log(`[Save루프 스킵] ${sectionType}: profile 항목 1개 이하`);
+            continue;
+          }
+          await fillSaveLoop(sectionType, entries, sectionRoot);
         }
       }
 
