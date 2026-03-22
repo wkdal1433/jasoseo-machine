@@ -604,9 +604,22 @@
     return [];
   }
 
-  // "0 / 1000" 형태의 글자수 카운터를 공통 조상에서 탐색 → 자소서 textarea 판별에 사용
-  function findNearbyCharLimit(ta) {
-    let ancestor = ta.parentElement;
+  // "0 / 1000" 형태의 글자수 카운터 탐색
+  // Vuetify: .v-input root → .v-counter 우선 / 범용: 조상 텍스트 스캔 fallback
+  function findNearbyCharLimit(el) {
+    // 1) Vuetify/컴포넌트 기반: 컴포넌트 루트에서 카운터 직접 탐색
+    const compRoot = el.closest('.v-input, .v-field, .el-form-item, .form-group');
+    if (compRoot) {
+      const counter = compRoot.querySelector(
+        '.v-counter, .counter, [class*="counter"], [class*="char-count"], [class*="charCount"], [class*="limit"]'
+      );
+      if (counter) {
+        const m = counter.textContent.trim().match(/\d+\s*[\/|]\s*(\d+)/);
+        if (m) return parseInt(m[1]);
+      }
+    }
+    // 2) 범용 fallback: 조상 텍스트 노드 스캔
+    let ancestor = el.parentElement;
     for (let i = 0; i < 8 && ancestor; i++) {
       for (const leaf of ancestor.querySelectorAll('*')) {
         if (leaf.children.length > 0) continue;
@@ -676,117 +689,189 @@
       .trim();
   }
 
-  // 자소서 문항 추출: textarea + label 쌍을 스캔해서 question + charLimit 반환
+  // ── 문항 추출 보조 함수 ────────────────────────────────────────────────
+
+  // Vuetify처럼 wrapper가 높이를 갖고 el 자체는 0일 수 있으므로 wrapper 기준 가시성 체크
+  function isActuallyVisible(el) {
+    const wrapper = el.closest('.v-input, .v-field, .form-group') || el;
+    const wrapRect = wrapper.getBoundingClientRect();
+    if (wrapRect.height === 0) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  }
+
+  // contenteditable 라벨 후보 텍스트들을 semantic scoring으로 선택
+  // nearest만 쓰면 "1000자 이내" 같은 instruction이 잡히므로 다중 후보 → 점수 선택
+  function scoreCandidateLabel(text, el) {
+    let score = 0;
+    if (/지원동기|이유|경험|역량|강점|약점|설명|기술|작성|소개|포부|직무|관심|성과|도전|협업|리더|성장|가치관|노력/.test(text)) score += 3;
+    if (text.length >= 5 && text.length <= 100) score += 2;
+    if (/이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|자리/.test(text)) score -= 3;
+    if (/^\d+\s*[\/|]\s*\d+$/.test(text.trim())) score -= 5;
+    // 위치 보너스: 필드 위쪽 텍스트가 라벨일 가능성이 높음
+    try {
+      const elRect = el.getBoundingClientRect();
+      const candidates = Array.from(document.querySelectorAll('p, span, div, h1,h2,h3,h4,h5,h6,dt,legend,label'))
+        .filter(e => e.textContent.trim() === text && !e.contains(el));
+      if (candidates.some(e => e.getBoundingClientRect().bottom <= elRect.top)) score += 1;
+    } catch (_) {}
+    return score;
+  }
+
+  // contenteditable (id/aria 없는 경우) 라벨 추출 — 다중 후보 scoring
+  function findLabelForEditable(el) {
+    const standard = findLabelText(el);
+    if (standard && standard.length >= 4) return standard;
+
+    const parent = el.closest('div, section, article, form') || el.parentElement;
+    if (!parent) return '';
+    const candidates = [];
+    parent.querySelectorAll('p, span, div, h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(e => {
+      if (e.contains(el)) return;
+      const t = e.textContent.trim();
+      if (t.length >= 4 && t.length <= 200 && !candidates.includes(t)) candidates.push(t);
+    });
+    if (candidates.length === 0) return '';
+
+    const best = candidates
+      .map(t => ({ text: t, score: scoreCandidateLabel(t, el) }))
+      .filter(c => c.score > 0)
+      .sort((a, b) => b.score - a.score)[0];
+    return best ? normalizeLabel(best.text) : '';
+  }
+
+  // 자소서 섹션 탭 탐색 (스텝/탭 기반 ATS 대응)
+  function findEssayTab() {
+    const kw = /자기소개|자소서|에세이|essay|cover.?letter|자기\s*pr|지원\s*동기/i;
+    return Array.from(document.querySelectorAll('a, button, [role="tab"], li, span'))
+      .find(el => kw.test(el.textContent.trim()) && el.offsetParent !== null) || null;
+  }
+
+  // 자소서 섹션 활성화 시도: 탭 클릭 → DOM 생성 대기 (클릭 성공 ≠ DOM 생성 성공)
+  async function activateEssaySection() {
+    const tab = findEssayTab();
+    if (tab) {
+      console.log('[문항추출] 자소서 탭 클릭:', tab.textContent.trim());
+      tab.click();
+      await waitForDomSettle(1000);
+    }
+    return waitFor(() =>
+      document.querySelectorAll('textarea, [contenteditable="true"]').length > 0
+    , 3000);
+  }
+
+  // 진단 함수: 문항 추출 전 DOM 현황 로그
+  function debugQuestionDOM() {
+    console.group('🔍 [문항추출 진단]');
+    console.log('textarea:', document.querySelectorAll('textarea').length);
+    console.log('contenteditable:', document.querySelectorAll('[contenteditable="true"]').length);
+    console.log('ProseMirror:', document.querySelectorAll('.ProseMirror').length);
+    console.log('Quill:', document.querySelectorAll('.ql-editor').length);
+    console.log('iframe:', document.querySelectorAll('iframe').length);
+    const tab = findEssayTab();
+    console.log('자소서 탭:', tab ? tab.textContent.trim() : '없음');
+    console.groupEnd();
+  }
+
+  // 자소서 문항 추출: textarea + contenteditable 병렬 수집 (fallback 구조 제거)
   function extractCoverLetterQuestions() {
     const questions = [];
     const visited = new Set();
 
-    document.querySelectorAll('textarea').forEach(ta => {
-      const computedH = parseInt(window.getComputedStyle(ta).height) || 0;
-      if (ta.offsetHeight < 30 && computedH < 30) return;
-      const style = window.getComputedStyle(ta);
-      if (style.display === 'none' || style.visibility === 'hidden') return;
+    // 공통 처리: 가시성 체크 → 글자수 필터 → 라벨 추출 → 점수 필터 → push
+    function processField(el) {
+      if (visited.has(el)) return;
+      if (!isActuallyVisible(el)) return;
+      visited.add(el);
 
-      if (visited.has(ta)) return;
-      visited.add(ta);
-
-      // 1차 필터: "N / 1000" 카운터로 자소서 textarea 판별
-      //   카운터가 있으면 해당 limit 사용, 없으면 maxlength 속성으로 폴백
-      const nearbyLimit = findNearbyCharLimit(ta);
-      const maxLenAttr = ta.getAttribute('maxlength');
+      const nearbyLimit = findNearbyCharLimit(el);
+      const maxLenAttr = el.getAttribute('maxlength');
       const maxLen = maxLenAttr ? parseInt(maxLenAttr) : null;
-
-      // 카운터가 있는데 200 미만이면 자소서가 아님 (학력·경력 단문 등)
       if (nearbyLimit !== null && nearbyLimit < 200) return;
-      // 카운터도 없고 maxlength도 없으면 자소서로 간주 (제한 없는 경우)
-      // 카운터 없이 maxlength만 있고 200 미만이면 제외
       if (nearbyLimit === null && maxLen !== null && maxLen < 200) return;
-
       const charLimit = nearbyLimit ?? maxLen;
 
-      let labelText = findLabelText(ta);
-      // 라벨 없으면 placeholder 폴백, 그것도 없으면 인덱스 기반 기본값
+      // 라벨 추출: contenteditable(id/aria 없음) → scoring, 나머지 → findLabelText
+      const isEditable = el.getAttribute('contenteditable') === 'true';
+      const hasStandardAnchor = !!(el.id || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'));
+      let labelText = (isEditable && !hasStandardAnchor)
+        ? findLabelForEditable(el)
+        : findLabelText(el);
+
       if (!labelText) {
-        if (ta.placeholder && ta.placeholder.length > 5) labelText = ta.placeholder;
+        if (el.placeholder && el.placeholder.length > 5) labelText = el.placeholder;
         else labelText = `자기소개서 항목 ${questions.length + 1}`;
       }
-      // 라벨 정규화: instruction 구문 제거 후 남은 텍스트로 판단
-      // "지원동기를 입력해 주세요" → "지원동기를" (통과)
-      // "최소 500 최대 1000자 내로 서술해주세요" → "" (차단)
+
       const normalized = normalizeLabel(labelText);
-      // 순수 글자수/범위 표시만 남은 경우 차단
       const isInstructionOnly = normalized.length < 4 ||
         /^(최소|최대)/.test(normalized) ||
         /^\d+\s*(자($|\s)|~\s*\d|\/\s*\d)/.test(normalized);
-      if (isInstructionOnly) return;
+      if (isInstructionOnly) {
+        console.warn('[문항추출] instruction-only 라벨 제외:', labelText);
+        return;
+      }
 
-      // 글자수 제한 추출: "지원동기 (800자 이내)" → 800  (카운터 우선, 없으면 레이블에서)
       const charLimitMatch = labelText.match(/(\d{3,4})\s*자/);
       const finalCharLimit = charLimit ?? (charLimitMatch ? parseInt(charLimitMatch[1]) : null);
 
       if (normalized.length >= 4) {
+        console.log(`[문항추출] ✅ 추출: "${normalized}" (${finalCharLimit}자)`);
         questions.push({ question: normalized, charLimit: finalCharLimit });
+        if (isEditable) el.setAttribute('data-editor-type', 'contenteditable');
       }
-    });
-
-    // contenteditable 기반 에디터 탐지 (ProseMirror / Quill / TipTap / Slate 등)
-    // textarea가 0개이거나 contendeditable 에디터가 따로 있는 사이트 대응
-    if (questions.length === 0) {
-      const editableSelectors = [
-        // ProseMirror
-        '.ProseMirror[contenteditable="true"]',
-        // Quill
-        '.ql-editor[contenteditable="true"]',
-        // 범용 contenteditable (역할 명시된 것)
-        '[role="textbox"][contenteditable="true"]',
-        // 최후 수단: contenteditable=true 이면서 크기가 있는 div/section
-        'div[contenteditable="true"]',
-        'section[contenteditable="true"]',
-      ];
-      editableSelectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => {
-          if (visited.has(el)) return;
-          const rect = el.getBoundingClientRect();
-          if (rect.height < 60) return; // 단문 입력창 제외
-          const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden') return;
-          visited.add(el);
-
-          const labelText = findLabelText(el);
-          if (!labelText || labelText.length < 4) return;
-          const nearbyLimit = findNearbyCharLimit(el);
-          if (nearbyLimit !== null && nearbyLimit < 200) return;
-
-          const question = labelText.replace(/[\(\（][^)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '').trim();
-          if (question.length > 10) {
-            questions.push({ question, charLimit: nearbyLimit, editorType: 'contenteditable' });
-            // 나중에 fill 시 injectContentEditable 사용 표시
-            el.setAttribute('data-editor-type', 'contenteditable');
-          }
-        });
-      });
     }
 
-    // same-origin iframe 안에서도 탐색 (cross-origin은 조용히 스킵)
+    // 1. textarea (항상 탐색)
+    document.querySelectorAll('textarea').forEach(ta => {
+      console.log(`[문항추출] textarea 발견: height=${ta.offsetHeight} id=${ta.id || '없음'}`);
+      processField(ta);
+    });
+
+    // 2. contenteditable (병렬 탐색 — fallback 아님)
+    const EDITABLE_SELS = [
+      '.ProseMirror[contenteditable="true"]',
+      '.ql-editor[contenteditable="true"]',
+      '[role="textbox"][contenteditable="true"]',
+      'div[contenteditable="true"]',
+      'section[contenteditable="true"]',
+    ];
+    EDITABLE_SELS.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if (rect.height < 60 && !el.closest('.v-input')) return;
+        console.log(`[문항추출] contenteditable 발견: ${sel} height=${rect.height}`);
+        processField(el);
+      });
+    });
+
+    // 3. same-origin iframe (항상 탐색)
+    document.querySelectorAll('iframe').forEach(iframe => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+        doc.querySelectorAll('textarea').forEach(ta => processField(ta));
+        EDITABLE_SELS.forEach(sel => {
+          doc.querySelectorAll(sel).forEach(el => {
+            if (el.getBoundingClientRect().height >= 60) processField(el);
+          });
+        });
+      } catch (_) { /* cross-origin — 조용히 스킵 */ }
+    });
+
+    // 4. iframe fallback (cross-origin 포함 — 이전 동작 유지)
     if (questions.length === 0) {
       document.querySelectorAll('iframe').forEach(iframe => {
         try {
           const doc = iframe.contentDocument || iframe.contentWindow?.document;
           if (!doc) return;
-          const IFRAME_EDITOR_SELS = [
-            'textarea',
-            '.ProseMirror[contenteditable="true"]',
-            '.ql-editor[contenteditable="true"]',
-            '[role="textbox"][contenteditable="true"]',
-            'div[contenteditable="true"]',
-          ];
-          IFRAME_EDITOR_SELS.forEach(sel => {
+          const IFRAME_SELS = ['textarea', ...EDITABLE_SELS];
+          IFRAME_SELS.forEach(sel => {
             doc.querySelectorAll(sel).forEach(el => {
               if (visited.has(el)) return;
               const rect = el.getBoundingClientRect();
               if (rect.height < 60) return;
               visited.add(el);
-              // iframe 안에서는 findLabelText가 부분적으로만 동작 — 페이지 제목 fallback
               const labelText = el.getAttribute('aria-label')
                 || el.getAttribute('placeholder')
                 || doc.title
@@ -1437,8 +1522,10 @@
         });
       }
 
-      // 문항 추출: DOM 룰 기반 (AI 없음 — 즉시 실행, 할루시네이션 없음)
-      updateProgress('📋 문항 추출 중...', 30, `${formInputs.length}개 필드 발견`, '자소서 입력창 탐색');
+      // 문항 추출 전 진단 + 자소서 섹션 활성화
+      debugQuestionDOM();
+      updateProgress('📋 문항 추출 중...', 30, `${formInputs.length}개 필드 발견`, '자소서 섹션 탐색');
+      await activateEssaySection(); // 탭 클릭 → DOM 생성 대기 (lazy mount 대응)
       const questions = extractCoverLetterQuestions();
 
       // 프로필 매핑 분석 (AI) + 프로필 조회 병렬 실행
