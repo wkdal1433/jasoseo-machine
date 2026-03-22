@@ -1175,7 +1175,7 @@
       createProgressOverlay();
       updateProgress('🏗️ 폼 구조 확장 중...', 10, '', '반복 섹션 행 추가');
       extractBtn.innerText = '⏳ 구조 확장 중...';
-      await expandSectionRows(port, secret);
+      const detectedSaveSections = await expandSectionRows(port, secret) || [];
 
       // 폼 입력 필드 메타데이터 수집 (text / select / date — Gemini에 보낼 경량 구조체)
       const formInputs = [];
@@ -1661,6 +1661,17 @@
           }
         } else {
           console.log('[다중행] 추가 버튼은 클릭됐으나 새 빈 필드 없음');
+        }
+      }
+
+      // Save-button 루프 실행 (extractBtn 흐름)
+      if (detectedSaveSections.length > 0) {
+        updateProgress('💾 섹션 저장 중...', 85, `${detectedSaveSections.length}개 섹션`, '저장 버튼 패턴');
+        for (const { sectionType, sectionRoot } of detectedSaveSections) {
+          const entries = profile?.[sectionType] || [];
+          console.log(`[Save루프 준비] ${sectionType}: profile 항목 ${entries.length}개`);
+          if (entries.length <= 1) { console.log(`[Save루프 스킵] ${sectionType}: 1개 이하`); continue; }
+          await fillSaveLoop(sectionType, entries, sectionRoot);
         }
       }
 
