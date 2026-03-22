@@ -235,10 +235,12 @@
   // ── Save-button 패턴 처리 ──────────────────────────────────────────────
   // 섹션 루트 내에서 저장 버튼 탐색 (전역 탐색 금지 — 오탐 방지)
   function findSectionSaveButton(sectionRoot) {
-    const savePattern = /^저장$|^저장하기$|^확인$|^등록$|^입력완료$/;
-    const excludePattern = /전체\s*저장|임시\s*저장|최종\s*저장|전체\s*확인|목록|취소|삭제/;
+    const savePattern = /^저장$|^저장하기$|^등록$|^입력완료$|^추가완료$/;
+    // 제출·접수·신청·확인 계열 + type="submit" 은 절대 클릭 안 함
+    const excludePattern = /전체\s*저장|임시\s*저장|최종\s*저장|전체\s*확인|목록|취소|삭제|제출|지원|접수|신청|완료|확인/;
     const candidates = Array.from(sectionRoot.querySelectorAll('button,[role="button"]')).filter(btn => {
       if (btn.disabled) return false;
+      if (btn.type === 'submit') return false; // 폼 제출 버튼 완전 차단
       const s = window.getComputedStyle(btn);
       if (s.display === 'none' || s.visibility === 'hidden') return false;
       const t = btn.textContent.trim();
