@@ -269,11 +269,10 @@
 
   // Save-button Sequential Fill-Save 루프
   // profile[sectionType]이 N개인 경우: 현재 열린 행 채움 → 저장 → 새 행 채움 → 저장 ...
-  async function fillSaveLoop(sectionType, entries, sectionRoot) {
+  async function fillSaveLoop(sectionType, entries, sectionRoot, port, secret) {
     console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목 처리 시작`);
 
     for (let i = 0; i < entries.length; i++) {
-      // 마지막 항목이 아닌 경우에만 저장 버튼 클릭 → 새 행 생성
       if (i < entries.length - 1) {
         const saveBtn = findSectionSaveButton(sectionRoot);
         if (!saveBtn) {
@@ -281,17 +280,96 @@
           logSkipped(`${sectionType}[row ${i}]`, '저장 버튼 탐지 실패');
           break;
         }
+
+        // 저장 전 현재 입력들을 seen으로 마킹 → 이후 새 필드 정확히 감지
+        markAllInputsAsSeen();
         console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 저장 → 새 행 대기`);
         await commitSectionRow(saveBtn);
 
-        // 저장 후 검증: 새 행이 실제로 생겼는지 확인
-        const newFields = sectionRoot.querySelectorAll('input:not([data-fill-idx]), select:not([data-fill-idx])');
+        // 새 행 감지: data-seen-before 없는 visible empty 필드
+        const newFields = Array.from(sectionRoot.querySelectorAll('input, select')).filter(el => {
+          if (el.getAttribute('data-seen-before')) return false;
+          if (el.disabled || el.readOnly || el.value) return false;
+          const s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
+        });
+
         if (newFields.length === 0) {
           console.warn(`[Save루프] ${sectionType}: 저장 후 새 행 미생성 — 루프 중단`);
           logFailed(`${sectionType}[row ${i}]`, 'save-loop', '저장 후 새 행 DOM 미생성');
           break;
         }
-        console.log(`[Save루프] ${sectionType}: 새 행 확인됨 (${newFields.length}개 미매핑 필드)`);
+        console.log(`[Save루프] ${sectionType}: 새 행 확인됨 (${newFields.length}개 신규 필드) — AI 채움 시작`);
+
+        // 새 필드에 idx 할당 및 메타데이터 수집
+        const existingIdxEls = Array.from(document.querySelectorAll('[data-pfill-idx]'));
+        let nextIdx = existingIdxEls.length > 0
+          ? Math.max(...existingIdxEls.map(el => parseInt(el.getAttribute('data-pfill-idx') || '0'))) + 1
+          : 0;
+
+        const newInputsMeta = [];
+        newFields.forEach(el => {
+          const idx = nextIdx++;
+          el.setAttribute('data-pfill-idx', idx);
+          // 라벨 수집 (간이 버전)
+          let label = '';
+          if (el.id) { try { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) label = lbl.textContent.trim(); } catch {} }
+          if (!label) label = el.getAttribute('aria-label') || el.placeholder || '';
+          if (!label) {
+            let node = el.parentElement;
+            for (let d = 0; d < 4 && node && node !== document.body; d++) {
+              for (const child of node.children) {
+                if (child.contains(el)) continue;
+                const t = child.textContent.trim();
+                if (t.length > 0 && t.length < 40) { label = t; break; }
+              }
+              if (label) break;
+              node = node.parentElement;
+            }
+          }
+          const meta = { idx, type: el.type || el.tagName.toLowerCase(), labelText: label, placeholder: el.placeholder || null };
+          if (el.tagName === 'SELECT') {
+            meta.options = Array.from(el.options)
+              .filter(o => o.value && o.value !== '0' && o.value !== '-1')
+              .map(o => `${o.text.trim()}(value=${o.value})`);
+          }
+          newInputsMeta.push(meta);
+        });
+
+        if (newInputsMeta.length === 0) continue;
+
+        // 새 행 AI fill 호출
+        try {
+          const fillRes = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputsMeta });
+          if (fillRes?.success && fillRes.fills?.length > 0) {
+            fillRes.fills.forEach(({ idx, value }) => {
+              if (!value) return;
+              const el = document.querySelector(`[data-pfill-idx="${idx}"]`);
+              if (!el) return;
+              if (el.tagName === 'SELECT') {
+                const opts = Array.from(el.options);
+                const target = String(value).toLowerCase();
+                const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target || o.text.trim().toLowerCase().includes(target));
+                if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); logSuccess(`${sectionType}[row${i+1}][${idx}]`, 'select', match.text.trim()); }
+              } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                let val = String(value).includes(',') ? String(value).split(',')[0].trim() : String(value);
+                if (/^\d{4}-\d{2}$/.test(val)) val += '-01';
+                val = val.slice(0, el.type === 'date' ? 10 : val.length);
+                const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+                if (setter?.set) setter.set.call(el, val); else el.value = val;
+                el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: val }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                logSuccess(`${sectionType}[row${i+1}][${idx}]`, el.type || 'input', val);
+              }
+              console.log(`✅ [Save루프] ${sectionType} 행${i + 2} 채움: idx=${idx} → "${value}"`);
+            });
+            console.log(`[Save루프] ${sectionType} 행${i + 2}: ${fillRes.fills.filter(f => f.value).length}개 채움 완료`);
+          }
+        } catch(e) {
+          console.warn(`[Save루프] ${sectionType} 행${i + 2} AI 채움 실패:`, e.message);
+          // 서버 에러여도 계속 진행 — 다음 섹션 처리
+        }
       }
     }
   }
@@ -1671,7 +1749,7 @@
           const entries = profile?.[sectionType] || [];
           console.log(`[Save루프 준비] ${sectionType}: profile 항목 ${entries.length}개`);
           if (entries.length <= 1) { console.log(`[Save루프 스킵] ${sectionType}: 1개 이하`); continue; }
-          await fillSaveLoop(sectionType, entries, sectionRoot);
+          await fillSaveLoop(sectionType, entries, sectionRoot, port, secret);
         }
       }
 
@@ -1884,7 +1962,7 @@
             console.log(`[Save루프 스킵] ${sectionType}: profile 항목 1개 이하`);
             continue;
           }
-          await fillSaveLoop(sectionType, entries, sectionRoot);
+          await fillSaveLoop(sectionType, entries, sectionRoot, port, secret);
         }
       }
 
