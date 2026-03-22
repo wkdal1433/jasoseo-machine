@@ -286,10 +286,10 @@
         console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 저장 → 새 행 대기`);
         await commitSectionRow(saveBtn);
 
-        // 새 행 감지: data-seen-before 없는 visible empty 필드
+        // 새 행 감지: data-seen-before 없는 visible 필드 (값 여부 무관 — date 기본값 등 포함)
         const newFields = Array.from(sectionRoot.querySelectorAll('input, select')).filter(el => {
           if (el.getAttribute('data-seen-before')) return false;
-          if (el.disabled || el.readOnly || el.value) return false;
+          if (el.disabled || el.readOnly) return false;
           const s = window.getComputedStyle(el);
           return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
         });
@@ -1621,8 +1621,9 @@
                   const t = lbl?.textContent.trim() || radio.value;
                   if (isSemanticallyEqual(t, value)) { radio.click(); radio.dispatchEvent(new Event('change', { bubbles: true })); console.log(`✅ [수렴] Radio: "${t}"`); break; }
                 }
-              } else {
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+              } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value');
                 if (setter?.set) setter.set.call(el, value); else el.value = value;
                 ['input', 'change', 'blur'].forEach(e => el.dispatchEvent(new Event(e, { bubbles: true })));
                 console.log(`✅ [수렴] Input: idx=${idx} → "${value}"`);

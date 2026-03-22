@@ -235,6 +235,8 @@ RULES:
         const extractJSON = (text: string): string => {
           const clean = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
           const fb = clean.indexOf('{'); const lb = clean.lastIndexOf('}');
+          const fa = clean.indexOf('['); const la = clean.lastIndexOf(']');
+          if (fa !== -1 && (fb === -1 || fa < fb)) return fa !== -1 && la > fa ? clean.slice(fa, la + 1) : clean;
           return fb !== -1 && lb > fb ? clean.slice(fb, lb + 1) : clean;
         };
         const parsed = JSON.parse(extractJSON(raw));
