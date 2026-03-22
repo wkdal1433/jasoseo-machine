@@ -1,6 +1,7 @@
 export interface UserProfile {
   personal: PersonalInfo
   desiredJob: DesiredJobInfo
+  hobbies?: string     // 취미/특기 (국내 구형 ATS 필수 항목)
   skills: string[]
   education: EducationItem[]
   experience: ExperienceItem[]
@@ -22,6 +23,8 @@ export interface PersonalInfo {
   nameHanja?: string   // 한자명
   birthDate: string    // YYYY-MM-DD
   gender: 'male' | 'female' | ''
+  github?: string      // GitHub URL (개발직 폼 대응)
+  blog?: string        // 블로그/포트폴리오 URL
   email: string
   phone: string        // 집전화
   mobile: string       // 휴대폰
@@ -36,6 +39,7 @@ export interface DesiredJobInfo {
   regions?: string[]   // 희망지역
   salary?: string      // 희망연봉 (만원)
   employmentTypes?: string[] // 고용형태 (정규직/계약직 등)
+  startDate?: string   // 입사가능일 (YYYY-MM-DD, 거의 모든 ATS 요구)
 }
 
 export interface EducationItem {

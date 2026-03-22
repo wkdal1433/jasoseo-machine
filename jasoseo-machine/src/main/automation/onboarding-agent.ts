@@ -60,9 +60,12 @@ Identify distinct stories from the file. Format each into the GOLD STANDARD S-P-
 # OUTPUT JSON SCHEMA:
 {
   "profile": {
-    "personal": { "name": "string|null", "birthDate": "string|null", "email": "string|null", "mobile": "string|null", "address": "string|null", "gender": "male|female|null" },
+    "personal": { "name": "string|null", "birthDate": "string|null", "email": "string|null", "mobile": "string|null", "address": "string|null", "gender": "male|female|null", "github": "string|null", "blog": "string|null" },
+    "desiredJob": { "startDate": "string|null (입사가능일 YYYY-MM-DD)" },
+    "hobbies": "string|null (취미 및 특기, 예: '독서, 등산, 사진촬영')",
     "education": [{"name": "string", "major": "string", "startDate": "string", "endDate": "string", "status": "string", "gpa": "string|null"}],
     "experience": [{"companyName": "string", "jobCategory": "string", "startDate": "string", "endDate": "string", "description": "string"}],
+    "projects": [{"name": "string", "role": "string", "startDate": "string", "endDate": "string", "description": "string"}],
     "skills": ["string"],
     "activities": [{"organization": "string", "startDate": "string", "endDate": "string", "description": "string"}],
     "training": [{"name": "string", "organization": "string", "description": "string"}],

@@ -388,6 +388,10 @@ export function ProfilePage() {
         {/* ── 기본정보 탭 ── */}
         {activeTab === 'basic' && (
           <div className="space-y-8 pb-8">
+            <FillTip>
+              프로필을 최대한 상세히 입력할수록 채용 사이트 자동 채우기 정확도가 높아집니다.
+              GitHub·블로그·입사가능일·취미 등 작은 항목도 놓치지 마세요.
+            </FillTip>
             <section>
               <h3 className="mb-4 text-lg font-semibold text-primary">1. 인적사항</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -408,6 +412,8 @@ export function ProfilePage() {
                 <Field label="집전화"><input className={inp} placeholder="02-0000-0000" value={localProfile.personal.phone} onChange={e => updatePersonal({ phone: e.target.value })} /></Field>
                 <Field label="우편번호"><input className={inp} placeholder="06234" value={localProfile.personal.postalCode || ''} onChange={e => updatePersonal({ postalCode: e.target.value })} /></Field>
                 <div className="col-span-2"><Field label="주소"><input className={inp} value={localProfile.personal.address} onChange={e => updatePersonal({ address: e.target.value })} /></Field></div>
+                <Field label="GitHub URL"><input className={inp} placeholder="https://github.com/username" value={localProfile.personal.github || ''} onChange={e => updatePersonal({ github: e.target.value })} /></Field>
+                <Field label="블로그/포트폴리오 URL"><input className={inp} placeholder="https://velog.io/@username" value={localProfile.personal.blog || ''} onChange={e => updatePersonal({ blog: e.target.value })} /></Field>
               </div>
             </section>
 
@@ -415,6 +421,7 @@ export function ProfilePage() {
               <h3 className="mb-4 text-lg font-semibold text-primary">2. 희망사항</h3>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="희망연봉 (만원)"><input className={inp} placeholder="4000" value={localProfile.desiredJob.salary || ''} onChange={e => updateDesiredJob({ salary: e.target.value })} /></Field>
+                <Field label="입사가능일"><input className={inp} type="date" value={localProfile.desiredJob.startDate || ''} onChange={e => updateDesiredJob({ startDate: e.target.value })} /></Field>
                 <Field label="지원경로">
                   <input className={inp} placeholder="채용 홈페이지" value={localProfile.preferences.applicationChannel || ''} onChange={e => updatePreferences({ applicationChannel: e.target.value })} />
                 </Field>
@@ -449,7 +456,17 @@ export function ProfilePage() {
             </section>
 
             <section>
-              <h3 className="mb-4 text-lg font-semibold text-primary">3. 보유 스킬</h3>
+              <h3 className="mb-4 text-lg font-semibold text-primary">3. 취미 및 특기</h3>
+              <input
+                className={inp}
+                placeholder="독서, 등산, 사진촬영 (쉼표로 구분)"
+                value={localProfile.hobbies || ''}
+                onChange={e => setLocalProfile({ ...localProfile, hobbies: e.target.value })}
+              />
+            </section>
+
+            <section>
+              <h3 className="mb-4 text-lg font-semibold text-primary">4. 보유 스킬</h3>
               <TagInput
                 tags={localProfile.skills}
                 onChange={tags => setLocalProfile({ ...localProfile, skills: tags })}
@@ -462,6 +479,10 @@ export function ProfilePage() {
         {/* ── 학력/경력/프로젝트 탭 ── */}
         {activeTab === 'edu_exp' && (
           <div className="space-y-12 pb-8">
+            <FillTip>
+              프로젝트는 활동이력과 내용이 겹치더라도 <strong>모두 입력</strong>하세요.
+              채용 사이트마다 "경력", "프로젝트", "활동" 섹션을 별도로 요구하며, 해당 섹션에 맞는 데이터가 없으면 자동 채우기가 건너뜁니다.
+            </FillTip>
             <ItemList title="4. 학력사항" items={localProfile.education}
               onAdd={() => { const n: EducationItem = { id: uuidv4(), type: 'university', name: '', startDate: '', endDate: '', status: '', major: '' }; setLocalProfile({ ...localProfile, education: [...localProfile.education, n] }) }}
               onRemove={id => setLocalProfile({ ...localProfile, education: localProfile.education.filter(i => i.id !== id) })}>
@@ -560,6 +581,9 @@ export function ProfilePage() {
         {/* ── 활동/교육/해외 탭 ── */}
         {activeTab === 'activities' && (
           <div className="space-y-12 pb-8">
+            <FillTip>
+              인턴·대외활동은 자소서 에피소드의 주요 원천입니다. 기간·역할·내용을 최대한 구체적으로 입력할수록 AI 자소서 생성 품질이 높아집니다.
+            </FillTip>
             <ItemList title="7. 인턴·대외활동" items={localProfile.activities}
               onAdd={() => { const n: ActivityItem = { id: uuidv4(), type: '', organization: '', startDate: '', endDate: '', description: '' }; setLocalProfile({ ...localProfile, activities: [...localProfile.activities, n] }) }}
               onRemove={id => setLocalProfile({ ...localProfile, activities: localProfile.activities.filter(i => i.id !== id) })}>
@@ -642,6 +666,9 @@ export function ProfilePage() {
         {/* ── 자격/어학/수상/컴퓨터 탭 ── */}
         {activeTab === 'skills_lang' && (
           <div className="space-y-12 pb-8">
+            <FillTip>
+              자격증·어학·컴퓨터 활용 항목은 채용 사이트에서 별도 섹션으로 분리되는 경우가 많습니다. 자격증 번호·취득일까지 정확히 입력해두면 자동 채우기 성공률이 높아집니다.
+            </FillTip>
             <ItemList title="10. 자격증" items={localProfile.certificates}
               onAdd={() => { const n: CertificateItem = { id: uuidv4(), name: '', issuer: '', date: '' }; setLocalProfile({ ...localProfile, certificates: [...localProfile.certificates, n] }) }}
               onRemove={id => setLocalProfile({ ...localProfile, certificates: localProfile.certificates.filter(i => i.id !== id) })}>
@@ -725,6 +752,9 @@ export function ProfilePage() {
         {/* ── 포트폴리오/우대 탭 ── */}
         {activeTab === 'etc' && (
           <div className="space-y-8 pb-8">
+            <FillTip>
+              병역·운전면허·취업우대사항은 대기업 지원서에서 필수 항목입니다. 해당되는 항목은 빠짐없이 체크해두세요.
+            </FillTip>
             <ItemList title="14. 포트폴리오" items={localProfile.portfolio}
               onAdd={() => { const n: PortfolioItem = { id: uuidv4(), type: 'url', label: '', path: '' }; setLocalProfile({ ...localProfile, portfolio: [...localProfile.portfolio, n] }) }}
               onRemove={id => setLocalProfile({ ...localProfile, portfolio: localProfile.portfolio.filter(i => i.id !== id) })}>
@@ -816,6 +846,16 @@ export function ProfilePage() {
 }
 
 // ── 공통 컴포넌트 ─────────────────────────────────────────────
+
+/** 폼 채우기 자동화 안내 배너 */
+function FillTip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 px-4 py-3 text-xs text-blue-700 dark:text-blue-300">
+      <span className="mt-0.5 shrink-0 text-base leading-none">💡</span>
+      <p className="leading-relaxed">{children}</p>
+    </div>
+  )
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
