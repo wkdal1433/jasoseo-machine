@@ -902,7 +902,7 @@
       if (normalized.length >= 4) {
         console.log(`[문항추출] ✅ 추출: "${normalized}" (${finalCharLimit}자)`);
         questions.push({ question: normalized, charLimit: finalCharLimit });
-        if (isEditable) el.setAttribute('data-editor-type', 'contenteditable');
+        if (el.getAttribute('contenteditable') === 'true') el.setAttribute('data-editor-type', 'contenteditable');
       }
     }
 
