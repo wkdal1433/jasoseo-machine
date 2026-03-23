@@ -283,6 +283,25 @@
           break;
         }
 
+        // 멱등성 가드: 현재 열린 행에 입력값이 없으면 이전 실행에서 이미 완료됨 → 중단
+        // 재실행 시 빈 새 행이 열려있는 경우를 감지해 빈 행 저장 방지
+        {
+          const openInputs = Array.from(sectionRoot.querySelectorAll(
+            'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select'
+          )).filter(el => !el.disabled && !el.readOnly).filter(el => {
+            const s = window.getComputedStyle(el);
+            return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
+          });
+          const rowHasData = openInputs.some(el => {
+            if (el.tagName === 'SELECT') return el.value && el.value !== '0' && el.value !== '-1';
+            return !!el.value;
+          });
+          if (!rowHasData) {
+            console.log(`[Save루프] ${sectionType}: 행 ${i+1} 입력값 없음 — 이전 실행 완료로 간주, 루프 중단`);
+            break;
+          }
+        }
+
         // 저장 전 현재 입력들을 seen으로 마킹 → 이후 새 필드 정확히 감지
         markAllInputsAsSeen();
         console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 저장 → 새 행 대기`);
@@ -345,9 +364,14 @@
           const fillRes = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputsMeta });
           if (fillRes?.success && fillRes.fills?.length > 0) {
             fillRes.fills.forEach(({ idx, value }) => {
-              if (!value) return;
+              if (value === null || value === undefined || value === '') return;
               const el = document.querySelector(`[data-pfill-idx="${idx}"]`);
               if (!el) return;
+              // 멱등성: 이미 올바른 값이면 스킵
+              if (isFieldSatisfied(el, value)) {
+                console.log(`⏭️ [Save루프] 이미 채움 스킵: idx=${idx} → "${value}"`);
+                return;
+              }
               if (el.tagName === 'SELECT') {
                 const opts = Array.from(el.options);
                 const target = String(value).toLowerCase();
@@ -1423,17 +1447,46 @@
     return na === nb || na.includes(nb) || nb.includes(na);
   }
 
-  // 이미 올바른 값이 채워진 필드인지 확인 (idempotency)
-  function alreadyFilled(el, expectedValue) {
-    if (!el || expectedValue === undefined || expectedValue === null) return false;
+  // 상태 기반 필드 현재값 반환
+  // radio: 그룹 내 checked된 항목의 라벨 텍스트 반환 (첫 번째 radio를 el로 받음)
+  function getFieldValue(el) {
+    if (!el) return '';
+    if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
+    if (el.type === 'radio') {
+      if (el.name) {
+        const checked = document.querySelector(`input[type="radio"][name="${CSS.escape(el.name)}"]:checked`);
+        if (!checked) return '';
+        const lbl = document.querySelector(`label[for="${CSS.escape(checked.id)}"]`);
+        return lbl?.textContent.trim() || checked.value;
+      }
+      return el.checked ? el.value : '';
+    }
+    if (el.getAttribute('contenteditable') === 'true') return el.innerText.trim();
     if (el.tagName === 'SELECT') {
       const selected = el.options[el.selectedIndex];
-      if (!selected || selected.value === '' || selected.value === '0') return false;
-      return isSemanticallyEqual(el.value, expectedValue) ||
-             isSemanticallyEqual(selected.text, expectedValue);
+      if (!selected || !selected.value || selected.value === '0' || selected.value === '-1') return '';
+      return selected.text.trim();
     }
-    if (el.type === 'checkbox') return el.checked === (expectedValue === true || expectedValue === 'true');
-    return isSemanticallyEqual(el.value, expectedValue);
+    return (el.value || '').trim();
+  }
+
+  // 상태 기반 멱등성 검사 — normalize(actual) === normalize(expected)
+  // normalize: 소문자 + 공백·구두점·특수문자 제거 (전화번호 대시 등 포함)
+  function isFieldSatisfied(el, expectedValue) {
+    if (!el || expectedValue === undefined || expectedValue === null || expectedValue === '') return false;
+    if (el.type === 'checkbox') {
+      const expected = expectedValue === 'true' || expectedValue === true || expectedValue === '1' || expectedValue === 1;
+      return el.checked === expected;
+    }
+    const actual = getFieldValue(el);
+    if (actual === '') return false;
+    const n = (v) => String(v).toLowerCase().replace(/\s+/g, '').replace(/[.,\-\(\)\/]/g, '');
+    return n(actual) === n(String(expectedValue));
+  }
+
+  // 이미 올바른 값이 채워진 필드인지 확인 (isFieldSatisfied 위임)
+  function alreadyFilled(el, expectedValue) {
+    return isFieldSatisfied(el, expectedValue);
   }
 
   // DOM 변화 감지 기반 대기 (setTimeout 대체)
