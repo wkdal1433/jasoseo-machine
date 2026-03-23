@@ -831,7 +831,8 @@
     return Array.from(document.querySelectorAll('a, button, [role="tab"], li, span'))
       .find(el => kw.test(el.textContent.trim())
         && el.offsetParent !== null
-        && !btnContainer.contains(el)) || null;
+        && !btnContainer.contains(el)
+        && !(_overlay && _overlay.contains(el))) || null;  // 진행 오버레이 제외
   }
 
   // 자소서 섹션 활성화 시도: 탭 클릭 → DOM 생성 대기 (클릭 성공 ≠ DOM 생성 성공)
@@ -1933,12 +1934,21 @@
       } else {
         console.log('📋 룰 기반 추출 문항:', questions);
         const toSend = questions.map(q => ({ question: q.question, charLimit: q.charLimit ?? null }));
-        const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
-        if (result?.success) {
-          extractBtn.innerText = `✅ ${questions.length}개 전송!`;
-          finishProgress(true, `문항 ${questions.length}개 앱으로 전송 완료`);
-        } else {
-          throw new Error(result?.error || '전송 실패');
+        try {
+          const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
+          if (result?.success) {
+            extractBtn.innerText = `✅ ${questions.length}개 전송!`;
+            finishProgress(true, `문항 ${questions.length}개 앱으로 전송 완료`);
+          } else {
+            // 앱 미실행 등으로 전송 실패 — 프로필 채우기는 완료됐으므로 조용히 처리
+            console.warn('[문항전송] 앱 전송 실패:', result?.error);
+            extractBtn.innerText = `⚠️ 전송 실패 (앱 확인)`;
+            finishProgress(false, '앱 미실행 — 문항 전송 실패');
+          }
+        } catch (sendErr) {
+          console.warn('[문항전송] 네트워크 오류:', sendErr.message);
+          extractBtn.innerText = `⚠️ 전송 실패 (앱 확인)`;
+          finishProgress(false, '앱 미실행 — 문항 전송 실패');
         }
       }
     } catch (err) {
