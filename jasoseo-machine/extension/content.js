@@ -700,46 +700,102 @@
     return style.display !== 'none' && style.visibility !== 'hidden';
   }
 
-  // contenteditable 라벨 후보 텍스트들을 semantic scoring으로 선택
-  // nearest만 쓰면 "1000자 이내" 같은 instruction이 잡히므로 다중 후보 → 점수 선택
+  // Semantic scoring — instruction 패널티 강화, 질문 키워드 확장
   function scoreCandidateLabel(text, el) {
     let score = 0;
-    if (/지원동기|이유|경험|역량|강점|약점|설명|기술|작성|소개|포부|직무|관심|성과|도전|협업|리더|성장|가치관|노력/.test(text)) score += 3;
+    if (/지원동기|이유|경험|역량|강점|약점|설명|기술|소개|포부|직무|관심|성과|도전|협업|리더|성장|가치관|노력|자기소개|역할|활동|계획|지원이유|장단점|입사|목표|비전/.test(text)) score += 5;
     if (text.length >= 5 && text.length <= 100) score += 2;
-    if (/이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|자리/.test(text)) score -= 3;
+    if (/이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|자리|최소|최대|서술해|서술 해/.test(text)) score -= 5;
+    if (/\d+\s*자/.test(text)) score -= 3;
     if (/^\d+\s*[\/|]\s*\d+$/.test(text.trim())) score -= 5;
-    // 위치 보너스: 필드 위쪽 텍스트가 라벨일 가능성이 높음
     try {
       const elRect = el.getBoundingClientRect();
-      const candidates = Array.from(document.querySelectorAll('p, span, div, h1,h2,h3,h4,h5,h6,dt,legend,label'))
+      const matches = Array.from(document.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label'))
         .filter(e => e.textContent.trim() === text && !e.contains(el));
-      if (candidates.some(e => e.getBoundingClientRect().bottom <= elRect.top)) score += 1;
+      if (matches.some(e => e.getBoundingClientRect().bottom <= elRect.top)) score += 1;
     } catch (_) {}
     return score;
   }
 
-  // contenteditable (id/aria 없는 경우) 라벨 추출 — 다중 후보 scoring
-  function findLabelForEditable(el) {
-    const standard = findLabelText(el);
-    const isStandardInstruction = standard && /이내|이상|최소|최대|서술해주세요|작성해주세요|\d+\s*자/.test(standard);
-    if (standard && standard.length >= 4 && !isStandardInstruction) return standard;
-
-    const parent = el.closest('div, section, article, form') || el.parentElement;
-    if (!parent) return '';
-    const candidates = [];
-    parent.querySelectorAll('p, span, div, h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(e => {
-      if (e.contains(el)) return;
-      const t = e.textContent.trim();
-      if (t.length >= 4 && t.length <= 200 && !candidates.includes(t)) candidates.push(t);
+  // el이 포함된 col을 제외한 container 안의 텍스트를 scoring → best 반환
+  function scoredScan(container, el) {
+    const excludedBranch = Array.from(container.children).find(c => c === el || c.contains(el));
+    const texts = [];
+    container.querySelectorAll('*').forEach(node => {
+      if (excludedBranch && (excludedBranch === node || excludedBranch.contains(node))) return;
+      const t = node.textContent?.trim();
+      if (t && t.length >= 4 && t.length <= 200 && !texts.includes(t)) texts.push(t);
     });
-    if (candidates.length === 0) return '';
-
-    const best = candidates
+    if (!texts.length) return '';
+    const best = texts
       .map(t => ({ text: t, score: scoreCandidateLabel(t, el) }))
       .filter(c => c.score > 0)
       .sort((a, b) => b.score - a.score)[0];
     return best ? normalizeLabel(best.text) : '';
   }
+
+  // 범용 질문 제목 추출
+  // 전략: "label을 버리고 레이아웃을 믿어라" (Engineer 피드백 핵심 수용)
+  // 1차) 표준 label[for]/aria → instruction이면 건너뜀
+  // 2차) 같은 .row/.form-row/.field-group 안 sibling 컬럼 스캔 (Vuetify/Bootstrap)
+  // 3차) 이전 형제 그룹 스캔 (제목이 별도 row에 있는 경우)
+  // 4차) 6레벨 상위까지 이전 형제 탐색 (비 grid 구조 범용 대응)
+  function findQuestionLabel(el) {
+    const instructionPat = /이내|이상|최소|최대|서술\s*해\s*주세요|작성\s*해\s*주세요|\d+\s*자/;
+
+    // 1) 표준 label
+    const standard = findLabelText(el);
+    if (standard && standard.length >= 4 && !instructionPat.test(standard)) return standard;
+
+    // 2) Field-group sibling 전략 (Vuetify .row, Bootstrap .form-row, 기타)
+    const GROUP_SEL = '.row, .form-row, .field-group, .item-common, .form-item, [class*="question-"], [class*="qa-"]';
+    const group = el.closest(GROUP_SEL);
+    if (group) {
+      const fromGroup = scoredScan(group, el);
+      if (fromGroup) {
+        console.log(`[문항추출] row-sibling 전략: "${fromGroup}"`);
+        return fromGroup;
+      }
+      // 제목이 바로 위 형제 그룹에 있는 경우
+      const prev = group.previousElementSibling;
+      if (prev) {
+        const fromPrev = scoredScan(prev, el);
+        if (fromPrev) {
+          console.log(`[문항추출] prev-sibling 전략: "${fromPrev}"`);
+          return fromPrev;
+        }
+      }
+    }
+
+    // 3) 폴백: 6레벨 상위까지 이전 형제 탐색 (비-grid 구조)
+    let cursor = el;
+    for (let lvl = 0; lvl < 6; lvl++) {
+      cursor = cursor.parentElement;
+      if (!cursor) break;
+      let sib = cursor.previousElementSibling;
+      while (sib) {
+        const texts = [];
+        sib.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(n => {
+          const t = n.textContent?.trim();
+          if (t && t.length >= 4 && t.length <= 200 && !texts.includes(t)) texts.push(t);
+        });
+        const best = texts
+          .map(t => ({ text: t, score: scoreCandidateLabel(t, el) }))
+          .filter(c => c.score > 0)
+          .sort((a, b) => b.score - a.score)[0];
+        if (best) {
+          console.log(`[문항추출] prev-ancestor[${lvl}] 전략: "${best.text}"`);
+          return normalizeLabel(best.text);
+        }
+        sib = sib.previousElementSibling;
+      }
+    }
+
+    return '';
+  }
+
+  // 하위 호환 — 기존 호출부에서 사용하던 함수명 유지
+  function findLabelForEditable(el) { return findQuestionLabel(el); }
 
   // 자소서 섹션 탭 탐색 (스텝/탭 기반 ATS 대응)
   function findEssayTab() {
@@ -794,22 +850,8 @@
       if (nearbyLimit === null && maxLen !== null && maxLen < 200) return;
       const charLimit = nearbyLimit ?? maxLen;
 
-      // 라벨 추출: contenteditable(id/aria 없음) → scoring, 나머지 → findLabelText
-      const isEditable = el.getAttribute('contenteditable') === 'true';
-      const hasStandardAnchor = !!(el.id || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'));
-      let labelText = (isEditable && !hasStandardAnchor)
-        ? findLabelForEditable(el)
-        : findLabelText(el);
-
-      // findLabelText가 instruction-only 결과를 반환했을 때 scoring fallback 시도
-      const instructionPattern = /이내|이상|최소|최대|서술해주세요|작성해주세요|\d+\s*자/;
-      if (labelText && instructionPattern.test(labelText)) {
-        const scored = findLabelForEditable(el);
-        if (scored && scored.length >= 4 && !instructionPattern.test(scored)) {
-          console.log(`[문항추출] scoring fallback: "${labelText}" → "${scored}"`);
-          labelText = scored;
-        }
-      }
+      // 라벨 추출: 모든 필드 타입에 findQuestionLabel 적용 (row-sibling 우선)
+      let labelText = findQuestionLabel(el);
 
       if (!labelText) {
         if (el.placeholder && el.placeholder.length > 5) labelText = el.placeholder;
