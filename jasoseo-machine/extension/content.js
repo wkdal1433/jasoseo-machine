@@ -721,7 +721,8 @@
   // contenteditable (id/aria 없는 경우) 라벨 추출 — 다중 후보 scoring
   function findLabelForEditable(el) {
     const standard = findLabelText(el);
-    if (standard && standard.length >= 4) return standard;
+    const isStandardInstruction = standard && /이내|이상|최소|최대|서술해주세요|작성해주세요|\d+\s*자/.test(standard);
+    if (standard && standard.length >= 4 && !isStandardInstruction) return standard;
 
     const parent = el.closest('div, section, article, form') || el.parentElement;
     if (!parent) return '';
@@ -744,7 +745,9 @@
   function findEssayTab() {
     const kw = /자기소개|자소서|에세이|essay|cover.?letter|자기\s*pr|지원\s*동기/i;
     return Array.from(document.querySelectorAll('a, button, [role="tab"], li, span'))
-      .find(el => kw.test(el.textContent.trim()) && el.offsetParent !== null) || null;
+      .find(el => kw.test(el.textContent.trim())
+        && el.offsetParent !== null
+        && !btnContainer.contains(el)) || null;
   }
 
   // 자소서 섹션 활성화 시도: 탭 클릭 → DOM 생성 대기 (클릭 성공 ≠ DOM 생성 성공)
@@ -797,6 +800,16 @@
       let labelText = (isEditable && !hasStandardAnchor)
         ? findLabelForEditable(el)
         : findLabelText(el);
+
+      // findLabelText가 instruction-only 결과를 반환했을 때 scoring fallback 시도
+      const instructionPattern = /이내|이상|최소|최대|서술해주세요|작성해주세요|\d+\s*자/;
+      if (labelText && instructionPattern.test(labelText)) {
+        const scored = findLabelForEditable(el);
+        if (scored && scored.length >= 4 && !instructionPattern.test(scored)) {
+          console.log(`[문항추출] scoring fallback: "${labelText}" → "${scored}"`);
+          labelText = scored;
+        }
+      }
 
       if (!labelText) {
         if (el.placeholder && el.placeholder.length > 5) labelText = el.placeholder;
