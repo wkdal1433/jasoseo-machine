@@ -906,6 +906,18 @@
       const finalCharLimit = charLimit ?? (charLimitMatch ? parseInt(charLimitMatch[1]) : null);
 
       if (normalized.length >= 4) {
+        // 동일 질문 제목 dedup — 같은 heading 아래 여러 textarea가 있을 때 발생
+        // charLimit이 더 큰 쪽(메인 입력창)을 우선 보존
+        const existing = questions.findIndex(q => q.question === normalized);
+        if (existing >= 0) {
+          if ((finalCharLimit ?? 0) > (questions[existing].charLimit ?? 0)) {
+            questions[existing].charLimit = finalCharLimit;
+            console.log(`[문항추출] ♻️ 중복 병합 (charLimit 갱신): "${normalized}" → ${finalCharLimit}자`);
+          } else {
+            console.log(`[문항추출] ♻️ 중복 스킵: "${normalized}"`);
+          }
+          return;
+        }
         console.log(`[문항추출] ✅ 추출: "${normalized}" (${finalCharLimit}자)`);
         questions.push({ question: normalized, charLimit: finalCharLimit });
         if (el.getAttribute('contenteditable') === 'true') el.setAttribute('data-editor-type', 'contenteditable');
@@ -1618,8 +1630,25 @@
       await activateEssaySection(); // 탭 클릭 → DOM 생성 대기 (lazy mount 대응)
       const questions = extractCoverLetterQuestions();
 
+      // 문항 즉시 전송 — fill loop와 독립적으로 비동기 처리 (fire-and-forget)
+      // fill이 끝날 때까지 기다리지 않고 바로 앱에 전달
+      if (questions.length > 0) {
+        console.log('📋 룰 기반 추출 문항:', questions);
+        const toSend = questions.map(q => ({ question: q.question, charLimit: q.charLimit ?? null }));
+        bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend })
+          .then(result => {
+            if (result?.success) {
+              console.log(`[문항전송] ✅ ${questions.length}개 즉시 전송 완료 — 채우기 백그라운드 진행`);
+              extractBtn.innerText = `✅ 문항 전송됨`;
+            } else {
+              console.warn('[문항전송] 앱 전송 실패 (앱 미실행?):', result?.error);
+            }
+          })
+          .catch(err => console.warn('[문항전송] 네트워크 오류:', err.message));
+      }
+
       // 프로필 매핑 분석 (AI) + 프로필 조회 병렬 실행
-      updateProgress('🤖 AI 분석 중...', 50, `문항 ${questions.length}개 추출`, 'Bridge 서버 호출 중');
+      updateProgress('🤖 AI 분석 중...', 50, `문항 ${questions.length}개 추출`, '채우기 시작...');
       const [profileRes, profileFillResult] = await Promise.allSettled([
         bridgePost(port, secret, '/get-profile').catch(() => null),
         formInputs.length > 0
@@ -1933,30 +1962,11 @@
         }
       }
 
-      // 문항 전송
+      // 채우기 완료 — 문항은 이미 위에서 즉시 전송됨
       if (questions.length === 0) {
-        alert('자소서 입력창을 찾지 못했습니다.\n지원서 작성 페이지에서 눌러주세요.\n\n문항은 앱에서 직접 입력할 수 있습니다.');
-        // 프로필 채우기는 이미 진행됐으므로 중단하지 않음
-      } else {
-        console.log('📋 룰 기반 추출 문항:', questions);
-        const toSend = questions.map(q => ({ question: q.question, charLimit: q.charLimit ?? null }));
-        try {
-          const result = await bridgePost(port, secret, '/submit-extracted-questions', { questions: toSend });
-          if (result?.success) {
-            extractBtn.innerText = `✅ ${questions.length}개 전송!`;
-            finishProgress(true, `문항 ${questions.length}개 앱으로 전송 완료`);
-          } else {
-            // 앱 미실행 등으로 전송 실패 — 프로필 채우기는 완료됐으므로 조용히 처리
-            console.warn('[문항전송] 앱 전송 실패:', result?.error);
-            extractBtn.innerText = `⚠️ 전송 실패 (앱 확인)`;
-            finishProgress(false, '앱 미실행 — 문항 전송 실패');
-          }
-        } catch (sendErr) {
-          console.warn('[문항전송] 네트워크 오류:', sendErr.message);
-          extractBtn.innerText = `⚠️ 전송 실패 (앱 확인)`;
-          finishProgress(false, '앱 미실행 — 문항 전송 실패');
-        }
+        console.warn('[문항추출] 자소서 입력창을 찾지 못함 — 앱에서 직접 입력 필요');
       }
+      finishProgress(true, `채우기 완료 | 문항 ${questions.length}개 전송됨`);
     } catch (err) {
       const msg = err.message?.includes('Extension context invalidated')
         ? '페이지를 새로고침(F5) 후 다시 눌러주세요.\n(확장 프로그램 업데이트 후 필요)'
