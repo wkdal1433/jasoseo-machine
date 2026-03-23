@@ -829,13 +829,21 @@
       }
     }
 
-    // Tier 4: 최후 — 6레벨 상위까지 이전 형제 탐색 (비-grid 구조 범용 대응)
+    // Tier 4: 상위 탐색 — depth 3 제한 + section bound (범위 확장이 아닌 제한된 탐색)
+    // sectionBound 밖으로 나가지 않음: 관련 없는 섹션 텍스트 오탐 방지
+    // textarea 있는 sibling은 skip: 다른 질문 컨테이너를 label source로 쓰지 않음
+    const sectionBound = findEssaySectionContainer() || document.body;
     let cursor = el;
-    for (let lvl = 0; lvl < 6; lvl++) {
+    for (let lvl = 0; lvl < 3; lvl++) {
       cursor = cursor.parentElement;
-      if (!cursor) break;
+      if (!cursor || !sectionBound.contains(cursor)) break; // section 밖 — 즉시 중단
       let sib = cursor.previousElementSibling;
       while (sib) {
+        // 다른 질문의 입력 컨테이너 — label source로 쓰면 안 됨 (Tier3 guard와 동일 원칙)
+        if (sib.querySelector('textarea, [contenteditable="true"]')) {
+          sib = sib.previousElementSibling;
+          continue;
+        }
         const candidates = [];
         sib.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(node => {
           const t = node.textContent?.trim();
