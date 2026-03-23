@@ -700,91 +700,119 @@
     return style.display !== 'none' && style.visibility !== 'hidden';
   }
 
-  // Semantic scoring — instruction 패널티 강화, 질문 키워드 확장
-  function scoreCandidateLabel(text, el) {
+  // Hard filter — instruction 텍스트는 scoring 전에 먼저 제거
+  const INSTRUCTION_PAT = /이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|최소|최대|서술해|서술 해|\d+\s*자/;
+  function isInstruction(text) {
+    return INSTRUCTION_PAT.test(text);
+  }
+  function isQuestionLike(text) {
+    return text.length >= 4 && text.length <= 80 && !isInstruction(text);
+  }
+
+  // 구조 + 의미 통합 scoring (Engineer 피드백 핵심: "구조 점수 추가")
+  // candidateNode: 후보 DOM 노드 (optional) — 구조 가중치에 사용
+  function scoreCandidateLabel(text, el, candidateNode) {
+    // Hard filter 먼저
+    if (isInstruction(text)) return -10;
+
     let score = 0;
+
+    // 의미 점수
     if (/지원동기|이유|경험|역량|강점|약점|설명|기술|소개|포부|직무|관심|성과|도전|협업|리더|성장|가치관|노력|자기소개|역할|활동|계획|지원이유|장단점|입사|목표|비전/.test(text)) score += 5;
-    if (text.length >= 5 && text.length <= 100) score += 2;
-    if (/이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|자리|최소|최대|서술해|서술 해/.test(text)) score -= 5;
-    if (/\d+\s*자/.test(text)) score -= 3;
+    if (text.length >= 4 && text.length <= 60) score += 2; // 짧은 제목 보너스
+
+    // 구조 점수 (Engineer Step 4)
+    if (candidateNode) {
+      // Heading 태그 보너스
+      if (/^H[1-6]$/.test(candidateNode.tagName)) score += 4;
+      // 제목 클래스 패턴 보너스
+      if (/title|label|question|heading|subject/i.test(candidateNode.className)) score += 3;
+      // 필드보다 위에 있음 (before-input 보너스)
+      try {
+        const elRect = el.getBoundingClientRect();
+        const nodeRect = candidateNode.getBoundingClientRect();
+        if (nodeRect.bottom <= elRect.top + 10) score += 3;
+      } catch (_) {}
+      // 같은 row 안에 있음
+      const elRow = el.closest('.row, .form-row, .field-group');
+      if (elRow && elRow.contains(candidateNode)) score += 5;
+    }
+
+    // 숫자/슬래시만 있는 텍스트 제거
     if (/^\d+\s*[\/|]\s*\d+$/.test(text.trim())) score -= 5;
-    try {
-      const elRect = el.getBoundingClientRect();
-      const matches = Array.from(document.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label'))
-        .filter(e => e.textContent.trim() === text && !e.contains(el));
-      if (matches.some(e => e.getBoundingClientRect().bottom <= elRect.top)) score += 1;
-    } catch (_) {}
+
     return score;
   }
 
-  // el이 포함된 col을 제외한 container 안의 텍스트를 scoring → best 반환
+  // el이 포함된 col을 제외한 container 안의 노드를 수집 → 구조+의미 scoring → best 반환
   function scoredScan(container, el) {
     const excludedBranch = Array.from(container.children).find(c => c === el || c.contains(el));
-    const texts = [];
+    const candidates = [];
     container.querySelectorAll('*').forEach(node => {
       if (excludedBranch && (excludedBranch === node || excludedBranch.contains(node))) return;
       const t = node.textContent?.trim();
-      if (t && t.length >= 4 && t.length <= 200 && !texts.includes(t)) texts.push(t);
+      if (!t || !isQuestionLike(t)) return; // Hard filter 먼저
+      if (candidates.some(c => c.text === t)) return; // 중복 제거
+      candidates.push({ text: t, node });
     });
-    if (!texts.length) return '';
-    const best = texts
-      .map(t => ({ text: t, score: scoreCandidateLabel(t, el) }))
+    if (!candidates.length) return '';
+    const best = candidates
+      .map(c => ({ ...c, score: scoreCandidateLabel(c.text, el, c.node) }))
       .filter(c => c.score > 0)
       .sort((a, b) => b.score - a.score)[0];
     return best ? normalizeLabel(best.text) : '';
   }
 
-  // 범용 질문 제목 추출
-  // 전략: "label을 버리고 레이아웃을 믿어라" (Engineer 피드백 핵심 수용)
-  // 1차) 표준 label[for]/aria → instruction이면 건너뜀
-  // 2차) 같은 .row/.form-row/.field-group 안 sibling 컬럼 스캔 (Vuetify/Bootstrap)
-  // 3차) 이전 형제 그룹 스캔 (제목이 별도 row에 있는 경우)
-  // 4차) 6레벨 상위까지 이전 형제 탐색 (비 grid 구조 범용 대응)
+  // 범용 질문 제목 추출 — Tier 1→4 순차 fallback
+  // 전략: "DOM 구조를 먼저 좁힌 뒤 텍스트로 최종 선택" (Engineer 최종 원칙)
   function findQuestionLabel(el) {
-    const instructionPat = /이내|이상|최소|최대|서술\s*해\s*주세요|작성\s*해\s*주세요|\d+\s*자/;
-
-    // 1) 표준 label
+    // Tier 1: 표준 label[for] / aria (가장 신뢰도 높음 — instruction이면 건너뜀)
     const standard = findLabelText(el);
-    if (standard && standard.length >= 4 && !instructionPat.test(standard)) return standard;
+    if (standard && standard.length >= 4 && !isInstruction(standard)) return standard;
 
-    // 2) Field-group sibling 전략 (Vuetify .row, Bootstrap .form-row, 기타)
+    // Tier 2: Field-group sibling 전략 (Vuetify .row, Bootstrap .form-row, 기타)
+    // "질문은 항상 같은 semantic block 안에 있다" — 먼저 범위를 좁힘
     const GROUP_SEL = '.row, .form-row, .field-group, .item-common, .form-item, [class*="question-"], [class*="qa-"]';
     const group = el.closest(GROUP_SEL);
     if (group) {
       const fromGroup = scoredScan(group, el);
       if (fromGroup) {
-        console.log(`[문항추출] row-sibling 전략: "${fromGroup}"`);
+        console.log(`[문항추출] Tier2 row-sibling: "${fromGroup}"`);
         return fromGroup;
       }
-      // 제목이 바로 위 형제 그룹에 있는 경우
+    }
+
+    // Tier 3: 이전 형제 그룹 (질문 제목이 별도 row/container에 있는 경우)
+    if (group) {
       const prev = group.previousElementSibling;
       if (prev) {
         const fromPrev = scoredScan(prev, el);
         if (fromPrev) {
-          console.log(`[문항추출] prev-sibling 전략: "${fromPrev}"`);
+          console.log(`[문항추출] Tier3 prev-group: "${fromPrev}"`);
           return fromPrev;
         }
       }
     }
 
-    // 3) 폴백: 6레벨 상위까지 이전 형제 탐색 (비-grid 구조)
+    // Tier 4: 최후 — 6레벨 상위까지 이전 형제 탐색 (비-grid 구조 범용 대응)
     let cursor = el;
     for (let lvl = 0; lvl < 6; lvl++) {
       cursor = cursor.parentElement;
       if (!cursor) break;
       let sib = cursor.previousElementSibling;
       while (sib) {
-        const texts = [];
-        sib.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(n => {
-          const t = n.textContent?.trim();
-          if (t && t.length >= 4 && t.length <= 200 && !texts.includes(t)) texts.push(t);
+        const candidates = [];
+        sib.querySelectorAll('p,span,div,h1,h2,h3,h4,h5,h6,dt,legend,label').forEach(node => {
+          const t = node.textContent?.trim();
+          if (t && isQuestionLike(t) && !candidates.some(c => c.text === t))
+            candidates.push({ text: t, node });
         });
-        const best = texts
-          .map(t => ({ text: t, score: scoreCandidateLabel(t, el) }))
+        const best = candidates
+          .map(c => ({ ...c, score: scoreCandidateLabel(c.text, el, c.node) }))
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)[0];
         if (best) {
-          console.log(`[문항추출] prev-ancestor[${lvl}] 전략: "${best.text}"`);
+          console.log(`[문항추출] Tier4 ancestor[${lvl}]: "${best.text}"`);
           return normalizeLabel(best.text);
         }
         sib = sib.previousElementSibling;
