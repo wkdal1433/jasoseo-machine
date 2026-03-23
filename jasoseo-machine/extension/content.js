@@ -619,12 +619,17 @@
       }
     }
     // 2) 범용 fallback: 조상 텍스트 노드 스캔
+    // depth 8→5로 제한: 깊이 올라가면 "항목 수 카운터(0/2)" 등을 잘못 잡음
+    // 100 미만 값도 무시: charLimit은 항상 100 이상 (섹션 카운터 오탐 방지)
     let ancestor = el.parentElement;
-    for (let i = 0; i < 8 && ancestor; i++) {
+    for (let i = 0; i < 5 && ancestor; i++) {
       for (const leaf of ancestor.querySelectorAll('*')) {
         if (leaf.children.length > 0) continue;
         const m = leaf.textContent.trim().match(/^\d+\s*[\/\|]\s*(\d+)$/);
-        if (m) return parseInt(m[1]);
+        if (m) {
+          const val = parseInt(m[1]);
+          if (val >= 100) return val;
+        }
       }
       ancestor = ancestor.parentElement;
     }
