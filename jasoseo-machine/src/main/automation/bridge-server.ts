@@ -265,7 +265,10 @@ RULES:
       if (Array.isArray(questions) && questions.length > 0) {
         this.extractedQuestions = questions;
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          console.log(`[Bridge] 문항 ${questions.length}개 IPC 전송 → renderer`);
           this.mainWindow.webContents.send('questions-extracted', questions);
+        } else {
+          console.warn(`[Bridge] mainWindow 없음 — IPC 스킵, extractedQuestions에 저장됨 (peek으로 회수 가능)`);
         }
       }
       res.json({ success: true, received: questions?.length ?? 0 });

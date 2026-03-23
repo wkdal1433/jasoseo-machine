@@ -680,11 +680,13 @@
     return '';
   }
 
-  // 라벨 정규화: "지원동기를 입력해 주세요" → "지원동기를" (instruction 제거, question 보존)
+  // 라벨 정규화: "지원동기를 작성해 주세요 (최소 500자)" → "지원동기" (instruction 제거, question 보존)
   function normalizeLabel(text) {
     return text
-      .replace(/입력해\s*주세요\.?|작성해\s*주세요\.?|입력하세요\.?|작성하세요\.?|여기에\s*입력\s*해\s*주세요\.?/g, '')
+      // 후행 instruction 동사구 제거 (작성해/입력해/서술해/설명해 주세요)
+      .replace(/\s*(를|을|이|가|에\s*대해|에\s*대하여)?\s*(작성해\s*주세요|입력해\s*주세요|서술해\s*주세요|설명해\s*주세요|작성하세요|입력하세요|서술하세요|설명하세요|여기에\s*입력\s*해\s*주세요|기재해\s*주세요|기술해\s*주세요)\.?$/gi, '')
       .replace(/[\(\（][^\)\）]*\d+\s*자[^\)\）]*[\)\）]/g, '') // (최소 N자 ~ 최대 N자) 제거
+      .replace(/\s*[(\[（【]\s*(최소|최대|\d)[^\)\]）】]*[\)\]）】]\s*$/g, '') // 후행 괄호 설명 제거
       .replace(/\s{2,}/g, ' ')
       .trim();
   }
@@ -701,12 +703,16 @@
   }
 
   // Hard filter — instruction 텍스트는 scoring 전에 먼저 제거
+  // 단, 질문 키워드(지원동기·성장과정 등)가 함께 있으면 instruction으로 보지 않음
+  // 예: "지원동기를 작성해 주세요" → 질문 O / "최소 500자 이상 입력해 주세요" → instruction O
   const INSTRUCTION_PAT = /이내|이상|글자|작성해|입력해|작성하세요|입력하세요|이하|최소|최대|서술해|서술 해|\d+\s*자/;
+  const QUESTION_KW_PAT = /지원동기|성장과정|지원\s*이유|역량|강점|약점|자기소개|경험|포부|직무|관심|성과|도전|협업|리더|성장|가치관|노력|역할|활동|계획|목표|비전|장단점|입사|회사|당사|본인|귀사|특기|자질|의지|열정|책임|신념|철학|전문|기술|역사|배경|업무/;
   function isInstruction(text) {
+    if (QUESTION_KW_PAT.test(text)) return false; // 질문 키워드 포함 → question으로 판단
     return INSTRUCTION_PAT.test(text);
   }
   function isQuestionLike(text) {
-    return text.length >= 4 && text.length <= 80 && !isInstruction(text);
+    return text.length >= 4 && text.length <= 120 && !isInstruction(text);
   }
 
   // 구조 + 의미 통합 scoring (Engineer 피드백 핵심: "구조 점수 추가")

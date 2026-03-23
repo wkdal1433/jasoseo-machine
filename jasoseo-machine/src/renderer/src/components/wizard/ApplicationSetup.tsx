@@ -73,16 +73,23 @@ export function ApplicationSetup() {
   useEffect(() => { loadEpisodes() }, [])
 
   // Layout 알림 배너에서 넘어온 문항 자동 적용
+  // location.key 의존: 이미 setup 페이지에 있어도 재내비게이션 시 재실행
   useEffect(() => {
     const state = location.state as { pendingQuestions?: { question: string; charLimit: number | null }[] } | null
     if (state?.pendingQuestions && state.pendingQuestions.length > 0) {
       setQuestions(state.pendingQuestions.map(q => ({ question: q.question, charLimit: q.charLimit ?? 800 })))
       setMode('manual')
+      // 사용한 state 클리어 (뒤로가기 후 재적용 방지)
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 
   // 이탈했다 돌아올 때 입력 데이터 복원
+  // pendingQuestions(확장 프로그램 문항)가 있으면 setupDraft 복원 건너뜀
   useEffect(() => {
+    const hasPending = !!(location.state as any)?.pendingQuestions?.length
+    if (hasPending) return
     if (setupDraft && !isRestored.current) {
       isRestored.current = true
       setMode(setupDraft.mode ?? 'select')
