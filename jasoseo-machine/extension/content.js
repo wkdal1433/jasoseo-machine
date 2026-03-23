@@ -608,18 +608,31 @@
   // Vuetify: .v-input root → .v-counter 우선 / 범용: 조상 텍스트 스캔 fallback
   function findNearbyCharLimit(el) {
     // 1) Vuetify/컴포넌트 기반: 컴포넌트 루트에서 카운터 직접 탐색
+    // [class*="limit"], .counter, [class*="counter"] 제거 — "0/2" 항목 수 카운터 오탐 방지 (P0)
     const compRoot = el.closest('.v-input, .v-field, .el-form-item, .form-group');
     if (compRoot) {
       const counter = compRoot.querySelector(
-        '.v-counter, .counter, [class*="counter"], [class*="char-count"], [class*="charCount"], [class*="limit"]'
+        '.v-counter, [class*="char-count"], [class*="charCount"], [class*="char_count"]'
       );
       if (counter) {
         const m = counter.textContent.trim().match(/\d+\s*[\/|]\s*(\d+)/);
-        if (m) return parseInt(m[1]);
+        if (m) {
+          const val = parseInt(m[1]);
+          if (val >= 100) return val; // 100 미만 = 항목 수 카운터, 무시
+        }
+      }
+      // 1b) .v-messages__message fallback (Vuetify "0 / 1000자" 형태)
+      const messages = compRoot.querySelector('.v-messages__message');
+      if (messages) {
+        const m = messages.textContent.trim().match(/\d+\s*[\/|]\s*(\d+)/);
+        if (m) {
+          const val = parseInt(m[1]);
+          if (val >= 100) return val;
+        }
       }
     }
     // 2) 범용 fallback: 조상 텍스트 노드 스캔
-    // depth 8→5로 제한: 깊이 올라가면 "항목 수 카운터(0/2)" 등을 잘못 잡음
+    // depth 5로 제한: 깊이 올라가면 "항목 수 카운터(0/2)" 등을 잘못 잡음
     // 100 미만 값도 무시: charLimit은 항상 100 이상 (섹션 카운터 오탐 방지)
     let ancestor = el.parentElement;
     for (let i = 0; i < 5 && ancestor; i++) {
@@ -757,7 +770,13 @@
 
   // el이 포함된 col을 제외한 container 안의 노드를 수집 → 구조+의미 scoring → best 반환
   function scoredScan(container, el) {
-    const excludedBranch = Array.from(container.children).find(c => c === el || c.contains(el));
+    // container의 직계 자식 중 el을 포함하는 브랜치를 찾아 제외 (P3 fix)
+    // 기존: Array.from(container.children).find() — el이 container의 직계자식이 아니면 undefined 반환
+    let inputBranch = el;
+    while (inputBranch.parentElement && inputBranch.parentElement !== container) {
+      inputBranch = inputBranch.parentElement;
+    }
+    const excludedBranch = inputBranch.parentElement === container ? inputBranch : null;
     const candidates = [];
     container.querySelectorAll('*').forEach(node => {
       if (excludedBranch && (excludedBranch === node || excludedBranch.contains(node))) return;
@@ -835,6 +854,34 @@
 
   // 하위 호환 — 기존 호출부에서 사용하던 함수명 유지
   function findLabelForEditable(el) { return findQuestionLabel(el); }
+
+  // 자소서 섹션 컨테이너 탐색 — 이 컨테이너 안의 textarea만 추출 대상으로 제한 (P1)
+  // 프로필/경력 섹션 textarea를 자소서 문항으로 오탐하는 것을 방지
+  function findEssaySectionContainer() {
+    const ESSAY_SECTION_SELECTORS = [
+      '#nav-typeEssay', '#nav-typeCoverLetter', '#section-essay', '#essay-section',
+      '[class*="essay-section"]', '[class*="cover-letter"]', '[class*="jasoseo"]',
+      '[aria-label*="자기소개"]', '[aria-label*="자소서"]',
+    ];
+    for (const sel of ESSAY_SECTION_SELECTORS) {
+      try {
+        const el = document.querySelector(sel);
+        if (el && el.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return el;
+      } catch (_) {}
+    }
+    // 제목 기반 탐색: 자기소개/자소서 키워드 heading 하위에서 textarea가 있는 컨테이너 찾기
+    const ESSAY_KW = /자기소개|자소서|에세이|cover.?letter|자기\s*pr/i;
+    const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="section-title"],[class*="tit"]'));
+    for (const h of headings) {
+      if (!ESSAY_KW.test(h.textContent)) continue;
+      let candidate = h.parentElement;
+      for (let i = 0; i < 6 && candidate; i++) {
+        if (candidate.querySelectorAll('textarea').length > 0) return candidate;
+        candidate = candidate.parentElement;
+      }
+    }
+    return null;
+  }
 
   // 자소서 섹션 탭 탐색 (스텝/탭 기반 ATS 대응)
   function findEssayTab() {
@@ -938,8 +985,17 @@
       }
     }
 
+    // 자소서 섹션 컨테이너로 탐색 범위 제한 (P1) — 없으면 document 전체로 fallback
+    const essayContainer = findEssaySectionContainer();
+    const scope = essayContainer || document;
+    if (essayContainer) {
+      console.log('[문항추출] 자소서 섹션 컨테이너 발견:', essayContainer.tagName, essayContainer.id || essayContainer.className?.slice(0, 40));
+    } else {
+      console.log('[문항추출] 자소서 섹션 컨테이너 없음 — document 전체 탐색');
+    }
+
     // 1. textarea (항상 탐색)
-    document.querySelectorAll('textarea').forEach(ta => {
+    scope.querySelectorAll('textarea').forEach(ta => {
       console.log(`[문항추출] textarea 발견: height=${ta.offsetHeight} id=${ta.id || '없음'}`);
       processField(ta);
     });
@@ -953,7 +1009,7 @@
       'section[contenteditable="true"]',
     ];
     EDITABLE_SELS.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => {
+      scope.querySelectorAll(sel).forEach(el => {
         const rect = el.getBoundingClientRect();
         if (rect.height < 60 && !el.closest('.v-input')) return;
         console.log(`[문항추출] contenteditable 발견: ${sel} height=${rect.height}`);
