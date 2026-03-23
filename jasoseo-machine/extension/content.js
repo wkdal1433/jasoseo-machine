@@ -800,9 +800,10 @@
     const standard = findLabelText(el);
     if (standard && standard.length >= 4 && !isInstruction(standard)) return standard;
 
-    // Tier 2: Field-group sibling 전략 (Vuetify .row, Bootstrap .form-row, 기타)
+    // Tier 2: Field-group sibling 전략 (Vuetify .v-input/.row, Bootstrap .form-row, 기타)
     // "질문은 항상 같은 semantic block 안에 있다" — 먼저 범위를 좁힘
-    const GROUP_SEL = '.row, .form-row, .field-group, .item-common, .form-item, [class*="question-"], [class*="qa-"]';
+    // .v-input 추가: Vuetify 컴포넌트 단위. .row 유지: 기존 성공 케이스 보존
+    const GROUP_SEL = '.v-input, .row, .form-row, .field-group, .item-common, .form-item, [class*="question-"], [class*="qa-"]';
     const group = el.closest(GROUP_SEL);
     if (group) {
       const fromGroup = scoredScan(group, el);
@@ -813,14 +814,18 @@
     }
 
     // Tier 3: 이전 형제 그룹 (질문 제목이 별도 row/container에 있는 경우)
+    // Guard: prev에 textarea/contenteditable이 있으면 다른 질문의 컨테이너 → skip
+    // (이게 없으면 input-587이 input-584의 제목을 가져오는 근본 원인)
     if (group) {
       const prev = group.previousElementSibling;
-      if (prev) {
+      if (prev && !prev.querySelector('textarea, [contenteditable="true"]')) {
         const fromPrev = scoredScan(prev, el);
         if (fromPrev) {
           console.log(`[문항추출] Tier3 prev-group: "${fromPrev}"`);
           return fromPrev;
         }
+      } else if (prev) {
+        console.log(`[문항추출] Tier3 skip — prev에 입력 필드 있음 (다른 질문 컨테이너)`);
       }
     }
 
