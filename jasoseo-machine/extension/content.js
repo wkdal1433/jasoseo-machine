@@ -875,14 +875,23 @@
     // 공통 처리: 가시성 체크 → 글자수 필터 → 라벨 추출 → 점수 필터 → push
     function processField(el) {
       if (visited.has(el)) return;
-      if (!isActuallyVisible(el)) return;
+      if (!isActuallyVisible(el)) {
+        console.log(`[문항추출] #${el.id || el.tagName} 비가시 → 스킵`);
+        return;
+      }
       visited.add(el);
 
       const nearbyLimit = findNearbyCharLimit(el);
       const maxLenAttr = el.getAttribute('maxlength');
       const maxLen = maxLenAttr ? parseInt(maxLenAttr) : null;
-      if (nearbyLimit !== null && nearbyLimit < 200) return;
-      if (nearbyLimit === null && maxLen !== null && maxLen < 200) return;
+      if (nearbyLimit !== null && nearbyLimit < 200) {
+        console.log(`[문항추출] #${el.id || el.tagName} nearbyLimit=${nearbyLimit} < 200 → 스킵`);
+        return;
+      }
+      if (nearbyLimit === null && maxLen !== null && maxLen < 200) {
+        console.log(`[문항추출] #${el.id || el.tagName} maxLen=${maxLen} < 200 → 스킵`);
+        return;
+      }
       const charLimit = nearbyLimit ?? maxLen;
 
       // 라벨 추출: 모든 필드 타입에 findQuestionLabel 적용 (row-sibling 우선)
