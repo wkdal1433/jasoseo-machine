@@ -211,17 +211,30 @@
       });
       if (!sectionHeading) continue;
 
-      // heading 기준 섹션 컨테이너 탐색
+      // heading 기준 섹션 컨테이너 탐색 — LCA(heading, saveBtn)로 최소 범위로 좁힘
+      // walk-up이 너무 높이 올라가 #resumeContainer 같은 전체 컨테이너가 되는 문제 방지
       let sectionRoot = sectionHeading.parentElement;
+      let foundSaveBtn = null;
       for (let i = 0; i < 6 && sectionRoot && sectionRoot !== document.body; i++) {
         const saveBtn = findSectionSaveButton(sectionRoot);
-        if (saveBtn) {
-          console.log(`[Save-button 방식 감지] ${sectionType}: 저장 버튼 발견 — ${needed}항목 대기`);
-          detectedSaveSections.push({ sectionType, sectionRoot, needed });
-          break;
-        }
+        if (saveBtn) { foundSaveBtn = saveBtn; break; }
         sectionRoot = sectionRoot.parentElement;
       }
+      if (!foundSaveBtn) continue;
+
+      // LCA(sectionHeading, foundSaveBtn): 두 요소를 모두 포함하는 가장 작은 공통 조상
+      // walk-up으로 너무 넓어진 sectionRoot를 정확한 섹션 경계로 좁힘
+      const lcaAncestors = new Set();
+      let lcaNode = sectionHeading;
+      while (lcaNode && lcaNode !== document.body) { lcaAncestors.add(lcaNode); lcaNode = lcaNode.parentElement; }
+      lcaNode = foundSaveBtn;
+      while (lcaNode && lcaNode !== document.body) {
+        if (lcaAncestors.has(lcaNode)) { sectionRoot = lcaNode; break; }
+        lcaNode = lcaNode.parentElement;
+      }
+
+      console.log(`[Save-button 방식 감지] ${sectionType}: 저장 버튼 발견 — ${needed}항목 대기`);
+      detectedSaveSections.push({ sectionType, sectionRoot, needed });
     }
 
     if (expanded) {
@@ -280,11 +293,19 @@
         if (rows.length > 0) return rows[rows.length - 1];
       } catch (_) {}
     }
-    // tr: 입력 필드 포함 행만 (헤더·레이아웃 행 제외)
+    // tr: 직계 또는 table>tbody>tr 구조 모두 지원
     try {
-      const dataTrs = Array.from(sectionRoot.querySelectorAll(':scope > tr'))
-        .filter(tr => tr.querySelectorAll('input, select').length > 0);
-      if (dataTrs.length > 0) return dataTrs[dataTrs.length - 1];
+      const trSearchRoots = [
+        sectionRoot,
+        sectionRoot.querySelector(':scope > table > tbody'),
+        sectionRoot.querySelector(':scope > table'),
+        sectionRoot.querySelector(':scope > tbody'),
+      ].filter(Boolean);
+      for (const el of trSearchRoots) {
+        const dataTrs = Array.from(el.querySelectorAll(':scope > tr'))
+          .filter(tr => tr.querySelectorAll('input, select').length > 0);
+        if (dataTrs.length > 0) return dataTrs[dataTrs.length - 1];
+      }
     } catch (_) {}
     // fallback 1: 직계 자식 중 input/select를 포함하는 마지막 자식
     const children = Array.from(sectionRoot.children)
@@ -304,15 +325,23 @@
         if (rows.length > 0) return rows.length;
       } catch (_) {}
     }
-    // tr: 입력 필드를 포함하는 행만 카운트 (헤더 행·레이아웃 행 제외)
+    // tr: 직계 또는 table>tbody>tr 구조 모두 지원
+    // LCA로 sectionRoot가 좁혀진 경우, tr은 table>tbody 안에 있을 수 있음
     try {
-      const dataTrs = Array.from(sectionRoot.querySelectorAll(':scope > tr'))
-        .filter(tr => tr.querySelectorAll('input, select').length > 0);
-      if (dataTrs.length > 0) return dataTrs.length;
+      const trSearchRoots = [
+        sectionRoot,                                               // :scope > tr
+        sectionRoot.querySelector(':scope > table > tbody'),       // table>tbody>tr
+        sectionRoot.querySelector(':scope > table'),               // table>tr
+        sectionRoot.querySelector(':scope > tbody'),               // tbody>tr
+      ].filter(Boolean);
+      for (const el of trSearchRoots) {
+        const dataTrs = Array.from(el.querySelectorAll(':scope > tr'))
+          .filter(tr => tr.querySelectorAll('input, select').length > 0);
+        if (dataTrs.length > 0) return dataTrs.length;
+      }
     } catch (_) {}
-    // fallback: input/select 포함 직계 자식 개수
-    return Array.from(sectionRoot.children)
-      .filter(el => el.querySelectorAll('input, select').length > 0).length;
+    // fallback: 0 반환 — 파악 불가 시 루프를 실행하는 방향이 안전
+    return 0;
   }
 
   // Save-button Sequential Fill-Save 루프
@@ -1019,17 +1048,33 @@
           return panel;
         }
       }
-      // 탭 부모의 형제 중 textarea를 포함하는 첫 번째 패널 (암묵적 탭-패널 패턴)
-      const tabParent = tabEl.closest('[role="tablist"]')?.parentElement
-        || tabEl.parentElement?.parentElement;
-      if (tabParent) {
-        const sibling = Array.from(tabParent.children).find(
-          el => el !== tabEl.parentElement && hasTa(el)
-        );
-        if (sibling) {
-          console.log('[문항추출] 탭 형제 패널:', sibling.id || sibling.className?.slice(0, 40));
-          return sibling;
+      // 탭 주변에서 패널 탐색 — 최대 5레벨 상향하며 형제 패널 탐색
+      // 원리: 탭 네비게이션과 탭 콘텐츠는 DOM 어딘가에서 형제(sibling)관계
+      // aria/class 무관하게 동작 (커스텀 탭 구현 대응)
+      // 예: ul.tab-nav > li > a (tabEl) → ul 형제인 div.tab-panel (depth 2)
+      //     div.tabs > div.tab-item > span (tabEl) → tabs 형제인 div.content (depth 2)
+      // 가시성 체크 포함 — 다중 패널이 DOM에 있을 때 활성(보이는) 패널 우선
+      const hasTaVisible = (el) =>
+        el.getBoundingClientRect().height > 0 &&
+        el.querySelectorAll('textarea, [contenteditable="true"]').length > 0;
+      let probe = tabEl;
+      for (let lvl = 0; lvl < 5 && probe && probe !== document.body; lvl++) {
+        const parent = probe.parentElement;
+        if (!parent || parent === document.body) break;
+        const siblings = Array.from(parent.children).filter(el => !el.contains(tabEl));
+        // 1) 가시 패널 우선
+        const visPanel = siblings.find(el => hasTaVisible(el));
+        if (visPanel) {
+          console.log('[문항추출] 탭 주변 가시 패널 (depth ' + lvl + '):', visPanel.tagName, visPanel.id || visPanel.className?.slice(0, 40));
+          return visPanel;
         }
+        // 2) 비가시 패널 fallback (클릭 직후 아직 렌더링 전일 수 있음)
+        const anyPanel = siblings.find(el => hasTa(el));
+        if (anyPanel) {
+          console.log('[문항추출] 탭 주변 비가시 패널 (depth ' + lvl + '):', anyPanel.tagName, anyPanel.id || anyPanel.className?.slice(0, 40));
+          return anyPanel;
+        }
+        probe = parent;
       }
     }
 
