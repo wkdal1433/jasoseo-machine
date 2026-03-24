@@ -272,24 +272,54 @@
   // 섹션 루트에서 "마지막 행" 반환 — save-loop 저장 후 생성된 새 행 감지에 사용
   // [class*="row"] 제외: arrow/narrow 등 클래스명 오탐 방지
   function getLastRow(sectionRoot) {
-    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr', '.row'];
+    // `:scope >` — 직계 자식만 탐색하여 중첩된 Bootstrap .row 등의 오탐 방지
+    // `.row` 제거 — Bootstrap grid wrapper를 행으로 인식하던 문제 해결 (잡코리아 섹션 전체 반환 버그)
+    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr'];
     for (const sel of ROW_SELS) {
-      const rows = sectionRoot.querySelectorAll(sel);
-      if (rows.length > 0) return rows[rows.length - 1];
+      try {
+        const rows = Array.from(sectionRoot.querySelectorAll(`:scope > ${sel}`));
+        if (rows.length > 0) return rows[rows.length - 1];
+      } catch (_) {}
     }
-    // fallback: input/select를 포함한 마지막 직계 자식
+    // fallback 1: 직계 자식 중 input/select를 포함하는 마지막 자식
     const children = Array.from(sectionRoot.children)
       .filter(el => el.querySelectorAll('input, select').length > 0);
-    return children.length > 0 ? children[children.length - 1] : sectionRoot;
+    if (children.length > 0) return children[children.length - 1];
+    // fallback 2: sectionRoot 자체 반환 (단일 행 컨테이너)
+    return sectionRoot;
+  }
+
+  // 섹션 내 현재 행 개수 반환 (getLastRow와 동일한 ROW_SELS 기준)
+  function getExistingRowCount(sectionRoot) {
+    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr'];
+    for (const sel of ROW_SELS) {
+      try {
+        const rows = sectionRoot.querySelectorAll(`:scope > ${sel}`);
+        if (rows.length > 0) return rows.length;
+      } catch (_) {}
+    }
+    // fallback: input/select 포함 직계 자식 개수
+    return Array.from(sectionRoot.children)
+      .filter(el => el.querySelectorAll('input, select').length > 0).length;
   }
 
   // Save-button Sequential Fill-Save 루프
   // 설계 원칙:
+  //   시작 전: 현재 행 개수 >= entries.length 이면 즉시 스킵 (재실행 중복 저장 방지)
   //   row 0 (메인 fill이 채운 첫 행): rowHasData(행 단위)로 저장 여부 판단
   //   row 1+ (AI가 채운 후속 행): rowDirty flag — 실제 변화가 있었을 때만 저장
   //   수집 범위: getLastRow(sectionRoot) — data-seen-before 의존 제거
   async function fillSaveLoop(sectionType, entries, sectionRoot, port, secret) {
     console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목 처리 시작`);
+
+    // ── 재실행 중복 저장 방지: 현재 행 개수 체크 ─────────────────────────
+    // entries.length=2이고 현재 행이 이미 2개 이상이면 이전 실행이 완료된 것 → 스킵
+    const existingCount = getExistingRowCount(sectionRoot);
+    if (existingCount >= entries.length) {
+      console.log(`[Save루프] ${sectionType}: 이미 ${existingCount}행 존재 (목표 ${entries.length}) — 재실행 스킵`);
+      return;
+    }
+    console.log(`[Save루프] ${sectionType}: 현재 ${existingCount}행 → 목표 ${entries.length}행`);
 
     // null = 아직 AI fill 전 (row 0), true/false = AI fill 결과
     let rowDirty = null;
@@ -951,31 +981,28 @@
   // 자소서 섹션 컨테이너 탐색 — 이 컨테이너 안의 textarea만 추출 대상으로 제한 (P1)
   // 프로필/경력 섹션 textarea를 자소서 문항으로 오탐하는 것을 방지
   function findEssaySectionContainer() {
-    // 장문 textarea 판별: 자소서 전용 textarea(56px 이상 or charLimit≥300)만 자소서 컨테이너로 인정
-    // 프로필 섹션의 짧은 textarea(56px 미만)는 제외 → #resumeContainer 전체 반환 방지
-    function hasLongTextarea(container) {
-      const els = container.querySelectorAll('textarea, [contenteditable="true"]');
-      return [...els].some(el => {
-        if (el.offsetHeight >= 120) return true;
-        const charLimit = findNearbyCharLimit(el);
-        return charLimit !== null && charLimit >= 300;
-      });
+    // 활성 tabpanel 탐색 헬퍼
+    function getActivePanel() {
+      return (
+        document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
+        document.querySelector('[role="tabpanel"]:not([hidden])') ||
+        document.querySelector('.tab-pane.active') ||
+        document.querySelector('.is-active[role="tabpanel"]') ||
+        document.querySelector('.v-window-item--active')
+      );
     }
 
-    // ── 1순위: 활성 탭패널 + 장문 textarea 가드 ─────────────────────────
-    // 탭 기반 ATS (잡코리아, 사람인 등): 현재 보이는 패널만 자소서 컨테이너로 인정
-    const activePanel =
-      document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
-      document.querySelector('[role="tabpanel"]:not([hidden])') ||
-      document.querySelector('.tab-pane.active') ||
-      document.querySelector('.is-active[role="tabpanel"]') ||
-      document.querySelector('.v-window-item--active');
-    if (activePanel && hasLongTextarea(activePanel)) {
+    // ── 1순위: 활성 tabpanel + textarea 존재 확인 ────────────────────────
+    // 잡코리아 등 탭 기반 ATS: 자소서 탭 클릭 후 활성화된 패널이 컨테이너
+    // ※ hasLongTextarea 가드 제거 — 잡코리아 자소서 textarea도 56px로 프로필과 동일한 높이
+    //    대신 "활성 탭패널에 textarea가 있다" = 탭 클릭 후 자소서 섹션이 렌더됐다는 신호로 충분
+    const activePanel = getActivePanel();
+    if (activePanel && activePanel.querySelectorAll('textarea, [contenteditable="true"]').length > 0) {
       console.log('[문항추출] 활성 tabpanel 컨테이너 감지:', activePanel.id || activePanel.className?.slice(0, 40));
       return activePanel;
     }
 
-    // ── 2순위: 정적 ID/class 셀렉터 + 장문 textarea 가드 ────────────────
+    // ── 2순위: 정적 ID/class 셀렉터 ─────────────────────────────────────
     const ESSAY_SECTION_SELECTORS = [
       '#nav-typeEssay', '#nav-typeCoverLetter', '#section-essay', '#essay-section',
       '[class*="essay-section"]', '[class*="cover-letter"]', '[class*="jasoseo"]',
@@ -984,19 +1011,20 @@
     for (const sel of ESSAY_SECTION_SELECTORS) {
       try {
         const el = document.querySelector(sel);
-        if (el && hasLongTextarea(el)) return el;
+        if (el && el.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return el;
       } catch (_) {}
     }
 
-    // ── 3순위: heading 기반 + 장문 textarea 가드 (단순 textarea 존재 체크 제거) ──
-    // hasLongTextarea 가드 없이 textarea만 체크하면 #resumeContainer까지 올라가 전체 반환 위험
+    // ── 3순위: heading 기반 — 최대 depth 6, body에서 멈춤 ───────────────
+    // textarea 존재만 체크 (높이 가드 제거 — 잡코리아 56px 통과 불가 문제)
+    // 단, heading이 자소서 키워드를 가진 경우만 시도 → resumeContainer까지 올라가는 것을 방지
     const ESSAY_KW = /자기소개|자소서|에세이|cover.?letter|자기\s*pr/i;
     const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="section-title"],[class*="tit"]'));
     for (const h of headings) {
       if (!ESSAY_KW.test(h.textContent)) continue;
       let candidate = h.parentElement;
       for (let i = 0; i < 6 && candidate && candidate !== document.body; i++) {
-        if (hasLongTextarea(candidate)) return candidate;
+        if (candidate.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return candidate;
         candidate = candidate.parentElement;
       }
     }
@@ -1022,25 +1050,19 @@
       tab.click();
       await waitForDomSettle(1000);
     }
-    // 탭 기반 ATS: 활성 패널에 장문 textarea(자소서용) 등장 대기
-    // 장문 가드: offsetHeight >= 120 or charLimit >= 300 — 프로필 짧은 textarea 오탐 방지
-    const hasLongTextareaInActivePanel = () => {
+    // 탭 기반 ATS: 활성 패널에 textarea 등장 대기 (높이 가드 제거 — 잡코리아 56px 통과)
+    const hasTextareaInActivePanel = () => {
       const panel =
         document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
         document.querySelector('[role="tabpanel"]:not([hidden])') ||
         document.querySelector('.tab-pane.active') ||
         document.querySelector('.is-active[role="tabpanel"]') ||
         document.querySelector('.v-window-item--active');
-      const scope = panel || document;
-      const els = scope.querySelectorAll('textarea, [contenteditable="true"]');
-      return [...els].some(el => {
-        if (el.offsetHeight >= 120) return true;
-        const charLimit = findNearbyCharLimit(el);
-        return charLimit !== null && charLimit >= 300;
-      });
+      if (panel) return panel.querySelectorAll('textarea, [contenteditable="true"]').length > 0;
+      return false;
     };
-    // 활성 패널 장문 textarea 대기 (탭 기반) — 없으면 일반 textarea 존재 fallback (탭 없는 사이트)
-    const found = await waitFor(hasLongTextareaInActivePanel, 3000);
+    // 활성 패널 textarea 대기 (탭 기반) — 없으면 일반 textarea 존재 fallback (탭 없는 사이트)
+    const found = await waitFor(hasTextareaInActivePanel, 3000);
     if (found) return true;
     // fallback: 탭 없는 단일 페이지 사이트 — 기존 동작 유지
     return waitFor(() =>
