@@ -269,10 +269,30 @@
     await waitForNewFields(2000);
   }
 
+  // 섹션 루트에서 "마지막 행" 반환 — save-loop 저장 후 생성된 새 행 감지에 사용
+  // [class*="row"] 제외: arrow/narrow 등 클래스명 오탐 방지
+  function getLastRow(sectionRoot) {
+    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr', '.row'];
+    for (const sel of ROW_SELS) {
+      const rows = sectionRoot.querySelectorAll(sel);
+      if (rows.length > 0) return rows[rows.length - 1];
+    }
+    // fallback: input/select를 포함한 마지막 직계 자식
+    const children = Array.from(sectionRoot.children)
+      .filter(el => el.querySelectorAll('input, select').length > 0);
+    return children.length > 0 ? children[children.length - 1] : sectionRoot;
+  }
+
   // Save-button Sequential Fill-Save 루프
-  // profile[sectionType]이 N개인 경우: 현재 열린 행 채움 → 저장 → 새 행 채움 → 저장 ...
+  // 설계 원칙:
+  //   row 0 (메인 fill이 채운 첫 행): rowHasData(행 단위)로 저장 여부 판단
+  //   row 1+ (AI가 채운 후속 행): rowDirty flag — 실제 변화가 있었을 때만 저장
+  //   수집 범위: getLastRow(sectionRoot) — data-seen-before 의존 제거
   async function fillSaveLoop(sectionType, entries, sectionRoot, port, secret) {
     console.log(`[Save루프] ${sectionType}: ${entries.length}개 항목 처리 시작`);
+
+    // null = 아직 AI fill 전 (row 0), true/false = AI fill 결과
+    let rowDirty = null;
 
     for (let i = 0; i < entries.length; i++) {
       if (i < entries.length - 1) {
@@ -283,33 +303,39 @@
           break;
         }
 
-        // 멱등성 가드: 현재 열린 행에 입력값이 없으면 이전 실행에서 이미 완료됨 → 중단
-        // 재실행 시 빈 새 행이 열려있는 경우를 감지해 빈 행 저장 방지
-        {
-          const openInputs = Array.from(sectionRoot.querySelectorAll(
+        // ── 저장 조건 판단 ───────────────────────────────────────────
+        if (rowDirty === null) {
+          // row 0: 메인 fill이 이 행에 값을 채웠는지 — getLastRow 기준으로 체크
+          const currentRow = getLastRow(sectionRoot);
+          const row0HasData = Array.from(currentRow.querySelectorAll(
             'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select'
           )).filter(el => !el.disabled && !el.readOnly).filter(el => {
             const s = window.getComputedStyle(el);
             return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
-          });
-          const rowHasData = openInputs.some(el => {
+          }).some(el => {
             if (el.tagName === 'SELECT') return el.value && el.value !== '0' && el.value !== '-1';
             return !!el.value;
           });
-          if (!rowHasData) {
-            console.log(`[Save루프] ${sectionType}: 행 ${i+1} 입력값 없음 — 이전 실행 완료로 간주, 루프 중단`);
+          if (!row0HasData) {
+            console.log(`[Save루프] ${sectionType}: row 0 비어있음 — 이전 실행 완료로 간주, 루프 중단`);
             break;
           }
+        } else if (!rowDirty) {
+          // row 1+: AI fill 결과 변화 없음 → 이전 실행에서 이미 채워진 행
+          console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 변화 없음 — 이전 실행 완료로 간주, 루프 중단`);
+          break;
         }
 
-        // 저장 전 현재 입력들을 seen으로 마킹 → 이후 새 필드 정확히 감지
-        markAllInputsAsSeen();
+        // ── 저장 실행 ────────────────────────────────────────────────
+        markAllInputsAsSeen(); // waitForNewFields용 마킹 유지
         console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 저장 → 새 행 대기`);
         await commitSectionRow(saveBtn);
+        await waitForNewFields(2000);
 
-        // 새 행 감지: data-seen-before 없는 visible 필드 (값 여부 무관 — date 기본값 등 포함)
-        const newFields = Array.from(sectionRoot.querySelectorAll('input, select')).filter(el => {
-          if (el.getAttribute('data-seen-before')) return false;
+        // ── 새 행 수집: getLastRow 기준 (data-seen-before 의존 제거) ──
+        const newRow = getLastRow(sectionRoot);
+        const newFields = Array.from(newRow.querySelectorAll('input, select')).filter(el => {
+          if (el.getAttribute('data-seen-before')) return false; // seen-before는 waitForNewFields 호환용으로만 유지
           if (el.disabled || el.readOnly) return false;
           const s = window.getComputedStyle(el);
           return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
@@ -318,11 +344,12 @@
         if (newFields.length === 0) {
           console.warn(`[Save루프] ${sectionType}: 저장 후 새 행 미생성 — 루프 중단`);
           logFailed(`${sectionType}[row ${i}]`, 'save-loop', '저장 후 새 행 DOM 미생성');
+          rowDirty = false;
           break;
         }
         console.log(`[Save루프] ${sectionType}: 새 행 확인됨 (${newFields.length}개 신규 필드) — AI 채움 시작`);
 
-        // 새 필드에 idx 할당 및 메타데이터 수집
+        // ── idx 할당 및 메타데이터 수집 ──────────────────────────────
         const existingIdxEls = Array.from(document.querySelectorAll('[data-pfill-idx]'));
         let nextIdx = existingIdxEls.length > 0
           ? Math.max(...existingIdxEls.map(el => parseInt(el.getAttribute('data-pfill-idx') || '0'))) + 1
@@ -332,7 +359,6 @@
         newFields.forEach(el => {
           const idx = nextIdx++;
           el.setAttribute('data-pfill-idx', idx);
-          // 라벨 수집 (간이 버전)
           let label = '';
           if (el.id) { try { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) label = lbl.textContent.trim(); } catch {} }
           if (!label) label = el.getAttribute('aria-label') || el.placeholder || '';
@@ -357,16 +383,29 @@
           newInputsMeta.push(meta);
         });
 
-        if (newInputsMeta.length === 0) continue;
+        if (newInputsMeta.length === 0) { rowDirty = false; continue; }
 
-        // 새 행 AI fill 호출
+        // ── 새 행 AI fill → rowDirty 추적 ───────────────────────────
+        rowDirty = false;
         try {
           const fillRes = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputsMeta });
           if (fillRes?.success && fillRes.fills?.length > 0) {
             fillRes.fills.forEach(({ idx, value }) => {
               if (value === null || value === undefined || value === '') return;
-              const el = document.querySelector(`[data-pfill-idx="${idx}"]`);
+              // newRow 범위 내 필드만 (전체 document 검색 제거 — 오탐 방지)
+              const el = newRow.querySelector(`[data-pfill-idx="${idx}"]`)
+                || document.querySelector(`[data-pfill-idx="${idx}"]`);
               if (!el) return;
+              // 타입 안전 가드: email 값은 email/text 필드에만 / NaN은 number 금지
+              if (el.type !== 'email' && el.type !== 'text' && el.tagName !== 'TEXTAREA'
+                  && String(value).includes('@')) {
+                console.warn(`[Save루프] 타입 불일치 스킵: idx=${idx} type=${el.type} value="${value}"`);
+                return;
+              }
+              if (el.type === 'number' && isNaN(Number(value))) {
+                console.warn(`[Save루프] number 불일치 스킵: idx=${idx} value="${value}"`);
+                return;
+              }
               // 멱등성: 이미 올바른 값이면 스킵
               if (isFieldSatisfied(el, value)) {
                 console.log(`⏭️ [Save루프] 이미 채움 스킵: idx=${idx} → "${value}"`);
@@ -376,7 +415,12 @@
                 const opts = Array.from(el.options);
                 const target = String(value).toLowerCase();
                 const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target || o.text.trim().toLowerCase().includes(target));
-                if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); logSuccess(`${sectionType}[row${i+1}][${idx}]`, 'select', match.text.trim()); }
+                if (match) {
+                  el.value = match.value;
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                  logSuccess(`${sectionType}[row${i+1}][${idx}]`, 'select', match.text.trim());
+                  rowDirty = true;
+                }
               } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                 let val = String(value).includes(',') ? String(value).split(',')[0].trim() : String(value);
                 if (/^\d{4}-\d{2}$/.test(val)) val += '-01';
@@ -387,14 +431,15 @@
                 el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: val }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
                 logSuccess(`${sectionType}[row${i+1}][${idx}]`, el.type || 'input', val);
+                rowDirty = true;
               }
               console.log(`✅ [Save루프] ${sectionType} 행${i + 2} 채움: idx=${idx} → "${value}"`);
             });
-            console.log(`[Save루프] ${sectionType} 행${i + 2}: ${fillRes.fills.filter(f => f.value).length}개 채움 완료`);
+            console.log(`[Save루프] ${sectionType} 행${i + 2}: rowDirty=${rowDirty}`);
           }
         } catch(e) {
           console.warn(`[Save루프] ${sectionType} 행${i + 2} AI 채움 실패:`, e.message);
-          // 서버 에러여도 계속 진행 — 다음 섹션 처리
+          rowDirty = false;
         }
       }
     }
@@ -906,6 +951,31 @@
   // 자소서 섹션 컨테이너 탐색 — 이 컨테이너 안의 textarea만 추출 대상으로 제한 (P1)
   // 프로필/경력 섹션 textarea를 자소서 문항으로 오탐하는 것을 방지
   function findEssaySectionContainer() {
+    // 장문 textarea 판별: 자소서 전용 textarea(56px 이상 or charLimit≥300)만 자소서 컨테이너로 인정
+    // 프로필 섹션의 짧은 textarea(56px 미만)는 제외 → #resumeContainer 전체 반환 방지
+    function hasLongTextarea(container) {
+      const els = container.querySelectorAll('textarea, [contenteditable="true"]');
+      return [...els].some(el => {
+        if (el.offsetHeight >= 120) return true;
+        const charLimit = findNearbyCharLimit(el);
+        return charLimit !== null && charLimit >= 300;
+      });
+    }
+
+    // ── 1순위: 활성 탭패널 + 장문 textarea 가드 ─────────────────────────
+    // 탭 기반 ATS (잡코리아, 사람인 등): 현재 보이는 패널만 자소서 컨테이너로 인정
+    const activePanel =
+      document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
+      document.querySelector('[role="tabpanel"]:not([hidden])') ||
+      document.querySelector('.tab-pane.active') ||
+      document.querySelector('.is-active[role="tabpanel"]') ||
+      document.querySelector('.v-window-item--active');
+    if (activePanel && hasLongTextarea(activePanel)) {
+      console.log('[문항추출] 활성 tabpanel 컨테이너 감지:', activePanel.id || activePanel.className?.slice(0, 40));
+      return activePanel;
+    }
+
+    // ── 2순위: 정적 ID/class 셀렉터 + 장문 textarea 가드 ────────────────
     const ESSAY_SECTION_SELECTORS = [
       '#nav-typeEssay', '#nav-typeCoverLetter', '#section-essay', '#essay-section',
       '[class*="essay-section"]', '[class*="cover-letter"]', '[class*="jasoseo"]',
@@ -914,20 +984,23 @@
     for (const sel of ESSAY_SECTION_SELECTORS) {
       try {
         const el = document.querySelector(sel);
-        if (el && el.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return el;
+        if (el && hasLongTextarea(el)) return el;
       } catch (_) {}
     }
-    // 제목 기반 탐색: 자기소개/자소서 키워드 heading 하위에서 textarea가 있는 컨테이너 찾기
+
+    // ── 3순위: heading 기반 + 장문 textarea 가드 (단순 textarea 존재 체크 제거) ──
+    // hasLongTextarea 가드 없이 textarea만 체크하면 #resumeContainer까지 올라가 전체 반환 위험
     const ESSAY_KW = /자기소개|자소서|에세이|cover.?letter|자기\s*pr/i;
     const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="section-title"],[class*="tit"]'));
     for (const h of headings) {
       if (!ESSAY_KW.test(h.textContent)) continue;
       let candidate = h.parentElement;
-      for (let i = 0; i < 6 && candidate; i++) {
-        if (candidate.querySelectorAll('textarea').length > 0) return candidate;
+      for (let i = 0; i < 6 && candidate && candidate !== document.body; i++) {
+        if (hasLongTextarea(candidate)) return candidate;
         candidate = candidate.parentElement;
       }
     }
+
     return null;
   }
 
@@ -949,9 +1022,30 @@
       tab.click();
       await waitForDomSettle(1000);
     }
+    // 탭 기반 ATS: 활성 패널에 장문 textarea(자소서용) 등장 대기
+    // 장문 가드: offsetHeight >= 120 or charLimit >= 300 — 프로필 짧은 textarea 오탐 방지
+    const hasLongTextareaInActivePanel = () => {
+      const panel =
+        document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
+        document.querySelector('[role="tabpanel"]:not([hidden])') ||
+        document.querySelector('.tab-pane.active') ||
+        document.querySelector('.is-active[role="tabpanel"]') ||
+        document.querySelector('.v-window-item--active');
+      const scope = panel || document;
+      const els = scope.querySelectorAll('textarea, [contenteditable="true"]');
+      return [...els].some(el => {
+        if (el.offsetHeight >= 120) return true;
+        const charLimit = findNearbyCharLimit(el);
+        return charLimit !== null && charLimit >= 300;
+      });
+    };
+    // 활성 패널 장문 textarea 대기 (탭 기반) — 없으면 일반 textarea 존재 fallback (탭 없는 사이트)
+    const found = await waitFor(hasLongTextareaInActivePanel, 3000);
+    if (found) return true;
+    // fallback: 탭 없는 단일 페이지 사이트 — 기존 동작 유지
     return waitFor(() =>
       document.querySelectorAll('textarea, [contenteditable="true"]').length > 0
-    , 3000);
+    , 2000);
   }
 
   // 진단 함수: 문항 추출 전 DOM 현황 로그
