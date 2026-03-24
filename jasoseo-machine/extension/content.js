@@ -272,15 +272,20 @@
   // 섹션 루트에서 "마지막 행" 반환 — save-loop 저장 후 생성된 새 행 감지에 사용
   // [class*="row"] 제외: arrow/narrow 등 클래스명 오탐 방지
   function getLastRow(sectionRoot) {
-    // `:scope >` — 직계 자식만 탐색하여 중첩된 Bootstrap .row 등의 오탐 방지
-    // `.row` 제거 — Bootstrap grid wrapper를 행으로 인식하던 문제 해결 (잡코리아 섹션 전체 반환 버그)
-    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr'];
+    // `:scope >` — 직계 자식만 탐색하여 중첩된 wrapper의 오탐 방지
+    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item'];
     for (const sel of ROW_SELS) {
       try {
         const rows = Array.from(sectionRoot.querySelectorAll(`:scope > ${sel}`));
         if (rows.length > 0) return rows[rows.length - 1];
       } catch (_) {}
     }
+    // tr: 입력 필드 포함 행만 (헤더·레이아웃 행 제외)
+    try {
+      const dataTrs = Array.from(sectionRoot.querySelectorAll(':scope > tr'))
+        .filter(tr => tr.querySelectorAll('input, select').length > 0);
+      if (dataTrs.length > 0) return dataTrs[dataTrs.length - 1];
+    } catch (_) {}
     // fallback 1: 직계 자식 중 input/select를 포함하는 마지막 자식
     const children = Array.from(sectionRoot.children)
       .filter(el => el.querySelectorAll('input, select').length > 0);
@@ -289,15 +294,22 @@
     return sectionRoot;
   }
 
-  // 섹션 내 현재 행 개수 반환 (getLastRow와 동일한 ROW_SELS 기준)
+  // 섹션 내 현재 "데이터 행" 개수 반환 (getLastRow와 동일한 ROW_SELS 기준)
+  // tr은 헤더/레이아웃 행 제외 — input/select 포함 여부로 데이터 행만 카운트
   function getExistingRowCount(sectionRoot) {
-    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item', 'tr'];
+    const ROW_SELS = ['.form-row', '.field-row', '.repeat-item', '.list-item'];
     for (const sel of ROW_SELS) {
       try {
         const rows = sectionRoot.querySelectorAll(`:scope > ${sel}`);
         if (rows.length > 0) return rows.length;
       } catch (_) {}
     }
+    // tr: 입력 필드를 포함하는 행만 카운트 (헤더 행·레이아웃 행 제외)
+    try {
+      const dataTrs = Array.from(sectionRoot.querySelectorAll(':scope > tr'))
+        .filter(tr => tr.querySelectorAll('input, select').length > 0);
+      if (dataTrs.length > 0) return dataTrs.length;
+    } catch (_) {}
     // fallback: input/select 포함 직계 자식 개수
     return Array.from(sectionRoot.children)
       .filter(el => el.querySelectorAll('input, select').length > 0).length;
@@ -980,29 +992,60 @@
 
   // 자소서 섹션 컨테이너 탐색 — 이 컨테이너 안의 textarea만 추출 대상으로 제한 (P1)
   // 프로필/경력 섹션 textarea를 자소서 문항으로 오탐하는 것을 방지
-  function findEssaySectionContainer() {
-    // 활성 tabpanel 탐색 헬퍼
-    function getActivePanel() {
-      return (
-        document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
-        document.querySelector('[role="tabpanel"]:not([hidden])') ||
-        document.querySelector('.tab-pane.active') ||
-        document.querySelector('.is-active[role="tabpanel"]') ||
-        document.querySelector('.v-window-item--active')
-      );
+  //
+  // 탐색 전략 (범용 우선 — 특정 사이트 과적합 금지):
+  //   1순위: aria-controls/href 기반 — 탭-패널 표준 ARIA 연결 (어떤 ATS든 동작)
+  //   2순위: ARIA role="tabpanel" 계열 활성 패널 (ARIA 준수 사이트)
+  //   3순위: 정적 ID/class 셀렉터 (알려진 패턴)
+  //   4순위: heading 기반 하향 탐색 (자소서 키워드 heading → 자식 탐색)
+  //
+  // ※ 전달받은 tabEl 파라미터: activateEssaySection에서 실제 클릭한 탭 요소
+  //   탭과 패널의 연결 관계를 가장 정확히 파악하는 데 사용
+  function findEssaySectionContainer(tabEl) {
+    const ESSAY_KW = /자기소개|자소서|에세이|cover.?letter|자기\s*pr/i;
+    const hasTa = (el) => el.querySelectorAll('textarea, [contenteditable="true"]').length > 0;
+
+    // ── 1순위: aria-controls / href — 탭-패널 표준 ARIA 연결 ─────────────
+    // HTML 명세상 탭은 aria-controls로 패널 ID를 명시하거나, href="#id"로 링크한다.
+    // 이 방식은 사이트 구조에 무관하게 어떤 ATS에서도 동작한다.
+    if (tabEl) {
+      const panelId =
+        tabEl.getAttribute('aria-controls') ||
+        (tabEl.getAttribute('href') || '').replace(/^#/, '');
+      if (panelId) {
+        const panel = document.getElementById(panelId);
+        if (panel && hasTa(panel)) {
+          console.log('[문항추출] aria-controls/href 패널:', panelId);
+          return panel;
+        }
+      }
+      // 탭 부모의 형제 중 textarea를 포함하는 첫 번째 패널 (암묵적 탭-패널 패턴)
+      const tabParent = tabEl.closest('[role="tablist"]')?.parentElement
+        || tabEl.parentElement?.parentElement;
+      if (tabParent) {
+        const sibling = Array.from(tabParent.children).find(
+          el => el !== tabEl.parentElement && hasTa(el)
+        );
+        if (sibling) {
+          console.log('[문항추출] 탭 형제 패널:', sibling.id || sibling.className?.slice(0, 40));
+          return sibling;
+        }
+      }
     }
 
-    // ── 1순위: 활성 tabpanel + textarea 존재 확인 ────────────────────────
-    // 잡코리아 등 탭 기반 ATS: 자소서 탭 클릭 후 활성화된 패널이 컨테이너
-    // ※ hasLongTextarea 가드 제거 — 잡코리아 자소서 textarea도 56px로 프로필과 동일한 높이
-    //    대신 "활성 탭패널에 textarea가 있다" = 탭 클릭 후 자소서 섹션이 렌더됐다는 신호로 충분
-    const activePanel = getActivePanel();
-    if (activePanel && activePanel.querySelectorAll('textarea, [contenteditable="true"]').length > 0) {
-      console.log('[문항추출] 활성 tabpanel 컨테이너 감지:', activePanel.id || activePanel.className?.slice(0, 40));
+    // ── 2순위: ARIA role="tabpanel" 활성 패널 ────────────────────────────
+    const activePanel =
+      document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
+      document.querySelector('[role="tabpanel"]:not([hidden])') ||
+      document.querySelector('[role="tabpanel"][aria-selected="true"]') ||
+      document.querySelector('.tab-pane.active') ||
+      document.querySelector('.v-window-item--active');
+    if (activePanel && hasTa(activePanel)) {
+      console.log('[문항추출] ARIA tabpanel 감지:', activePanel.id || activePanel.className?.slice(0, 40));
       return activePanel;
     }
 
-    // ── 2순위: 정적 ID/class 셀렉터 ─────────────────────────────────────
+    // ── 3순위: 정적 ID/class 셀렉터 ─────────────────────────────────────
     const ESSAY_SECTION_SELECTORS = [
       '#nav-typeEssay', '#nav-typeCoverLetter', '#section-essay', '#essay-section',
       '[class*="essay-section"]', '[class*="cover-letter"]', '[class*="jasoseo"]',
@@ -1011,21 +1054,35 @@
     for (const sel of ESSAY_SECTION_SELECTORS) {
       try {
         const el = document.querySelector(sel);
-        if (el && el.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return el;
+        if (el && hasTa(el)) return el;
       } catch (_) {}
     }
 
-    // ── 3순위: heading 기반 — 최대 depth 6, body에서 멈춤 ───────────────
-    // textarea 존재만 체크 (높이 가드 제거 — 잡코리아 56px 통과 불가 문제)
-    // 단, heading이 자소서 키워드를 가진 경우만 시도 → resumeContainer까지 올라가는 것을 방지
-    const ESSAY_KW = /자기소개|자소서|에세이|cover.?letter|자기\s*pr/i;
-    const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="section-title"],[class*="tit"]'));
+    // ── 4순위: heading 기반 하향 탐색 ────────────────────────────────────
+    // heading 하위로 내려가며 textarea를 포함하는 가장 가까운 컨테이너 탐색
+    // 상향 탐색(parentElement 반복)은 resumeContainer 같은 전체 wrapper까지 올라갈 위험이 있어 제거
+    const headings = Array.from(document.querySelectorAll(
+      'h1,h2,h3,h4,h5,h6,[class*="section-title"],[class*="section-tit"],[class*="tit-section"]'
+    ));
     for (const h of headings) {
       if (!ESSAY_KW.test(h.textContent)) continue;
-      let candidate = h.parentElement;
-      for (let i = 0; i < 6 && candidate && candidate !== document.body; i++) {
-        if (candidate.querySelectorAll('textarea, [contenteditable="true"]').length > 0) return candidate;
-        candidate = candidate.parentElement;
+      // heading의 다음 형제 요소들 중 textarea 포함 탐색 (부모 상향 금지)
+      let sib = h.nextElementSibling;
+      for (let i = 0; i < 5 && sib; i++) {
+        if (hasTa(sib)) {
+          console.log('[문항추출] heading 형제 탐색:', h.textContent.trim().slice(0, 20));
+          return sib;
+        }
+        sib = sib.nextElementSibling;
+      }
+      // heading 부모의 직계 자식 중 textarea 포함 (heading 자신 제외)
+      const parent = h.parentElement;
+      if (parent && parent !== document.body) {
+        const child = Array.from(parent.children).find(el => el !== h && hasTa(el));
+        if (child) {
+          console.log('[문항추출] heading 부모 자식 탐색:', h.textContent.trim().slice(0, 20));
+          return child;
+        }
       }
     }
 
@@ -1043,6 +1100,7 @@
   }
 
   // 자소서 섹션 활성화 시도: 탭 클릭 → DOM 생성 대기 (클릭 성공 ≠ DOM 생성 성공)
+  // 반환값: 클릭한 탭 요소 (findEssaySectionContainer에 전달하여 aria-controls 탐색에 사용)
   async function activateEssaySection() {
     const tab = findEssayTab();
     if (tab) {
@@ -1050,24 +1108,11 @@
       tab.click();
       await waitForDomSettle(1000);
     }
-    // 탭 기반 ATS: 활성 패널에 textarea 등장 대기 (높이 가드 제거 — 잡코리아 56px 통과)
-    const hasTextareaInActivePanel = () => {
-      const panel =
-        document.querySelector('[role="tabpanel"][aria-hidden="false"]') ||
-        document.querySelector('[role="tabpanel"]:not([hidden])') ||
-        document.querySelector('.tab-pane.active') ||
-        document.querySelector('.is-active[role="tabpanel"]') ||
-        document.querySelector('.v-window-item--active');
-      if (panel) return panel.querySelectorAll('textarea, [contenteditable="true"]').length > 0;
-      return false;
-    };
-    // 활성 패널 textarea 대기 (탭 기반) — 없으면 일반 textarea 존재 fallback (탭 없는 사이트)
-    const found = await waitFor(hasTextareaInActivePanel, 3000);
-    if (found) return true;
-    // fallback: 탭 없는 단일 페이지 사이트 — 기존 동작 유지
-    return waitFor(() =>
+    // textarea 등장 대기 — 탭 없는 사이트도 포함
+    await waitFor(() =>
       document.querySelectorAll('textarea, [contenteditable="true"]').length > 0
-    , 2000);
+    , 3000);
+    return tab; // tabEl 반환 — findEssaySectionContainer(tabEl) 호출용
   }
 
   // 진단 함수: 문항 추출 전 DOM 현황 로그
@@ -1084,7 +1129,8 @@
   }
 
   // 자소서 문항 추출: textarea + contenteditable 병렬 수집 (fallback 구조 제거)
-  function extractCoverLetterQuestions() {
+  // tabEl: activateEssaySection()이 반환한 탭 요소 — findEssaySectionContainer에 전달
+  function extractCoverLetterQuestions(tabEl) {
     const questions = [];
     const visited = new Set();
 
@@ -1150,7 +1196,7 @@
     }
 
     // 자소서 섹션 컨테이너로 탐색 범위 제한 (P1) — 없으면 document 전체로 fallback
-    const essayContainer = findEssaySectionContainer();
+    const essayContainer = findEssaySectionContainer(tabEl);
     const scope = essayContainer || document;
     if (essayContainer) {
       console.log('[문항추출] 자소서 섹션 컨테이너 발견:', essayContainer.tagName, essayContainer.id || essayContainer.className?.slice(0, 40));
@@ -1890,8 +1936,8 @@
       // 문항 추출 전 진단 + 자소서 섹션 활성화
       debugQuestionDOM();
       updateProgress('📋 문항 추출 중...', 30, `${formInputs.length}개 필드 발견`, '자소서 섹션 탐색');
-      await activateEssaySection(); // 탭 클릭 → DOM 생성 대기 (lazy mount 대응)
-      const questions = extractCoverLetterQuestions();
+      const essayTabEl = await activateEssaySection(); // 탭 클릭 → DOM 생성 대기, tabEl 반환
+      const questions = extractCoverLetterQuestions(essayTabEl);
 
       // 문항 즉시 전송 — fill loop와 독립적으로 비동기 처리 (fire-and-forget)
       // fill이 끝날 때까지 기다리지 않고 바로 앱에 전달
