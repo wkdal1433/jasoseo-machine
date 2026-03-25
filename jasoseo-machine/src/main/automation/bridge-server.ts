@@ -186,7 +186,7 @@ export class BridgeServer {
 
     // Gemini로 프로필 → 폼 필드 매핑 분석 (HTML 대신 경량 메타데이터 사용)
     this.app.post('/analyze-profile-fill', verifySignature, async (req, res) => {
-      const { inputs } = req.body || {};
+      const { inputs, entryData } = req.body || {};
       if (!Array.isArray(inputs) || inputs.length === 0) {
         return res.json({ success: false, error: 'No inputs provided' });
       }
@@ -204,10 +204,16 @@ export class BridgeServer {
         return line;
       }).join('\n');
 
-      const prompt = `Convert the following User Profile data into a Form Field mapping.
+      // entryData가 있으면 특정 항목 데이터만 전달 (save-loop row별 채움 — AI 추론 오류 방지)
+      // 없으면 전체 프로필 전달 (메인 fill용)
+      const profileContext = entryData
+        ? JSON.stringify(entryData, null, 2)
+        : JSON.stringify(profile, null, 2);
 
-[USER PROFILE]
-${JSON.stringify(profile, null, 2)}
+      const prompt = `Convert the following data into a Form Field mapping.
+
+[DATA TO FILL]
+${profileContext}
 
 [TARGET FORM FIELDS]
 ${fieldLines}
@@ -216,10 +222,9 @@ RULES:
 - DO NOT use any tools (e.g., web_fetch, google_search).
 - Output ONLY a single JSON object in the format: {"fills": [{"idx": number, "value": "string"}, ...]}
 - ONE value per field. NEVER put multiple comma-separated values into one field. Each form input accepts exactly one value.
-- For repeating sections (경력, 학력, 자격증, 어학 등): if the profile has multiple entries but only one row exists in the form, use only the FIRST (most recent) entry. The user will add more rows manually.
 - For type="select": the value MUST exactly match one of the option values shown in options=[...]. Pick the most semantically correct option.
 - For type="date": output value in YYYY-MM-DD format. If only year+month is known, use the 1st day (e.g., 2022-07 → 2022-07-01).
-- For type="checkbox": output "true" ONLY if the profile explicitly indicates this field is true/yes/applicable. Output "false" otherwise. NEVER check boxes that look like privacy agreements or terms consent.
+- For type="checkbox": output "true" ONLY if the data explicitly indicates this field is true/yes/applicable. Output "false" otherwise. NEVER check boxes that look like privacy agreements or terms consent.
 - Fields marked disabled=true will be retried automatically after other fields are filled — still include them in mapping if they match.
 - For type="text": output a single plain string value (no comma-separated lists).
 - Only map fields that have a high confidence match.

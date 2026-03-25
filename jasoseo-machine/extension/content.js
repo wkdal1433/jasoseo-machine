@@ -376,6 +376,10 @@
         const s = window.getComputedStyle(el);
         return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
       });
+      console.log(`[Save루프 진단] ${sectionType}: row0 태그=${row0.tagName}, 총input/select=${row0.querySelectorAll('input, select').length}, 가시필드=${row0Fields.length}`);
+      if (row0Fields.length === 0) {
+        console.warn(`[Save루프 진단] ${sectionType}: row0 필드 없음 — display:none 또는 offsetWidth=0 필드만 존재. row0 class="${row0.className}", outerHTML(200)="${row0.outerHTML.slice(0, 200)}"`);
+      }
       if (row0Fields.length > 0) {
         const idxEls = Array.from(document.querySelectorAll('[data-pfill-idx]'));
         let nextIdx = idxEls.length > 0
@@ -410,8 +414,10 @@
           }
           row0Meta.push(meta);
         });
+        console.log(`[Save루프 진단] ${sectionType}: row0Meta=${JSON.stringify(row0Meta)}`);
         try {
-          const fillRes0 = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: row0Meta });
+          const fillRes0 = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: row0Meta, entryData: entries[0] });
+          console.log(`[Save루프 진단] ${sectionType}: fillRes0=${JSON.stringify(fillRes0)}`);
           if (fillRes0?.success && fillRes0.fills?.length > 0) {
             fillRes0.fills.forEach(({ idx, value }) => {
               if (value === null || value === undefined || value === '') return;
@@ -524,7 +530,7 @@
         // ── 새 행 AI fill → rowDirty 추적 ───────────────────────────
         rowDirty = false;
         try {
-          const fillRes = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputsMeta });
+          const fillRes = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: newInputsMeta, entryData: entries[i + 1] });
           if (fillRes?.success && fillRes.fills?.length > 0) {
             fillRes.fills.forEach(({ idx, value }) => {
               if (value === null || value === undefined || value === '') return;
