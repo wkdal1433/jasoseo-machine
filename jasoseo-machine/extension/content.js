@@ -369,8 +369,9 @@
     let rowDirty = false;
     {
       const row0 = getLastRow(sectionRoot);
+      // data-seen-before 필터 제외 — experience 저장 전 markAllInputsAsSeen()이
+      // languages/training/awards row0 필드에도 seen-before를 찍어 전부 제외되는 문제 수정
       const row0Fields = Array.from(row0.querySelectorAll('input, select')).filter(el => {
-        if (el.getAttribute('data-seen-before')) return false;
         if (el.disabled || el.readOnly) return false;
         const s = window.getComputedStyle(el);
         return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
@@ -382,8 +383,10 @@
           : 0;
         const row0Meta = [];
         row0Fields.forEach(el => {
-          const idx = nextIdx++;
-          el.setAttribute('data-pfill-idx', idx);
+          // 기존 idx 보존 — 재인덱싱 방지
+          const existingIdx = el.getAttribute('data-pfill-idx');
+          const idx = existingIdx ? parseInt(existingIdx) : nextIdx++;
+          if (!existingIdx) el.setAttribute('data-pfill-idx', idx);
           let label = '';
           if (el.id) { try { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) label = lbl.textContent.trim(); } catch {} }
           if (!label) label = el.getAttribute('aria-label') || el.placeholder || '';
