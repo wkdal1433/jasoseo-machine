@@ -1,6 +1,13 @@
 (async function() {
   console.log('%c🧙‍♂️ Jasoseo Machine: Hands of God Active', 'color: #4f46e5; font-weight: bold;');
 
+  // ── 실행 세션 상태 (2차 실행 중복 채움 방지) ──────────────────────────
+  // DOM attribute는 보조. 이 Map이 1차 판단 기준.
+  // React re-render로 DOM attribute가 사라져도 이 Map은 유지된다.
+  const fillSession = {
+    filled: new Map()  // key: getStableKey(el) → value: filledValue
+  };
+
   // ── 진행 오버레이 ──────────────────────────────────────────────────
   let _overlay = null;
   let _progressBar = null;
@@ -376,10 +383,6 @@
         const s = window.getComputedStyle(el);
         return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
       });
-      console.log(`[Save루프 진단] ${sectionType}: row0 태그=${row0.tagName}, 총input/select=${row0.querySelectorAll('input, select').length}, 가시필드=${row0Fields.length}`);
-      if (row0Fields.length === 0) {
-        console.warn(`[Save루프 진단] ${sectionType}: row0 필드 없음 — display:none 또는 offsetWidth=0 필드만 존재. row0 class="${row0.className}", outerHTML(200)="${row0.outerHTML.slice(0, 200)}"`);
-      }
       if (row0Fields.length > 0) {
         const idxEls = Array.from(document.querySelectorAll('[data-pfill-idx]'));
         let nextIdx = idxEls.length > 0
@@ -414,10 +417,8 @@
           }
           row0Meta.push(meta);
         });
-        console.log(`[Save루프 진단] ${sectionType}: row0Meta=${JSON.stringify(row0Meta)}`);
         try {
           const fillRes0 = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: row0Meta, entryData: entries[0] });
-          console.log(`[Save루프 진단] ${sectionType}: fillRes0=${JSON.stringify(fillRes0)}`);
           if (fillRes0?.success && fillRes0.fills?.length > 0) {
             fillRes0.fills.forEach(({ idx, value }) => {
               if (value === null || value === undefined || value === '') return;
@@ -1748,18 +1749,73 @@
     return (el.value || '').trim();
   }
 
-  // 상태 기반 멱등성 검사 — normalize(actual) === normalize(expected)
+  // ── stable key: id > name > (label+type+section 힌트) ─────────────────
+  // React re-render 후 idx가 바뀌어도 동일 필드를 식별하기 위한 의미 기반 키
+  function getStableKey(el) {
+    if (!el) return '';
+    // id가 있으면 가장 안정적
+    if (el.id) return `id:${el.id}`;
+    // name 있으면 다음으로 안정적 (form name은 보통 고정)
+    const name = el.getAttribute('name');
+    if (name) return `name:${name}|type:${el.type || el.tagName}`;
+    // fallback: 라벨 + 타입 + 가장 가까운 섹션 헤딩
+    let label = el.getAttribute('aria-label') || el.placeholder || '';
+    if (!label && el.id) {
+      try { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) label = lbl.textContent.trim(); } catch {}
+    }
+    if (!label) {
+      let node = el.parentElement;
+      for (let d = 0; d < 4 && node && node !== document.body; d++) {
+        for (const child of node.children) {
+          if (child.contains(el)) continue;
+          const t = child.textContent.trim();
+          if (t.length > 0 && t.length < 50) { label = t; break; }
+        }
+        if (label) break;
+        node = node.parentElement;
+      }
+    }
+    let sectionHint = '';
+    let ancestor = el.parentElement;
+    for (let i = 0; i < 8 && ancestor && ancestor !== document.body; i++) {
+      const h = ancestor.querySelector('h1,h2,h3,h4,h5,th,caption,[class*="tit"]');
+      if (h) { sectionHint = h.textContent.trim().slice(0, 30); break; }
+      ancestor = ancestor.parentElement;
+    }
+    return `label:${label}|type:${el.type || el.tagName}|section:${sectionHint}`.toLowerCase();
+  }
+
+  // ── markFilled: 채움 완료 마킹 (session Map + DOM attribute 보조) ──────
+  function markFilled(el, value) {
+    const key = getStableKey(el);
+    if (key) fillSession.filled.set(key, String(value));
+    // DOM attribute는 보조 — React re-render로 사라질 수 있음
+    try { el.setAttribute('data-jm-filled', String(value)); } catch {}
+  }
+
+  // ── isFieldSatisfied: session → DOM 순서로 판단 ──────────────────────
   // normalize: 소문자 + 공백·구두점·특수문자 제거 (전화번호 대시 등 포함)
   function isFieldSatisfied(el, expectedValue) {
     if (!el || expectedValue === undefined || expectedValue === null || expectedValue === '') return false;
+    const n = (v) => String(v).toLowerCase().replace(/\s+/g, '').replace(/[.,\-\(\)\/]/g, '');
+    const nExp = n(String(expectedValue));
+
+    // 1️⃣ 세션 기준 (React DOM 미반영 상황에서도 신뢰 가능)
+    const key = getStableKey(el);
+    if (key && fillSession.filled.has(key)) {
+      const prev = fillSession.filled.get(key);
+      if (n(prev) === nExp) return true;
+      // 세션에 다른 값이 있으면 (사용자 수정 가능성) DOM 기준으로 재확인
+    }
+
+    // 2️⃣ DOM 기준 (값이 실제로 반영된 경우)
     if (el.type === 'checkbox') {
       const expected = expectedValue === 'true' || expectedValue === true || expectedValue === '1' || expectedValue === 1;
       return el.checked === expected;
     }
     const actual = getFieldValue(el);
     if (actual === '') return false;
-    const n = (v) => String(v).toLowerCase().replace(/\s+/g, '').replace(/[.,\-\(\)\/]/g, '');
-    return n(actual) === n(String(expectedValue));
+    return n(actual) === nExp;
   }
 
   // 이미 올바른 값이 채워진 필드인지 확인 (isFieldSatisfied 위임)
@@ -2116,6 +2172,7 @@
           if (match) {
             el.value = match.value;
             el.dispatchEvent(new Event('change', { bubbles: true }));
+            markFilled(el, match.text.trim());
             console.log(`✅ AI Select 채움: idx=${idx} → "${match.text.trim()}"`);
             logSuccess(`select[idx=${idx}]`, 'select', match.text.trim());
           } else {
@@ -2134,6 +2191,7 @@
               if (isSemanticallyEqual(t, value) || isSemanticallyEqual(radio.value, value)) {
                 radio.click();
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
+                markFilled(radio, t);
                 console.log(`✅ AI Radio 채움: idx=${idx} name="${groupName}" → "${t}"`);
                 logSuccess(`radio[${groupName}]`, 'radio', t);
                 clicked = true;
@@ -2148,6 +2206,7 @@
           if (shouldCheck && !el.checked) {
             el.click();
             el.dispatchEvent(new Event('change', { bubbles: true }));
+            markFilled(el, 'true');
             console.log(`✅ AI Checkbox 체크: idx=${idx} label="${el.getAttribute('data-fill-idx')}"`);
             logSuccess(`checkbox[idx=${idx}]`, 'checkbox', 'true');
           } else if (!shouldCheck) {
@@ -2166,6 +2225,7 @@
           else el.value = dateVal;
           el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: dateVal }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
+          markFilled(el, dateVal);
           console.log(`✅ AI Date 채움: idx=${idx} → "${dateVal}"`);
           logSuccess(`date[idx=${idx}]`, 'date', dateVal);
         } else {
@@ -2181,10 +2241,12 @@
           el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: singleValue }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
           el.dispatchEvent(new Event('blur', { bubbles: true }));
+          // DOM 반영 여부와 무관하게 마킹 — React DOM 미반영 시에도 2차 실행 스킵 보장
+          markFilled(el, singleValue);
           const confirmed = el.value === singleValue;
-          console.log(`${confirmed ? '✅' : '⚠️'} AI 프로필 채움: idx=${idx} → "${singleValue}"${confirmed ? '' : ' (DOM 미반영 의심)'}`);
+          console.log(`${confirmed ? '✅' : '⚠️'} AI 프로필 채움: idx=${idx} → "${singleValue}"${confirmed ? '' : ' (DOM 미반영, session 마킹 완료)'}`);
           if (confirmed) logSuccess(`text[idx=${idx}]`, el.type || 'text', singleValue);
-          else logFailed(`text[idx=${idx}]`, el.type || 'text', 'DOM 미반영 — React setter 실패 의심');
+          else logFailed(`text[idx=${idx}]`, el.type || 'text', 'DOM 미반영 — session 마킹으로 2차 스킵 처리');
         }
       });
       console.log(`[프로필] AI ${aiFills.length}개 채움`);
@@ -2471,6 +2533,8 @@
         const style = window.getComputedStyle(input);
         if (style.display === 'none' || style.visibility === 'hidden') return;
         if (input.offsetWidth === 0 || input.value) return;
+        // session 기준 스킵 — React DOM 미반영으로 input.value가 빈 경우에도 중복 채움 방지
+        if (fillSession.filled.has(getStableKey(input))) return;
         const idx = formInputs.length;
         input.setAttribute('data-pfill-idx', idx);
         formInputs.push({ idx, type: 'text', id: input.id || null, name: input.getAttribute('name') || null,
@@ -2481,6 +2545,7 @@
         if (input.disabled || input.readOnly || input.value) return;
         const style = window.getComputedStyle(input);
         if (style.display === 'none' || style.visibility === 'hidden') return;
+        if (fillSession.filled.has(getStableKey(input))) return;
         const idx = formInputs.length;
         input.setAttribute('data-pfill-idx', idx);
         formInputs.push({ idx, type: 'date', id: input.id || null, name: input.getAttribute('name') || null, labelText: collectLabelText(input) });
@@ -2502,6 +2567,7 @@
         if (style.display === 'none' || style.visibility === 'hidden' || select.offsetWidth === 0) return;
         const curVal = select.value;
         if (curVal && curVal !== '0' && curVal !== '-1') return;
+        if (fillSession.filled.has(getStableKey(select))) return;
         const options = Array.from(select.options)
           .filter(o => o.value !== '' && o.value !== '0' && o.value !== '-1')
           .map(o => `${o.text.trim()}(value=${o.value})`);
