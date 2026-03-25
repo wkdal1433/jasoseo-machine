@@ -362,8 +362,86 @@
     }
     console.log(`[Save루프] ${sectionType}: 현재 ${existingCount}행 → 목표 ${entries.length}행`);
 
-    // null = 아직 AI fill 전 (row 0), true/false = AI fill 결과
-    let rowDirty = null;
+    // ── row 0 직접 AI 채움 (메인 fill이 채우지 않는 섹션용) ──────────────
+    // 설계 원칙: save-loop이 스스로 row 0을 채운 뒤 저장한다.
+    //   메인 fill이 languages/training/awards를 인덱싱하지 않으므로
+    //   row0HasData 체크는 항상 false → break 오류를 유발했음 (Bug C 근본 원인)
+    let rowDirty = false;
+    {
+      const row0 = getLastRow(sectionRoot);
+      const row0Fields = Array.from(row0.querySelectorAll('input, select')).filter(el => {
+        if (el.getAttribute('data-seen-before')) return false;
+        if (el.disabled || el.readOnly) return false;
+        const s = window.getComputedStyle(el);
+        return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
+      });
+      if (row0Fields.length > 0) {
+        const idxEls = Array.from(document.querySelectorAll('[data-pfill-idx]'));
+        let nextIdx = idxEls.length > 0
+          ? Math.max(...idxEls.map(el => parseInt(el.getAttribute('data-pfill-idx') || '0'))) + 1
+          : 0;
+        const row0Meta = [];
+        row0Fields.forEach(el => {
+          const idx = nextIdx++;
+          el.setAttribute('data-pfill-idx', idx);
+          let label = '';
+          if (el.id) { try { const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (lbl) label = lbl.textContent.trim(); } catch {} }
+          if (!label) label = el.getAttribute('aria-label') || el.placeholder || '';
+          if (!label) {
+            let node = el.parentElement;
+            for (let d = 0; d < 4 && node && node !== document.body; d++) {
+              for (const child of node.children) {
+                if (child.contains(el)) continue;
+                const t = child.textContent.trim();
+                if (t.length > 0 && t.length < 40) { label = t; break; }
+              }
+              if (label) break;
+              node = node.parentElement;
+            }
+          }
+          const meta = { idx, type: el.type || el.tagName.toLowerCase(), labelText: label, placeholder: el.placeholder || null };
+          if (el.tagName === 'SELECT') {
+            meta.options = Array.from(el.options)
+              .filter(o => o.value && o.value !== '0' && o.value !== '-1')
+              .map(o => `${o.text.trim()}(value=${o.value})`);
+          }
+          row0Meta.push(meta);
+        });
+        try {
+          const fillRes0 = await bridgePost(port, secret, '/analyze-profile-fill', { inputs: row0Meta });
+          if (fillRes0?.success && fillRes0.fills?.length > 0) {
+            fillRes0.fills.forEach(({ idx, value }) => {
+              if (value === null || value === undefined || value === '') return;
+              const el = row0.querySelector(`[data-pfill-idx="${idx}"]`) || document.querySelector(`[data-pfill-idx="${idx}"]`);
+              if (!el) return;
+              if (el.type !== 'email' && el.type !== 'text' && el.tagName !== 'TEXTAREA' && String(value).includes('@')) return;
+              if (el.type === 'number' && isNaN(Number(value))) return;
+              if (isFieldSatisfied(el, value)) { console.log(`⏭️ [Save루프] row0 이미 채움 스킵: idx=${idx}`); return; }
+              if (el.tagName === 'SELECT') {
+                const opts = Array.from(el.options);
+                const target = String(value).toLowerCase();
+                const match = opts.find(o => o.value.toLowerCase() === target || o.text.trim().toLowerCase() === target || o.text.trim().toLowerCase().includes(target));
+                if (match) { el.value = match.value; el.dispatchEvent(new Event('change', { bubbles: true })); rowDirty = true; console.log(`✅ [Save루프] ${sectionType} row0 채움: idx=${idx} → "${match.text.trim()}"`); }
+              } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                let val = String(value).includes(',') ? String(value).split(',')[0].trim() : String(value);
+                if (/^\d{4}-\d{2}$/.test(val)) val += '-01';
+                val = val.slice(0, el.type === 'date' ? 10 : val.length);
+                const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+                if (setter?.set) setter.set.call(el, val); else el.value = val;
+                el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: val }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                rowDirty = true;
+                console.log(`✅ [Save루프] ${sectionType} row0 채움: idx=${idx} → "${val}"`);
+              }
+            });
+          }
+        } catch(e) {
+          console.warn(`[Save루프] ${sectionType}: row 0 AI 채움 실패:`, e.message);
+        }
+        console.log(`[Save루프] ${sectionType}: row 0 채움 완료 — rowDirty=${rowDirty}`);
+      }
+    }
 
     for (let i = 0; i < entries.length; i++) {
       if (i < entries.length - 1) {
@@ -374,26 +452,10 @@
           break;
         }
 
-        // ── 저장 조건 판단 ───────────────────────────────────────────
-        if (rowDirty === null) {
-          // row 0: 메인 fill이 이 행에 값을 채웠는지 — getLastRow 기준으로 체크
-          const currentRow = getLastRow(sectionRoot);
-          const row0HasData = Array.from(currentRow.querySelectorAll(
-            'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select'
-          )).filter(el => !el.disabled && !el.readOnly).filter(el => {
-            const s = window.getComputedStyle(el);
-            return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetWidth > 0;
-          }).some(el => {
-            if (el.tagName === 'SELECT') return el.value && el.value !== '0' && el.value !== '-1';
-            return !!el.value;
-          });
-          if (!row0HasData) {
-            console.log(`[Save루프] ${sectionType}: row 0 비어있음 — 이전 실행 완료로 간주, 루프 중단`);
-            break;
-          }
-        } else if (!rowDirty) {
-          // row 1+: AI fill 결과 변화 없음 → 이전 실행에서 이미 채워진 행
-          console.log(`[Save루프] ${sectionType}: 행 ${i + 1} 변화 없음 — 이전 실행 완료로 간주, 루프 중단`);
+        // ── 저장 조건 판단 (rowDirty 단일 기준) ─────────────────────
+        if (!rowDirty) {
+          // AI fill 결과 변화 없음 → 이전 실행에서 이미 채워진 행
+          console.log(`[Save루프] ${sectionType}: 행 ${i} 변화 없음 — 이전 실행 완료로 간주, 루프 중단`);
           break;
         }
 
