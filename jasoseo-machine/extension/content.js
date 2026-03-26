@@ -2,6 +2,9 @@
 // IIFE 밖에 선언 → 같은 페이지에서 버튼을 여러 번 클릭해도 Map이 유지됨.
 // DOM attribute(data-jm-filled)는 보조. 이 Map이 1차 판단 기준.
 window.__jmFillSession = window.__jmFillSession || { filled: new Map() };
+// ── 섹션 확장 중복 방지 (버튼 재클릭 간 확장 이력 유지) ──────────────────
+// key: sectionType → value: 확장 후 목표 행 수. 한 번 확장한 섹션은 재확장 안 함.
+window.__jmExpandedSections = window.__jmExpandedSections || new Map();
 
 (async function() {
   console.log('%c🧙‍♂️ Jasoseo Machine: Hands of God Active', 'color: #4f46e5; font-weight: bold;');
@@ -189,6 +192,13 @@ window.__jmFillSession = window.__jmFillSession || { filled: new Map() };
       const sectionType = detectSectionType(btn);
       if (!sectionType || !requirements[sectionType]) continue;
       const needed = requirements[sectionType];
+
+      // 이미 이 세션에서 확장한 섹션은 재확장 금지 (estimateCurrentRows 오판 방지)
+      if (window.__jmExpandedSections.has(sectionType)) {
+        coveredSections.add(sectionType);
+        continue;
+      }
+
       const current = estimateCurrentRows(btn);
       const clicks = Math.max(0, needed - current);
       if (clicks === 0) { coveredSections.add(sectionType); continue; }
@@ -199,6 +209,7 @@ window.__jmFillSession = window.__jmFillSession || { filled: new Map() };
         await waitForDomSettle(1000);
         await waitForNewFields(1500);
       }
+      window.__jmExpandedSections.set(sectionType, needed);
       coveredSections.add(sectionType);
       expanded = true;
     }
