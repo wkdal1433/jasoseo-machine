@@ -1,12 +1,12 @@
+// ── 실행 세션 상태 (버튼 재클릭 간 중복 채움 방지) ──────────────────────────
+// IIFE 밖에 선언 → 같은 페이지에서 버튼을 여러 번 클릭해도 Map이 유지됨.
+// DOM attribute(data-jm-filled)는 보조. 이 Map이 1차 판단 기준.
+window.__jmFillSession = window.__jmFillSession || { filled: new Map() };
+
 (async function() {
   console.log('%c🧙‍♂️ Jasoseo Machine: Hands of God Active', 'color: #4f46e5; font-weight: bold;');
 
-  // ── 실행 세션 상태 (2차 실행 중복 채움 방지) ──────────────────────────
-  // DOM attribute는 보조. 이 Map이 1차 판단 기준.
-  // React re-render로 DOM attribute가 사라져도 이 Map은 유지된다.
-  const fillSession = {
-    filled: new Map()  // key: getStableKey(el) → value: filledValue
-  };
+  const fillSession = window.__jmFillSession;
 
   // ── 진행 오버레이 ──────────────────────────────────────────────────
   let _overlay = null;
