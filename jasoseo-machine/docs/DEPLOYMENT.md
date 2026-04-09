@@ -229,11 +229,8 @@ export const DEFAULT_PATTERNS = {
   node_modules/
 ```
 
-### 절대 공개 금지 (별도 private 레포 또는 로컬 보관)
+### 공개하지 않는 항목 (로컬 보관)
 ```
-raw/STierRawData/           ← S급 원데이터
-protocols/                  ← 프롬프트 전략
-appendix/                   ← 기업별 데이터
 episodes/                   ← 개인 에피소드
 개인 서류 전체
 ```
