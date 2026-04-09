@@ -102,7 +102,6 @@ export function Sidebar() {
           target="_blank"
           rel="noopener noreferrer"
           className="block pt-2 text-[10px] text-muted-foreground/50 text-center hover:text-muted-foreground transition-colors"
-          onClick={(e) => { e.stopPropagation(); window.open('https://github.com/wkdal1433/jasoseo-machine', '_blank') }}
         >
           v2.0.0 · GitHub ↗
         </a>

@@ -45,8 +45,10 @@ function GenerationToast() {
   )
 }
 
+const COLOR_THEME_CLASSES = ['theme-navy', 'theme-natural-wood', 'theme-spring', 'theme-summer', 'theme-winter', 'theme-fall'] as const
+
 function App() {
-  const { theme, loadSettings } = useSettingsStore()
+  const { theme, colorTheme, loadSettings } = useSettingsStore()
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
 
@@ -57,6 +59,16 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
+
+  useEffect(() => {
+    COLOR_THEME_CLASSES.forEach((cls) => document.documentElement.classList.remove(cls))
+    if (colorTheme === 'navy') document.documentElement.classList.add('theme-navy')
+    if (colorTheme === 'natural-wood') document.documentElement.classList.add('theme-natural-wood')
+    if (colorTheme === 'spring') document.documentElement.classList.add('theme-spring')
+    if (colorTheme === 'summer') document.documentElement.classList.add('theme-summer')
+    if (colorTheme === 'winter') document.documentElement.classList.add('theme-winter')
+    if (colorTheme === 'fall') document.documentElement.classList.add('theme-fall')
+  }, [colorTheme])
 
   useAutoSave()
 

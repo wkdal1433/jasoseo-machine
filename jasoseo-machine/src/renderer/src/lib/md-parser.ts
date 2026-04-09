@@ -16,11 +16,13 @@ function inferStatus(content: string): EpisodeStatus {
 }
 
 export function parseEpisodeMd(fileName: string, content: string): Episode {
-  const id = fileName.replace(/\.md$/, '').replace(/^ep(\d+)_.*/, 'ep$1')
+  const id = fileName.replace(/\.md$/, '')
+    .replace(/^EP_FIXTURE_0*(\d+)_.*/, 'ep$1')
+    .replace(/^ep(\d+)_.*/, 'ep$1')
 
   const titleMatch = content.match(/^#\s+Episode\s+\d+\.\s+(.+)$/m)
   const title = titleMatch?.[1]?.trim()
-    || content.split(/[.。\n]/)[0]?.trim().slice(0, 60)
+    || content.split(/[.。\n]/)[0]?.trim().replace(/^#+\s*/, '').slice(0, 60)
     || fileName
 
   const periodMatch = content.match(/\*\*기간\*\*\s*\|\s*(.+?)(?:\s*\||\s*$)/m)
@@ -38,8 +40,6 @@ export function parseEpisodeMd(fileName: string, content: string): Episode {
   // HR intent extraction: scan entire content for keywords
   // Episode files don't have a dedicated HR section, so we scan holistically
   const hrIntents: HRIntent[] = []
-  const lowerContent = content.toLowerCase()
-
   // Execution indicators
   const executionKeywords = ['실행력', '문제해결', '성과', '구현', '파이프라인', '구축', '개발', '런칭', '배포', '최적화']
   if (executionKeywords.some((k) => content.includes(k))) {

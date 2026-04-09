@@ -14,11 +14,11 @@
 
 # 자소서 머신
 
-### 경험을 넣으면 합격 자소서가 나옵니다
+### ChatGPT 복붙은 48.5%가 AI 탐지에 걸립니다
 
-자소서 머신은 당신의 경험 데이터를 원자재 삼아<br/>
-채용 공고 수집 → AI 9단계 정제 → 채용 사이트 자동 제출까지<br/>
-**완전 자동화된 자소서 생산 파이프라인**입니다.
+자소서 머신은 **당신의 실제 에피소드에서만** 씁니다.<br/>
+경험을 넣으면 — AI 탐지를 통과하는 합격 자소서가 나옵니다.<br/>
+채용 공고 분석 → AI 9단계 생성 · 검증 → 채용 사이트 자동 입력.
 
 <br/>
 
@@ -60,9 +60,11 @@
 <br/>
 <br/>
 
-[**시작하기 →**](#시작하기) &nbsp;·&nbsp; [**사용 가이드**](guides/GUIDE_01_SETUP.md) &nbsp;·&nbsp; [**이슈 제보**](https://github.com/wkdal1433/jasoseo-machine/issues)
+[**시작하기 →**](#시작하기) &nbsp;·&nbsp; [**사용 가이드**](guides/GUIDE_01_SETUP.md) &nbsp;·&nbsp; [**문제 해결**](guides/GUIDE_00_TROUBLESHOOTING.md) &nbsp;·&nbsp; [**이슈 제보**](https://github.com/wkdal1433/jasoseo-machine/issues)
 
 </div>
+
+> ⚠️ **라이센스**: 개인 비상업적 사용만 허용. 상업적 이용·재배포·역공학 금지. [LICENSE](LICENSE) 참조.
 
 ---
 
@@ -136,34 +138,6 @@
 </td>
 </tr>
 
-<tr>
-<td width="50%">
-
-<!--
-  [이미지 6] smart-mode.gif
-  종류: 앱 실제 화면 녹화
-  크기: 표시 430px, 10~15초
-  촬영 순서:
-    1. "새 지원서" → URL 탭 선택
-    2. 채용 사이트 URL 붙여넣기 (천천히)
-    3. "공고 자동 분석" 클릭
-    4. 로딩 → 문항 목록 자동 생성
-  강조: URL 1개에서 문항이 나타나는 순간
-  저장: jasoseo-machine/assets/images/smart-mode.gif
--->
-<div align="center"><br/><b>🎬 &nbsp; 데모 GIF 촬영 예정</b><br/><code>smart-mode.gif</code><br/><br/></div>
-
-</td>
-<td width="50%" valign="top">
-
-### 스마트 URL 모드
-채용 사이트 URL 하나로<br/>
-**공고 · 자소서 문항 · 인재상**을 자동 수집합니다.
-
-복사 붙여넣기도 없습니다. URL만 넣으세요.
-
-</td>
-</tr>
 
 <tr>
 <td width="50%" valign="top">
@@ -280,17 +254,28 @@
 
 ### 사전 요구사항
 
-- **Node.js** 18+
-- **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** — Gemini Advanced 구독 필요
+> **자소서 머신은 AI CLI 구독을 사용합니다. API 키 발급이 필요 없고, 기존 구독을 그대로 활용합니다.**
+
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/) LTS 버전 설치
+- **AI CLI 1개 이상** — 아래 중 하나를 설치하세요
+
+**Gemini CLI (기본 권장)** — Gemini Advanced 구독 필요
 
 ```bash
 npm install -g @google/gemini-cli
-gemini auth login
+gemini auth login   # Google 계정으로 로그인
+gemini --version    # 버전 숫자 출력되면 완료
 ```
 
-> Claude CLI도 지원합니다 (`npm install -g @anthropic-ai/claude-code`, Claude Pro 구독)
+**Claude Code (대안)** — Claude Pro 구독 필요
 
-### 설치
+```bash
+npm install -g @anthropic-ai/claude-code
+claude              # 최초 실행 시 로그인 진행
+claude --version    # 버전 숫자 출력되면 완료
+```
+
+### 앱 설치
 
 ```bash
 git clone https://github.com/wkdal1433/jasoseo-machine.git
@@ -299,10 +284,13 @@ npm install
 npm run dev
 ```
 
-### Chrome 확장 설치
+### Chrome 확장 설치 (채용 사이트 자동 입력용)
 
 ```
-chrome://extensions/ → 개발자 모드 ON → 압축해제된 확장 프로그램 로드 → extension/ 폴더 선택
+1. chrome://extensions/ 접속
+2. 우측 상단 [개발자 모드] ON
+3. [압축해제된 확장 프로그램 로드] 클릭
+4. jasoseo-machine/extension/ 폴더 선택
 ```
 
 📖 [상세 설치 가이드](guides/GUIDE_01_SETUP.md)
@@ -365,7 +353,6 @@ Copyright (c) 2026 장준수 — [LICENSE](LICENSE) 참조
 |------|------|------|----------|
 | `hero.gif` | GIF | 30초 | 대시보드→URL입력→분석→스트리밍→완성 |
 | `onboarding.gif` | GIF | 15초 | PDF드래그→AI처리→에피소드카드 생성 |
-| `smart-mode.gif` | GIF | 12초 | URL입력→공고분석→문항목록 자동생성 |
 | `generation.gif` | GIF | 25초 | 멘트로테이션→첫토큰→스트리밍→완성 |
 | `extension.gif` | GIF | 12초 | 전송버튼→Chrome→빈칸 자동채움 |
 | `dashboard.png` | PNG | - | 앱 첫 화면, 사이드바+대시보드 전체 |

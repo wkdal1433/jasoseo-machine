@@ -102,7 +102,7 @@ export function Step0Analysis() {
         parsed = JSON.parse(raw)
       } catch {
         const match = raw.match(/\{[\s\S]*\}/)
-        if (!match) throw new Error('JSON 파싱 실패: ' + raw.slice(0, 200))
+        if (!match) { console.error('Step0 JSON 파싱 실패:', raw.slice(0, 200)); throw new Error('AI 응답 파싱에 실패했습니다. 다시 시도해주세요.') }
         parsed = JSON.parse(match[0])
       }
 

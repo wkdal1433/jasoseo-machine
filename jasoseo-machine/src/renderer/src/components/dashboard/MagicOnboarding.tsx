@@ -119,8 +119,10 @@ export function MagicOnboarding({ onClose }: Props) {
         if (response.error.includes('한도') || response.error.includes('소진')) {
           const type = response.error.includes('소진') ? 'quota_exhausted' : 'rate_limit'
           setErrorInfo({ type, message: response.error })
+        } else if (response.error.includes('CLI') || response.error.includes('ENOENT') || response.error.includes('찾을 수 없')) {
+          setErrorInfo({ type: 'cli_not_found', message: 'AI CLI를 찾을 수 없습니다. 설정에서 Gemini 또는 Claude 경로를 확인해주세요.' })
         } else {
-          alert('분석에 실패했습니다: ' + response.error)
+          setErrorInfo({ type: 'analysis_failed', message: '분석에 실패했습니다. 다시 시도해주세요.' })
         }
         setStep('welcome')
       }
@@ -371,7 +373,7 @@ export function MagicOnboarding({ onClose }: Props) {
           failedModel={model}
           errorType={errorInfo.type}
           onClose={() => setErrorInfo(null)}
-          onSwapped={() => { setErrorInfo(null); alert('엔진 교체 완료! 다시 시도해주세요.'); }}
+          onSwapped={() => { setErrorInfo(null); }}
         />
       )}
     </div>

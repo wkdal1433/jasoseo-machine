@@ -269,8 +269,8 @@ export function MdCliImportModal({ onClose, onSaved }: Props) {
               {parsed.episodes.map((ep, idx) => (
                 <div key={idx} className={cn(
                   'rounded-xl border p-4',
-                  ep.status === 'ready' ? 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800' :
-                  ep.status === 'needs_review' ? 'border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800' :
+                  ep.status === 'ready' ? 'status-success' :
+                  ep.status === 'needs_review' ? 'status-draft' :
                   'border-border bg-muted/30'
                 )}>
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -278,13 +278,13 @@ export function MdCliImportModal({ onClose, onSaved }: Props) {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={cn(
                           'rounded-full px-2 py-0.5 text-[10px] font-bold border',
-                          ep.status === 'ready' ? 'bg-green-100 text-green-700 border-green-200' :
-                          ep.status === 'needs_review' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                          ep.status === 'ready' ? 'status-success' :
+                          ep.status === 'needs_review' ? 'status-draft' :
                           'bg-gray-100 text-gray-500 border-gray-200'
                         )}>
                           {ep.status === 'ready' ? '완성' : ep.status === 'needs_review' ? '보강 필요' : '미완성'}
                         </span>
-                        {savedFlags[idx] && <span className="text-[10px] text-green-600 font-medium">✓ 저장됨</span>}
+                        {savedFlags[idx] && <span className="text-[10px] font-medium" style={{color: 'hsl(var(--status-success-text))'}}>✓ 저장됨</span>}
                       </div>
                       <p className="text-sm font-bold">{ep.title}</p>
                     </div>
@@ -292,7 +292,7 @@ export function MdCliImportModal({ onClose, onSaved }: Props) {
                       {ep.status !== 'ready' && (
                         <button
                           onClick={() => setRefineEpisode({ title: ep.title, raw: ep.raw })}
-                          className="rounded-lg border border-dashed border-yellow-400 px-3 py-1 text-xs font-medium text-yellow-600 hover:bg-yellow-100 transition-colors"
+                          className="status-draft rounded-lg border border-dashed px-3 py-1 text-xs font-medium hover:opacity-80 transition-colors"
                         >
                           인터뷰로 보강 →
                         </button>
@@ -315,7 +315,7 @@ export function MdCliImportModal({ onClose, onSaved }: Props) {
                       <span key={sec.key} className={cn(
                         'rounded-full border px-2 py-0.5 text-[10px] font-medium',
                         ep.present.includes(sec.key)
-                          ? 'bg-green-100 text-green-700 border-green-200'
+                          ? 'status-success'
                           : 'bg-red-50 text-red-500 border-red-200 line-through'
                       )}>
                         {sec.label}

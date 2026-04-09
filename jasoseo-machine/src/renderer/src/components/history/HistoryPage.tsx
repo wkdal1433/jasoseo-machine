@@ -122,11 +122,11 @@ export function HistoryPage() {
             <div
               key={draft.applicationId}
               onClick={() => handleResumeDraft(draft.applicationId)}
-              className="group rounded-xl border-2 border-amber-200 bg-amber-50/50 p-4 cursor-pointer hover:border-amber-400 hover:shadow-md transition-all dark:border-amber-800 dark:bg-amber-950/20 dark:hover:border-amber-600"
+              className="group rounded-xl border-2 p-4 cursor-pointer hover:shadow-md transition-all status-draft"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold group-hover:text-amber-700 transition-colors dark:group-hover:text-amber-400">
+                  <span className="text-base font-semibold transition-colors">
                     {draft.companyName || '(회사명 없음)'}
                   </span>
                   {draft.jobTitle && (
@@ -138,7 +138,7 @@ export function HistoryPage() {
                   <span className="text-muted-foreground">·</span>
                   <span className="text-xs text-muted-foreground">{draft.questionCount}문항</span>
                   {draft.step0Completed && (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">
+                    <span className="status-success rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                       기업분석 완료
                     </span>
                   )}
@@ -147,10 +147,10 @@ export function HistoryPage() {
                   <span className="text-xs text-muted-foreground">
                     {new Date(draft.savedAt).toLocaleDateString('ko-KR')}
                   </span>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                  <span className="status-draft rounded-full border px-2.5 py-0.5 text-xs font-medium">
                     작성중
                   </span>
-                  <span className="text-xs text-amber-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity dark:text-amber-400">이어 작성 →</span>
+                  <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" style={{color: 'hsl(var(--status-draft-text))'}}>이어 작성 →</span>
                 </div>
               </div>
               <div className="mt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>

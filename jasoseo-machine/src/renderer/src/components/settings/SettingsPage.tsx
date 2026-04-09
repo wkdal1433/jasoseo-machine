@@ -56,7 +56,7 @@ const FLASH_MODEL_OPTIONS = [
 ]
 
 export function SettingsPage() {
-  const { claudePath, geminiPath, projectDir, model, theme, autoApproveEpisodes, loadSettings, setSetting } = useSettingsStore()
+  const { claudePath, geminiPath, projectDir, model, theme, colorTheme, autoApproveEpisodes, loadSettings, setSetting } = useSettingsStore()
 
   const [claudeTestResult, setClaudeTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isClaudeTesting, setIsClaudeTesting] = useState(false)
@@ -374,16 +374,123 @@ export function SettingsPage() {
 
         {/* Theme */}
         <div className="rounded-lg border border-border p-4">
-          <h3 className="mb-3 text-sm font-semibold">UI 설정</h3>
+          <h3 className="mb-4 text-sm font-semibold">UI 설정</h3>
+
+          {/* 밝기 모드 */}
+          <div className="mb-5">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">밝기 모드</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'light', label: '라이트', icon: '☀️' },
+                { value: 'dark',  label: '다크',   icon: '🌙' },
+              ] as const).map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => setSetting('theme', t.value)}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-all ${
+                    theme === t.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:bg-accent'
+                  }`}
+                >
+                  <span>{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 색상 팔레트 */}
           <div>
-            <select
-              value={theme}
-              onChange={(e) => setSetting('theme', e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="light">라이트</option>
-              <option value="dark">다크</option>
-            </select>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">색상 컨셉</p>
+            <div className="space-y-2">
+              {([
+                {
+                  value: 'standard-blue',
+                  name: '스탠다드 블루',
+                  desc: '깔끔하고 무난한 기본 파랑',
+                  swatches: ['#3b82f6', '#eff6ff', '#dbeafe'],
+                  darkSwatches: ['#60a5fa', '#1e3a5f', '#1e40af'],
+                },
+                {
+                  value: 'navy',
+                  name: '전문가 네이비',
+                  desc: '딥 인디고 + 골드 포인트. 권위감',
+                  swatches: ['#2c4a9c', '#f0f4ff', '#f59e0b'],
+                  darkSwatches: ['#6b8ee8', '#0a0f1e', '#f59e0b'],
+                },
+                {
+                  value: 'natural-wood',
+                  name: '내추럴 우드',
+                  desc: '따뜻한 OAK + 버터 아이보리. 카페 느낌',
+                  swatches: ['#7c5c35', '#faf7f2', '#c2783a'],
+                  darkSwatches: ['#b8895a', '#150f08', '#c2783a'],
+                },
+                {
+                  value: 'spring',
+                  name: 'Spring',
+                  desc: '블러시 핑크 + 로즈. 부드럽고 포근한 느낌',
+                  swatches: ['#f9eff1', '#f5d5dc', '#e8909f'],
+                  darkSwatches: ['#c97080', '#1f1014', '#e8909f'],
+                },
+                {
+                  value: 'summer',
+                  name: 'Summer',
+                  desc: '하늘빛 블루 + 샌드 베이지. 시원한 해변 느낌',
+                  swatches: ['#e0f4fc', '#74bef0', '#fde4b0'],
+                  darkSwatches: ['#4a9ed4', '#071520', '#f0b84a'],
+                },
+                {
+                  value: 'fall',
+                  name: 'Fall',
+                  desc: '웜 차콜 그레이 + 번트 앰버. 늦가을 흐린 오후 느낌',
+                  swatches: ['#f2f0ee', '#c0b8b0', '#c45a18'],
+                  darkSwatches: ['#c45a18', '#171310', '#c0b8b0'],
+                },
+                {
+                  value: 'winter',
+                  name: 'Winter',
+                  desc: '아이시 블루 + 딥 틸. 차갑고 선명한 느낌',
+                  swatches: ['#eaf5fc', '#90bfe8', '#1e7a85'],
+                  darkSwatches: ['#3aabba', '#080f18', '#90bfe8'],
+                },
+              ] as const).map((ct) => {
+                const isSelected = (colorTheme || 'standard-blue') === ct.value
+                const isDark = theme === 'dark'
+                const dots = isDark ? ct.darkSwatches : ct.swatches
+                return (
+                  <button
+                    key={ct.value}
+                    onClick={() => setSetting('color_theme', ct.value)}
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                        : 'border-border hover:bg-accent'
+                    }`}
+                  >
+                    {/* 색상 스와치 */}
+                    <div className="flex shrink-0 gap-1">
+                      {dots.map((color, i) => (
+                        <span
+                          key={i}
+                          className="block h-5 w-5 rounded-full border border-black/10"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    {/* 텍스트 */}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{ct.name}</p>
+                      <p className="text-xs text-muted-foreground">{ct.desc}</p>
+                    </div>
+                    {/* 선택 표시 */}
+                    {isSelected && (
+                      <span className="shrink-0 text-xs font-bold text-primary">✓</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 

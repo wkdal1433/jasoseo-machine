@@ -7,14 +7,15 @@ import { useSnapshotStore } from '@/stores/snapshotStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useProfileStore } from '@/stores/profileStore'
 import { cn } from '@/lib/utils'
-import { 
-  Rocket, 
-  Pause, 
-  Eraser, 
-  X, 
-  Puzzle, 
-  Wand2, 
-  Sparkles 
+import {
+  Rocket,
+  Pause,
+  Eraser,
+  X,
+  Puzzle,
+  Wand2,
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react'
 
 import type { DraftItem } from '@/stores/historyStore'
@@ -30,6 +31,7 @@ export function DashboardPage() {
   const [hideTrashAlert, setHideTrashAlert] = useState(false)
   const [hasPendingOnboarding, setHasPendingOnboarding] = useState(false)
   const [emptyFieldsReport, setEmptyFieldsReport] = useState<{ fields: string[]; url: string } | null>(null)
+  const [cliStatus, setCliStatus] = useState<'checking' | 'ok' | 'error'>('checking')
 
   // profile이 로드될 때마다 온보딩 pending 재확인 (프로필 전환 시 간섭 방지)
   useEffect(() => {
@@ -43,6 +45,14 @@ export function DashboardPage() {
     loadDrafts()
     checkMaintenance()
     checkPendingOnboarding()
+    // 앱 시작 시 CLI 연결 확인
+    window.api.settingsTestGemini().then((res: any) => {
+      setCliStatus(res?.success ? 'ok' : 'error')
+    }).catch(() => {
+      window.api.claudeCheckStatus().then((res: any) => {
+        setCliStatus(res?.success ? 'ok' : 'error')
+      }).catch(() => setCliStatus('error'))
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // 확장 프로그램이 보고한 미완성 필드 주기적 확인 (5초 간격)
     const pollTimer = setInterval(async () => {
@@ -142,6 +152,29 @@ export function DashboardPage() {
 
   return (
     <div className="p-8">
+      {/* CLI 미연결 경고 배너 */}
+      {cliStatus === 'error' && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-red-200 bg-red-50 p-5 dark:border-red-800 dark:bg-red-950 animate-in slide-in-from-top duration-500">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={24} className="text-red-600 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-red-800 dark:text-red-200">AI CLI가 연결되지 않았습니다</p>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
+                  Gemini CLI 또는 Claude Code가 설치되어 있지 않으면 앱이 동작하지 않습니다.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/settings')}
+              className="shrink-0 rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition-colors"
+            >
+              설정에서 확인 →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Setup Required Banner — 프로젝트 디렉토리 미설정 시 */}
       {isLoaded && !projectDir && (
         <div className="mb-6 overflow-hidden rounded-2xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-950 animate-in slide-in-from-top duration-500">
@@ -167,25 +200,27 @@ export function DashboardPage() {
 
       {/* 미완성 온보딩 복원 배너 */}
       {hasPendingOnboarding && (
-        <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950 animate-in slide-in-from-top duration-500">
+        <div className="status-warning mb-6 overflow-hidden rounded-2xl border p-5 animate-in slide-in-from-top duration-500">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Pause size={24} className="text-amber-600" />
+              <Pause size={24} style={{color: 'hsl(var(--status-warning-text))'}} />
               <div>
-                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">저장되지 않은 온보딩 결과가 있습니다</p>
-                <p className="text-xs text-amber-700 dark:text-amber-300">AI가 분석한 프로필과 에피소드를 이어서 검토하고 저장하세요.</p>
+                <p className="text-sm font-bold" style={{color: 'hsl(var(--status-warning-text))'}}>저장되지 않은 온보딩 결과가 있습니다</p>
+                <p className="text-xs" style={{color: 'hsl(var(--status-warning-text))', opacity: 0.8}}>AI가 분석한 프로필과 에피소드를 이어서 검토하고 저장하세요.</p>
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => { setHasPendingOnboarding(false); window.api.draftDelete('__onboarding_pending__') }}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                className="rounded-lg px-3 py-1.5 text-xs font-medium hover:opacity-80 transition-colors"
+                style={{color: 'hsl(var(--status-warning-text))'}}
               >
                 무시
               </button>
               <button
                 onClick={() => navigate('/onboarding', { state: { restoreOnboarding: true } })}
-                className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition-colors"
+                className="rounded-lg px-4 py-1.5 text-xs font-bold transition-colors hover:opacity-90"
+                style={{backgroundColor: 'hsl(var(--status-warning-text))', color: 'hsl(var(--status-warning-bg))'}}
               >
                 이어서 검토하기 →
               </button>
@@ -301,7 +336,7 @@ export function DashboardPage() {
               return (
               <div
                 key={draft.applicationId}
-                className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950"
+                className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800/60 dark:bg-yellow-900/20"
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -355,8 +390,8 @@ export function DashboardPage() {
               key={ep.id}
               className="rounded-lg border border-border bg-card p-3"
             >
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
-                {ep.id.toUpperCase()}
+              <div className="mb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {ep.id}
               </div>
               <div className="mb-2 truncate text-sm font-medium">{ep.title}</div>
               <div className="flex flex-wrap gap-1">

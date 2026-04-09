@@ -391,8 +391,8 @@ ${allFilled
 
           {step === 'interview' && savedTitle && (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-300">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 size={64} className="text-green-500" />
+              <div className="flex h-20 w-20 items-center justify-center rounded-full status-success border">
+                <CheckCircle2 size={64} style={{color: 'hsl(var(--status-success-text))'}} />
               </div>
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold text-foreground">에피소드 저장 완료!</h3>
@@ -458,7 +458,7 @@ ${allFilled
                           className={cn(
                             'rounded-full px-2 py-0.5 text-[10px] font-bold border transition-colors',
                             isFilled
-                              ? 'bg-green-100 text-green-700 border-green-200'
+                              ? 'status-success'
                               : isMissing
                               ? 'bg-orange-50 text-orange-500 border-orange-200'
                               : 'bg-muted text-muted-foreground border-border'
@@ -482,7 +482,7 @@ ${allFilled
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       {msg.content.includes('```markdown') && (
                         <div className="mt-4 pt-4 border-t border-white/20">
-                          <button onClick={() => { const m = msg.content.match(/```markdown\n([\s\S]*)\n```/); if (m) handleSave(m[1]); }} className="w-full rounded-xl bg-green-500 py-3 text-xs font-bold text-white shadow-lg hover:bg-green-600 transition-all active:scale-95 flex items-center justify-center gap-1.5"><Download size={14} /> 인터뷰 완료 및 에피소드 저장</button>
+                          <button onClick={() => { const m = msg.content.match(/```markdown\n([\s\S]*)\n```/); if (m) handleSave(m[1]); }} className="w-full rounded-xl bg-primary py-3 text-xs font-bold text-primary-foreground shadow-lg hover:opacity-90 transition-opacity active:scale-95 flex items-center justify-center gap-1.5"><Download size={14} /> 인터뷰 완료 및 에피소드 저장</button>
                         </div>
                       )}
                     </div>

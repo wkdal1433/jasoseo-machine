@@ -1,11 +1,14 @@
 import { create } from 'zustand'
 
+export type ColorTheme = 'standard-blue' | 'navy' | 'natural-wood' | 'spring' | 'summer' | 'winter' | 'fall'
+
 interface SettingsState {
   claudePath: string
   geminiPath: string
   projectDir: string
   model: string
   theme: 'light' | 'dark' | 'system'
+  colorTheme: ColorTheme
   autoApproveEpisodes: boolean
   isLoaded: boolean
   loadSettings: () => Promise<void>
@@ -18,6 +21,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   projectDir: '',
   model: 'gemini-3.1-pro-preview',
   theme: 'light',
+  colorTheme: 'standard-blue',
   autoApproveEpisodes: false,
   isLoaded: false,
 
@@ -28,10 +32,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const rawModel = await window.api.settingsGet('model')
     const model = rawModel || 'gemini-3.1-pro-preview'
     const theme = ((await window.api.settingsGet('theme')) as 'light' | 'dark' | 'system') || 'light'
+    const colorTheme = ((await window.api.settingsGet('color_theme')) as ColorTheme) || 'standard-blue'
     const autoApproveEpisodes = (await window.api.settingsGet('auto_approve_episodes')) === 'true'
     // DB에 model이 없으면 기본값을 저장해서 bridge와 UI가 항상 동기화되도록 함
     if (!rawModel) await window.api.settingsSet('model', model)
-    set({ claudePath, geminiPath, projectDir, model, theme, autoApproveEpisodes, isLoaded: true })
+    set({ claudePath, geminiPath, projectDir, model, theme, colorTheme, autoApproveEpisodes, isLoaded: true })
   },
 
   setSetting: async (key: string, value: string) => {
@@ -40,6 +45,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       claude_path: 'claudePath',
       gemini_path: 'geminiPath',
       project_dir: 'projectDir',
+      color_theme: 'colorTheme',
       auto_approve_episodes: 'autoApproveEpisodes',
     }
     const stateKey = keyMap[key] || key

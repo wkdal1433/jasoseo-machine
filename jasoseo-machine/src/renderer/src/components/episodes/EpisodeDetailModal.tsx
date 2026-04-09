@@ -65,15 +65,15 @@ function EpisodeUsageHistory({ episodeId }: { episodeId: string }) {
 }
 
 const STATUS_CONFIG = {
-  ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
-  needs_review: { label: '초안', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  ready:        { label: '완성', className: 'status-success border' },
+  needs_review: { label: '초안', className: 'status-draft border' },
   draft:        { label: '미완성', className: 'bg-gray-100 text-gray-500 border-gray-200' },
 } as const
 
 const HR_INTENT_COLORS: Record<string, string> = {
   Execution:    'bg-blue-50 text-blue-700 border-blue-200',
   Growth:       'bg-purple-50 text-purple-700 border-purple-200',
-  Stability:    'bg-green-50 text-green-700 border-green-200',
+  Stability:    'status-success border',
   Communication:'bg-orange-50 text-orange-700 border-orange-200',
 }
 
@@ -308,16 +308,16 @@ ${instruction.trim()}
             </div>
 
             {showGuide && (
-              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-800 space-y-1.5">
-                <p className="font-semibold text-amber-900 flex items-center gap-1"><ClipboardList size={16} /> 에피소드 무결성 보호 정책</p>
+              <div className="status-warning mb-3 rounded-xl border p-3.5 text-xs leading-relaxed space-y-1.5">
+                <p className="font-semibold flex items-center gap-1"><ClipboardList size={16} /> 에피소드 무결성 보호 정책</p>
                 <p>이 시스템은 <strong>S급 합격 자소서</strong>를 만들기 위해 설계되었습니다. 에피소드는 자소서의 유일한 사실 원천이므로, 임의 편집 시 다음 문제가 발생합니다:</p>
                 <ul className="list-disc ml-4 space-y-1">
                   <li>수치·기간·성과를 실수로 바꾸면 면접에서 검증 불가능한 내용이 됩니다</li>
                   <li>S-P-A-A-R-L 구조가 무너지면 AI가 자소서 생성 시 올바른 맥락을 파악하지 못합니다</li>
                   <li>에피소드 간 일관성이 깨져 다중 문항 작성 시 앞뒤가 맞지 않게 됩니다</li>
                 </ul>
-                <p className="mt-1 text-amber-700">AI를 통한 수정은 이 원칙을 지키면서 수행됩니다. 구체적으로 바꾸고 싶은 내용을 지시어로 전달하면 최소한의 변경만 이루어집니다.</p>
-                <p className="text-amber-600 text-[11px]">예: "결과 섹션에서 개선율을 30%에서 28%로 수정해줘" / "역할 설명에서 팀장이라는 표현을 '기술 리드'로 바꿔줘"</p>
+                <p className="mt-1 opacity-80">AI를 통한 수정은 이 원칙을 지키면서 수행됩니다. 구체적으로 바꾸고 싶은 내용을 지시어로 전달하면 최소한의 변경만 이루어집니다.</p>
+                <p className="opacity-70 text-[11px]">예: "결과 섹션에서 개선율을 30%에서 28%로 수정해줘" / "역할 설명에서 팀장이라는 표현을 '기술 리드'로 바꿔줘"</p>
               </div>
             )}
 
@@ -358,10 +358,10 @@ ${instruction.trim()}
                 <span className="animate-pulse">▍ </span>{aiLog}
               </div>
             ) : (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 flex items-center gap-2">
-                <CheckCircle2 size={20} className="text-green-600 shrink-0" />
+              <div className="status-success rounded-lg border p-3 text-sm flex items-center gap-2">
+                <CheckCircle2 size={20} className="shrink-0" />
                 <span>수정이 완료되었습니다. 에피소드 목록이 자동으로 갱신됩니다.</span>
-                <button onClick={handleRetry} className="ml-auto text-xs text-green-700 underline">추가 수정</button>
+                <button onClick={handleRetry} className="ml-auto text-xs underline opacity-80">추가 수정</button>
               </div>
             )}
           </div>

@@ -343,7 +343,7 @@ RULES:
     this.initSecret(); // DB 초기화 후 호출되므로 저장된 시크릿 올바르게 로드
     return new Promise((resolve, reject) => {
       const tryListen = (port: number) => {
-        this.server = this.app.listen(port, () => {
+        this.server = this.app.listen(port, '127.0.0.1', () => {
           this.currentPort = port;
           setSetting('bridge_port', String(port));
           resolve(port);

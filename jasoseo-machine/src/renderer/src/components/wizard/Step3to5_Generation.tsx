@@ -325,7 +325,8 @@ export function Step3to5Generation() {
       activeQuestionIndex
     )
     setIsShortening(false)
-    setTimeout(() => setShortenMsg(null), 5000)
+    // 축약 성공 시에만 5초 후 메시지 제거, 초과 상태는 사용자가 직접 확인할 때까지 유지
+    if (withinLimit) setTimeout(() => setShortenMsg(null), 5000)
   }
 
   const startEdit = () => {

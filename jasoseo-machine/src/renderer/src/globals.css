@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── 기본 테마: 스탠다드 블루 ─── */
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -22,6 +23,20 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* ── 시맨틱 상태 색상 토큰 (기본: 블루 계열) ── */
+    --status-success-bg:     142 76% 91%;
+    --status-success-text:   142 72% 29%;
+    --status-success-border: 141 79% 80%;
+    --status-warning-bg:     48 96% 89%;
+    --status-warning-text:   32 81% 29%;
+    --status-warning-border: 46 90% 75%;
+    --status-info-bg:        183 100% 94%;
+    --status-info-text:      185 80% 30%;
+    --status-info-border:    187 86% 68%;
+    --status-draft-bg:       54 97% 93%;
+    --status-draft-text:     36 85% 30%;
+    --status-draft-border:   51 98% 78%;
   }
 
   .dark {
@@ -42,7 +57,407 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+
+    --status-success-bg:     142 50% 12%;
+    --status-success-text:   142 60% 65%;
+    --status-success-border: 142 45% 22%;
+    --status-warning-bg:     38 50% 12%;
+    --status-warning-text:   38 80% 68%;
+    --status-warning-border: 38 45% 22%;
+    --status-info-bg:        185 55% 12%;
+    --status-info-text:      185 75% 65%;
+    --status-info-border:    185 45% 22%;
+    --status-draft-bg:       45 50% 12%;
+    --status-draft-text:     45 80% 68%;
+    --status-draft-border:   45 40% 22%;
   }
+
+  /* ─── 전문가 네이비 ─── */
+  .theme-navy {
+    --foreground: 224 71% 10%;
+    --card-foreground: 224 71% 10%;
+    --primary: 224 71% 35%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 30% 94%;
+    --secondary-foreground: 224 50% 20%;
+    --muted: 220 30% 94%;
+    --muted-foreground: 220 15% 50%;
+    --accent: 38 95% 50%;
+    --accent-foreground: 224 71% 10%;
+    --border: 220 25% 88%;
+    --input: 220 25% 88%;
+    --ring: 224 71% 35%;
+    /* 네이비는 기본 상태 색상과 잘 어울림 — 그대로 유지 */
+  }
+
+  .dark.theme-navy {
+    --background: 224 45% 6%;
+    --foreground: 210 40% 95%;
+    --card: 224 45% 7.5%;
+    --card-foreground: 210 40% 95%;
+    --primary: 224 80% 62%;
+    --primary-foreground: 224 45% 6%;
+    --secondary: 224 35% 14%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 224 35% 14%;
+    --muted-foreground: 220 20% 60%;
+    --accent: 38 90% 55%;
+    --accent-foreground: 224 45% 6%;
+    --border: 224 30% 16%;
+    --input: 224 30% 16%;
+    --ring: 224 80% 62%;
+  }
+
+  /* ─── 내추럴 우드 ─── */
+  .theme-natural-wood {
+    --background: 38 40% 97%;
+    --foreground: 28 35% 15%;
+    --card: 38 30% 99%;
+    --card-foreground: 28 35% 15%;
+    --primary: 30 45% 38%;
+    --primary-foreground: 38 40% 97%;
+    --secondary: 35 25% 90%;
+    --secondary-foreground: 28 30% 25%;
+    --muted: 35 25% 90%;
+    --muted-foreground: 30 15% 50%;
+    --accent: 28 65% 52%;
+    --accent-foreground: 38 40% 97%;
+    --border: 35 20% 85%;
+    --input: 35 20% 85%;
+    --ring: 30 45% 38%;
+
+    /* 우드 톤에 맞춘 상태 색상 */
+    --status-success-bg:     90 30% 88%;
+    --status-success-text:   90 35% 25%;
+    --status-success-border: 90 25% 76%;
+    --status-warning-bg:     35 45% 88%;
+    --status-warning-text:   28 55% 30%;
+    --status-warning-border: 35 38% 76%;
+    --status-info-bg:        160 30% 87%;
+    --status-info-text:      160 38% 26%;
+    --status-info-border:    160 25% 75%;
+    --status-draft-bg:       38 40% 88%;
+    --status-draft-text:     30 50% 32%;
+    --status-draft-border:   38 32% 76%;
+  }
+
+  .dark.theme-natural-wood {
+    --background: 28 25% 8%;
+    --foreground: 38 30% 90%;
+    --card: 28 25% 10%;
+    --card-foreground: 38 30% 90%;
+    --primary: 30 50% 58%;
+    --primary-foreground: 28 25% 8%;
+    --secondary: 28 20% 16%;
+    --secondary-foreground: 38 30% 85%;
+    --muted: 28 20% 16%;
+    --muted-foreground: 32 15% 55%;
+    --accent: 28 60% 60%;
+    --accent-foreground: 28 25% 8%;
+    --border: 28 18% 18%;
+    --input: 28 18% 18%;
+    --ring: 30 50% 58%;
+
+    --status-success-bg:     90 20% 14%;
+    --status-success-text:   90 35% 65%;
+    --status-success-border: 90 18% 22%;
+    --status-warning-bg:     32 25% 14%;
+    --status-warning-text:   32 55% 65%;
+    --status-warning-border: 32 20% 22%;
+    --status-info-bg:        160 22% 13%;
+    --status-info-text:      160 38% 62%;
+    --status-info-border:    160 18% 21%;
+    --status-draft-bg:       35 25% 14%;
+    --status-draft-text:     35 50% 65%;
+    --status-draft-border:   35 20% 22%;
+  }
+
+  /* ─── Spring ─── */
+  .theme-spring {
+    --background: 350 50% 97%;
+    --foreground: 340 30% 20%;
+    --card: 350 60% 99%;
+    --card-foreground: 340 30% 20%;
+    --primary: 350 60% 70%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 350 40% 91%;
+    --secondary-foreground: 340 25% 30%;
+    --muted: 350 35% 93%;
+    --muted-foreground: 340 15% 52%;
+    --accent: 350 70% 76%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 350 30% 88%;
+    --input: 350 30% 88%;
+    --ring: 350 60% 70%;
+
+    /* 봄 핑크 톤에 맞춘 상태 색상 */
+    --status-success-bg:     150 30% 88%;
+    --status-success-text:   150 35% 27%;
+    --status-success-border: 150 25% 78%;
+    --status-warning-bg:     15 55% 90%;
+    --status-warning-text:   10 50% 36%;
+    --status-warning-border: 15 45% 80%;
+    --status-info-bg:        280 35% 91%;
+    --status-info-text:      280 40% 34%;
+    --status-info-border:    280 28% 81%;
+    --status-draft-bg:       350 40% 90%;
+    --status-draft-text:     340 45% 35%;
+    --status-draft-border:   350 32% 82%;
+  }
+
+  .dark.theme-spring {
+    --background: 340 25% 8%;
+    --foreground: 350 40% 92%;
+    --card: 340 25% 10.5%;
+    --card-foreground: 350 40% 92%;
+    --primary: 350 65% 72%;
+    --primary-foreground: 340 25% 8%;
+    --secondary: 340 20% 16%;
+    --secondary-foreground: 350 35% 88%;
+    --muted: 340 20% 16%;
+    --muted-foreground: 345 15% 55%;
+    --accent: 350 60% 78%;
+    --accent-foreground: 340 25% 8%;
+    --border: 340 18% 18%;
+    --input: 340 18% 18%;
+    --ring: 350 65% 72%;
+
+    --status-success-bg:     150 20% 13%;
+    --status-success-text:   150 35% 62%;
+    --status-success-border: 150 16% 21%;
+    --status-warning-bg:     12 30% 14%;
+    --status-warning-text:   12 55% 65%;
+    --status-warning-border: 12 22% 22%;
+    --status-info-bg:        280 22% 14%;
+    --status-info-text:      280 45% 72%;
+    --status-info-border:    280 18% 22%;
+    --status-draft-bg:       345 22% 14%;
+    --status-draft-text:     345 50% 72%;
+    --status-draft-border:   345 18% 22%;
+  }
+
+  /* ─── Summer ─── */
+  .theme-summer {
+    --background: 200 80% 96%;
+    --foreground: 210 60% 12%;
+    --card: 200 60% 99%;
+    --card-foreground: 210 60% 12%;
+    --primary: 210 85% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 55% 88%;
+    --secondary-foreground: 210 50% 20%;
+    --muted: 200 50% 90%;
+    --muted-foreground: 210 25% 48%;
+    --accent: 38 85% 70%;
+    --accent-foreground: 210 60% 12%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 200 45% 85%;
+    --input: 200 45% 85%;
+    --ring: 210 85% 52%;
+
+    /* 여름 바다 톤에 맞춘 상태 색상 */
+    --status-success-bg:     170 50% 87%;
+    --status-success-text:   170 55% 24%;
+    --status-success-border: 170 42% 76%;
+    --status-warning-bg:     38 75% 88%;
+    --status-warning-text:   30 60% 30%;
+    --status-warning-border: 38 65% 76%;
+    --status-info-bg:        210 70% 88%;
+    --status-info-text:      210 75% 28%;
+    --status-info-border:    210 60% 76%;
+    --status-draft-bg:       200 60% 88%;
+    --status-draft-text:     205 65% 28%;
+    --status-draft-border:   200 50% 76%;
+  }
+
+  .dark.theme-summer {
+    --background: 212 45% 7%;
+    --foreground: 200 50% 93%;
+    --card: 212 45% 9%;
+    --card-foreground: 200 50% 93%;
+    --primary: 210 80% 62%;
+    --primary-foreground: 212 45% 7%;
+    --secondary: 210 35% 15%;
+    --secondary-foreground: 200 45% 88%;
+    --muted: 210 35% 15%;
+    --muted-foreground: 205 20% 58%;
+    --accent: 38 75% 60%;
+    --accent-foreground: 212 45% 7%;
+    --border: 210 30% 17%;
+    --input: 210 30% 17%;
+    --ring: 210 80% 62%;
+
+    --status-success-bg:     170 30% 13%;
+    --status-success-text:   170 50% 62%;
+    --status-success-border: 170 24% 21%;
+    --status-warning-bg:     35 35% 13%;
+    --status-warning-text:   35 65% 65%;
+    --status-warning-border: 35 28% 21%;
+    --status-info-bg:        210 40% 13%;
+    --status-info-text:      210 70% 68%;
+    --status-info-border:    210 32% 21%;
+    --status-draft-bg:       200 38% 13%;
+    --status-draft-text:     200 60% 65%;
+    --status-draft-border:   200 30% 21%;
+  }
+
+  /* ─── Winter ─── */
+  .theme-winter {
+    --background: 205 70% 97%;
+    --foreground: 205 50% 12%;
+    --card: 205 50% 99%;
+    --card-foreground: 205 50% 12%;
+    --primary: 195 55% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 55% 88%;
+    --secondary-foreground: 205 45% 20%;
+    --muted: 210 50% 90%;
+    --muted-foreground: 210 25% 48%;
+    --accent: 210 60% 68%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 210 45% 85%;
+    --input: 210 45% 85%;
+    --ring: 195 55% 30%;
+
+    --status-success-bg:     175 40% 87%;
+    --status-success-text:   175 50% 22%;
+    --status-success-border: 175 35% 76%;
+    --status-warning-bg:     210 35% 88%;
+    --status-warning-text:   210 45% 25%;
+    --status-warning-border: 210 28% 76%;
+    --status-info-bg:        205 60% 88%;
+    --status-info-text:      205 65% 25%;
+    --status-info-border:    205 50% 76%;
+    --status-draft-bg:       210 45% 88%;
+    --status-draft-text:     210 50% 26%;
+    --status-draft-border:   210 38% 76%;
+  }
+
+  .dark.theme-winter {
+    --background: 210 45% 7%;
+    --foreground: 205 55% 94%;
+    --card: 210 45% 9%;
+    --card-foreground: 205 55% 94%;
+    --primary: 195 60% 52%;
+    --primary-foreground: 210 45% 7%;
+    --secondary: 210 35% 15%;
+    --secondary-foreground: 205 50% 88%;
+    --muted: 210 35% 15%;
+    --muted-foreground: 210 20% 58%;
+    --accent: 210 55% 62%;
+    --accent-foreground: 210 45% 7%;
+    --border: 210 30% 17%;
+    --input: 210 30% 17%;
+    --ring: 195 60% 52%;
+
+    --status-success-bg:     175 28% 13%;
+    --status-success-text:   175 48% 62%;
+    --status-success-border: 175 22% 21%;
+    --status-warning-bg:     210 30% 13%;
+    --status-warning-text:   210 50% 68%;
+    --status-warning-border: 210 24% 21%;
+    --status-info-bg:        205 38% 13%;
+    --status-info-text:      205 60% 68%;
+    --status-info-border:    205 30% 21%;
+    --status-draft-bg:       210 35% 13%;
+    --status-draft-text:     210 55% 68%;
+    --status-draft-border:   210 28% 21%;
+  }
+
+  /* ─── Fall ─── */
+  .theme-fall {
+    /* Charcoal Fall: 웜 그레이 베이스 + 번트 앰버 포인트 — 늦가을 흐린 오후 */
+    --background: 30 8% 95%;
+    --foreground: 20 12% 15%;
+    --card: 30 6% 98%;
+    --card-foreground: 20 12% 15%;
+    --primary: 22 72% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 25 8% 88%;
+    --secondary-foreground: 20 10% 25%;
+    --muted: 25 6% 91%;
+    --muted-foreground: 20 6% 48%;
+    --accent: 22 65% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 25 8% 84%;
+    --input: 25 8% 84%;
+    --ring: 22 72% 42%;
+
+    --status-success-bg:     85 20% 88%;
+    --status-success-text:   85 25% 26%;
+    --status-success-border: 85 15% 76%;
+    --status-warning-bg:     22 45% 88%;
+    --status-warning-text:   18 55% 26%;
+    --status-warning-border: 22 35% 76%;
+    --status-info-bg:        25 18% 88%;
+    --status-info-text:      20 22% 27%;
+    --status-info-border:    25 14% 76%;
+    --status-draft-bg:       22 30% 88%;
+    --status-draft-text:     18 40% 26%;
+    --status-draft-border:   22 24% 76%;
+  }
+
+  .dark.theme-fall {
+    /* Charcoal Fall Dark: 딥 차콜(갈색 언더톤) + 러스트 오렌지 포인트 */
+    --background: 20 10% 9%;
+    --foreground: 30 10% 88%;
+    --card: 20 9% 12%;
+    --card-foreground: 30 10% 88%;
+    --primary: 22 80% 58%;
+    --primary-foreground: 20 10% 9%;
+    --secondary: 20 8% 18%;
+    --secondary-foreground: 28 10% 82%;
+    --muted: 20 8% 18%;
+    --muted-foreground: 25 6% 54%;
+    --accent: 22 72% 62%;
+    --accent-foreground: 20 10% 9%;
+    --border: 20 8% 20%;
+    --input: 20 8% 20%;
+    --ring: 22 80% 58%;
+
+    --status-success-bg:     85 15% 14%;
+    --status-success-text:   85 28% 60%;
+    --status-success-border: 85 12% 22%;
+    --status-warning-bg:     22 30% 14%;
+    --status-warning-text:   22 70% 62%;
+    --status-warning-border: 22 22% 22%;
+    --status-info-bg:        20 16% 14%;
+    --status-info-text:      20 30% 60%;
+    --status-info-border:    20 12% 22%;
+    --status-draft-bg:       22 24% 14%;
+    --status-draft-text:     20 50% 62%;
+    --status-draft-border:   22 18% 22%;
+  }
+}
+
+/* ─── 시맨틱 상태 CSS 클래스 ─── */
+/* 컴포넌트에서 하드코딩 대신 이 클래스를 사용 */
+.status-success {
+  background-color: hsl(var(--status-success-bg));
+  color: hsl(var(--status-success-text));
+  border-color: hsl(var(--status-success-border));
+}
+.status-warning {
+  background-color: hsl(var(--status-warning-bg));
+  color: hsl(var(--status-warning-text));
+  border-color: hsl(var(--status-warning-border));
+}
+.status-info {
+  background-color: hsl(var(--status-info-bg));
+  color: hsl(var(--status-info-text));
+  border-color: hsl(var(--status-info-border));
+}
+.status-draft {
+  background-color: hsl(var(--status-draft-bg));
+  color: hsl(var(--status-draft-text));
+  border-color: hsl(var(--status-draft-border));
 }
 
 @layer base {

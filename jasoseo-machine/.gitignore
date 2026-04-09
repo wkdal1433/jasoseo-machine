@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+out/
+dist/
+dist-electron/
+release/
+*.asar
+
+# Source maps (production)
+**/*.js.map
+**/*.ts.map
+
+# Electron build artifacts (build/ 디렉토리는 아이콘 소스를 포함하므로 추적)
+dist-electron/
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# User data (절대 커밋 금지 — 프로필, 자소서 등 개인정보 포함)
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!electron.vite.config.ts
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.temp

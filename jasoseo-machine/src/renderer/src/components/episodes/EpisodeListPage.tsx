@@ -7,8 +7,8 @@ import type { Episode, EpisodeStatus } from '@/types/episode'
 import { Sparkles, Calendar, User, Pencil, FileText } from 'lucide-react'
 
 const STATUS_CONFIG: Record<EpisodeStatus, { label: string; className: string }> = {
-  ready:        { label: '완성', className: 'bg-green-100 text-green-700 border-green-200' },
-  needs_review: { label: '초안', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  ready:        { label: '완성', className: 'status-success border' },
+  needs_review: { label: '초안', className: 'status-draft border' },
   draft:        { label: '미완성', className: 'bg-gray-100 text-gray-500 border-gray-200' },
 }
 
@@ -77,7 +77,7 @@ export function EpisodeListPage() {
               <div
                 key={ep.id}
                 onClick={() => setSelectedEpisode(ep)}
-                className={`group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer ${ep.status === 'ready' ? 'border-green-200 hover:border-green-400' : ep.status === 'needs_review' ? 'border-yellow-200 hover:border-yellow-400' : 'border-border hover:border-primary/30'}`}
+                className={`group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer ${ep.status === 'ready' ? 'border-[hsl(var(--status-success-border))] hover:brightness-95' : ep.status === 'needs_review' ? 'border-[hsl(var(--status-draft-border))] hover:brightness-95' : 'border-border hover:border-primary/30'}`}
               >
                 <button
                   onClick={(e) => handleDelete(e, ep.fileName)}
@@ -95,8 +95,8 @@ export function EpisodeListPage() {
                 </div>
                 <h3 className="mb-2 text-base font-bold line-clamp-1">{ep.title}</h3>
                 <div className="mb-4 space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar size={12} /> {ep.period || '기간 미입력'}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><User size={12} /> {ep.role || '역할 미입력'}</p>
+                  {ep.period && <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar size={12} /> {ep.period}</p>}
+                  {ep.role && <p className="text-xs text-muted-foreground flex items-center gap-1"><User size={12} /> {ep.role}</p>}
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 mb-4">
@@ -111,7 +111,7 @@ export function EpisodeListPage() {
                   {ep.status !== 'ready' ? (
                     <button
                       onClick={(e) => { e.stopPropagation(); setRefineEpisode(ep) }}
-                      className="rounded-lg border border-dashed border-yellow-400 px-3 py-1.5 text-xs font-medium text-yellow-600 hover:bg-yellow-50 transition-colors"
+                      className="status-draft rounded-lg border border-dashed px-3 py-1.5 text-xs font-medium hover:opacity-80 transition-colors"
                     >
                       <Pencil size={12} className="inline mr-1" /> 인터뷰로 완성하기 →
                     </button>
